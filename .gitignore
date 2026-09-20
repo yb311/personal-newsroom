@@ -38,3 +38,6 @@ vendor/rsshub/
 *.dmg
 *.zip
 *.app
+
+# Transient: iconutil input, assembled and removed by dev/make-icon.mjs
+assets/icon.iconset/

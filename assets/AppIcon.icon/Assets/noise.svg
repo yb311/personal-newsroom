@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The rest of the day: everything you did not ask to be told about.
+       Its own layer rather than faded shapes inside the masthead layer, because
+       an appearance override replaces a layer's colour wholesale - keeping the
+       two apart is what preserves the hierarchy in Dark. -->
+  <g fill="#1a1a1a" opacity="0.28">
+    <rect x="132" y="416" width="760" height="55" rx="27.5"/>
+    <rect x="132" y="518" width="760" height="55" rx="27.5"/>
+    <rect x="132" y="742" width="584" height="55" rx="27.5"/>
+  </g>
+</svg>

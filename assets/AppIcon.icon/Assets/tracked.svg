@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The one line you actually follow. Its own group, so macOS 26 lifts it off
+       the page with its own shadow. Deliberately thicker than the lines around
+       it: in Tinted and Clear appearances every layer collapses to one colour,
+       and weight is all that is left to carry the emphasis. -->
+  <rect x="132" y="620" width="760" height="75" rx="37.5" fill="#c0392b"/>
+</svg>

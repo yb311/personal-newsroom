@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Masthead block and the rule under it: the page's strongest ink.
+       Full-bleed 1024 canvas, no background, no baked-in shadow - on macOS 26
+       the system draws the icon shape, the shadow and the specular highlight.
+       The legacy .icns reuses this same file scaled into its 824pt sheet, so
+       the two can never drift apart. See dev/make-icon.mjs. -->
+  <g fill="#1a1a1a">
+    <rect x="132" y="227" width="462" height="72" rx="8"/>
+    <rect x="132" y="344" width="760" height="15"/>
+  </g>
+</svg>

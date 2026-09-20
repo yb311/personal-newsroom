@@ -132,7 +132,7 @@ M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签�
 | `@pnr/generate` | 今日摘要（跨关注合并一次调用）、进展、快讯、按需深度总结 | `test:generate` · `test:flash-deep` |
 | `apps/desktop` | Electron 主进程、IPC、今日/快讯/阅读/关注四 tab、设置、源目录与自定义源、后台调度 | 界面逐屏截图验证 |
 | `apps/worker` | 无界面 worker，`daily` / `flashes` / `fetch` 三种模式，日志写库 | 实跑 59s 全绿 |
-| `assets` | 应用图标：`icon.svg` 是唯一源，`icon.png` / `icon.icns` 由 `npm run icon:build` 生成 | 16/32/64/128 各尺寸目视检查 |
+| `assets` | 应用图标：`AppIcon.icon` 是唯一源，`Assets.car`（26+）/ `icon.icns`（26 以前）由 `npm run icon:build` 生成 | 六种外观 + 16/32/64/128 各尺寸目视检查 |
 
 **源**：内置目录 575 个（42 分类 24 国家）+ 11 种适配器 + RSSHub 打通的几千种。
 
@@ -193,6 +193,25 @@ M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签�
 - **打包签名公证**（需 Apple 开发者账号）—— 唯一剩余的高风险项
 - 把资源包传到 GitHub Release，`catalogs/data/rsshub-pack.json` 里的 URL 才会生效
 - 自动更新、一键卸载、贡献指南
+
+### 打包时的图标接线（别漏了其中一半）
+
+macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只交分层素材，
+还要支持 Dark / Tinted / Clear 六种外观。26 以前仍然只认 `.icns`。
+**两套都要放进包里，各认各的 Info.plist 键**：
+
+| 放进 `Contents/Resources/` | Info.plist | 谁在用 |
+|---|---|---|
+| `assets/Assets.car` | `CFBundleIconName = AppIcon` | macOS 26+ |
+| `assets/icon.icns` | `CFBundleIconFile = icon` | macOS 15 及更早 |
+
+- 只给 `.icns` → 26 上能显示，但没有 Liquid Glass、不跟随深色/着色模式。
+- 只给 `Assets.car` → 26 以前拿不到图标。
+- `npm run icon:build` 需要 Xcode 26（用它的 `ictool` 和 `actool`）；
+  产物已提交，所以**只有改图本身才需要 Xcode**，打包和日常开发都不需要。
+- `actool` 自己也会顺手吐一个 `.icns`，但只到 256pt，Finder 大图标会糊，
+  所以 `icon.icns` 由脚本按 Apple 的 Big Sur 网格（1024 画布里 824 的纸 +
+  下移 8pt 的阴影）重新出一份完整尺寸的，那个网格数值是从 `actool` 的产物上量的。
 
 ### 踩过的坑（别再踩）
 
