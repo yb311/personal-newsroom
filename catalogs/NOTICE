@@ -1,0 +1,26 @@
+# NOTICE
+
+personal-newsroom is licensed under AGPL-3.0.
+
+## Bundled software
+
+### RSSHub — AGPL-3.0
+https://github.com/DIYgod/RSSHub
+
+Bundled to provide feeds for Telegram, Bilibili, Zhihu, GitHub, X and other
+services. Its full license text ships with the application; the corresponding
+source is available at the URL above.
+
+## Feed catalogue
+
+The built-in feed catalogue is this project's own compilation. Every entry was
+independently verified for reachability and freshness and categorised under this
+project's own taxonomy and trust weights. Feed URLs are factual data and carry no
+copyright.
+
+## Free services used at runtime
+
+- Google News search RSS — no key required
+- Bing News search RSS — no key required
+- Telegram public channel previews (t.me/s/) — no key required
+- GDELT DOC 2.0 API — no key required (optional, rate-limited)

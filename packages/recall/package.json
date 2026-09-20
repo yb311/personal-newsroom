@@ -1,0 +1,17 @@
+{
+  "name": "@pnr/recall",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@pnr/core": "*",
+    "@pnr/store": "*",
+    "@pnr/ai": "*",
+    "@pnr/watch": "*",
+    "@pnr/feed": "*"
+  }
+}

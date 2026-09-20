@@ -1,0 +1,59 @@
+/* Design tokens ported from daily-brief. Newsprint palette, already tuned
+   for both light and dark. Add to these, do not change them. */
+
+:root {
+  --bg: #f5f2eb;
+  --bg2: #eceae2;
+  --bg3: #ffffff;
+  --fg: #1a1a1a;
+  --fg2: #4a4a4a;
+  --fg3: #7a7a7a;
+  --accent: #c0392b;
+  --accent2: #e74c3c;
+  --border: #d0cdc4;
+  --border-strong: #a09d94;
+  --share-icon-size: 18px;
+  --share-icon-copy: #8c7a67;
+  --share-icon-image: #a06355;
+  --share-icon-wechat: #2ca95c;
+  --share-icon-x: #5d4d49;
+  --share-icon-system: #6b6a8a;
+  --tag-bg: #1a1a1a;
+  --tag-fg: #f5f2eb;
+  --shadow: rgba(0, 0, 0, 0.08);
+  --shadow-deep: rgba(0, 0, 0, 0.18);
+  --outline-active: #c0392b;
+  --divider: #d0cdc4;
+  --stale-banner-bg: #e5e5e5;
+  --card-radius: 2px;
+  --mono: 'JetBrains Mono', monospace;
+  --serif: 'Noto Serif SC', 'Playfair Display', serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #181818;
+    --bg3: #1e1e1e;
+    --fg: #e8e5dc;
+    --fg2: #b0ada4;
+    --fg3: #6a6a6a;
+    --accent: #e05a4e;
+    --accent2: #f17060;
+    --border: #2a2a2a;
+    --border-strong: #3a3a3a;
+    --share-icon-size: 18px;
+    --share-icon-copy: #b8b0a5;
+    --share-icon-image: #d18a7a;
+    --share-icon-wechat: #48c776;
+    --share-icon-x: #d7cbc3;
+    --share-icon-system: #9a98c4;
+    --tag-bg: #e8e5dc;
+    --tag-fg: #0f0f0f;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --shadow-deep: rgba(0, 0, 0, 0.65);
+    --outline-active: #e05a4e;
+    --divider: #2a2a2a;
+    --stale-banner-bg: #2a2a2a;
+  }
+}
