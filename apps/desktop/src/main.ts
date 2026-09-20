@@ -9,6 +9,7 @@ import { listWatches, prepareWatch } from '@pnr/watch';
 import { recallForWatch, judgeAll, gateWatch } from '@pnr/recall';
 import { generateDigest, generateProgress, generateFlashes, generateDeepSummary } from '@pnr/generate';
 import { createApi } from './ipc.ts';
+import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
 
 const DATA_DIR = process.env['PNR_DATA_DIR'] ?? defaultDataDir();
@@ -16,6 +17,7 @@ const db = openDb(join(DATA_DIR, 'newsroom.db'));
 const api = createApi(db);
 
 seedCatalogueOnFirstRun();
+applyRssHubConfig(db);
 
 let win: BrowserWindow | null = null;
 
@@ -35,10 +37,21 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  setDevDockIcon();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+/** Unpackaged runs (`npm run dev`) get the generic Electron dock icon, because
+ *  there is no bundle Info.plist to read `assets/icon.icns` from. Set it by
+ *  hand so the app looks like itself while developing. A packaged build takes
+ *  the icon from the bundle and skips this. */
+function setDevDockIcon(): void {
+  if (app.isPackaged || process.platform !== 'darwin') return;
+  const icon = join(__dirname, '../../../assets/icon.png');
+  if (existsSync(icon)) app.dock?.setIcon(icon);
+}
 
 /** Loads the bundled catalogue the first time the app runs. Sources marked
  *  `featured` start enabled so there is something to read immediately. */
@@ -177,3 +190,9 @@ ipcMain.handle('app:runFlashes', async () => {
 ipcMain.handle('app:scheduleState', () => ({ ...scheduleState(db), runs: recentRuns(db) }));
 ipcMain.handle('app:setSchedule', async (_e, on: boolean, hour?: number) =>
   on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db));
+
+// ── social sources pack ────────────────────────────────────────────────────
+const social = socialApi(db, () => win);
+for (const name of Object.keys(social) as (keyof typeof social)[]) {
+  ipcMain.handle(`social:${String(name)}`, (_e, ...args: unknown[]) => (social[name] as never as (...a: unknown[]) => unknown)(...args));
+}

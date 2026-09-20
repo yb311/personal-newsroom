@@ -33,5 +33,6 @@ export const adapters: AdapterRegistry = {
 export const adapterFor = (kind: SourceKind): Adapter | undefined => adapters[kind];
 export { siteProbeQuery } from './search.ts';
 export { channelOf } from './telegram.ts';
-export { rssHubAvailable, normalizeRoute, SUGGESTED_ROUTES } from './rsshub.ts';
+export { rssHubAvailable, rssHubMode, configureRssHub, normalizeRoute, SUGGESTED_ROUTES,
+         type RssHubMode, type RssHubConfig } from './rsshub.ts';
 export type { Adapter, AdapterCtx, AdapterRegistry } from './types.ts';

@@ -27,6 +27,7 @@
     "test:generate": "node --experimental-strip-types dev/generate.test.ts",
     "test:flash-deep": "node --experimental-strip-types dev/flash-deep.test.ts",
     "preview": "dev/preview.sh",
-    "test:resolve": "node --experimental-strip-types dev/resolve.test.ts"
+    "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",
+    "icon:build": "electron dev/make-icon.mjs"
   }
 }

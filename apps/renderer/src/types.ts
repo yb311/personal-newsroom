@@ -37,6 +37,12 @@ export interface Today {
   changes: { watchId: string; label: string; milestones: Milestone[] }[];
 }
 export interface AiStatus { available: boolean; provider: string; outputLang: string }
+export interface SocialStatus {
+  mode: 'off' | 'http' | 'library';
+  instanceUrl: string | null;
+  pack: { installed: boolean; version: string | null; bytes: number | null };
+  installing: boolean;
+}
 export interface ScheduleState {
   enabled: boolean; mode: 'agentService' | 'launchAgent' | 'unsupported';
   dailyHour: number; flashIntervalHours: number; plistPath: string | null;
@@ -75,5 +81,10 @@ export interface Pnr {
   deepSummary(itemId: string): Promise<{ noProvider?: boolean; error?: string; summary?: unknown }>;
   scheduleState(): Promise<ScheduleState>;
   setSchedule(on: boolean, hour?: number): Promise<ScheduleState>;
+  socialStatus(): Promise<SocialStatus>;
+  socialSetInstance(url: string): Promise<void>;
+  socialInstall(): Promise<{ ok: boolean; error?: string; version?: string }>;
+  socialRemove(): Promise<boolean>;
+  onSocialProgress(cb: (p: unknown) => void): () => void;
 }
 declare global { interface Window { pnr: Pnr } }

@@ -21,6 +21,15 @@ contextBridge.exposeInMainWorld('pnr', {
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),
   deepSummary: (id: string) => ipcRenderer.invoke('app:deepSummary', id),
   scheduleState: () => ipcRenderer.invoke('app:scheduleState'),
+  socialStatus: () => ipcRenderer.invoke('social:status'),
+  socialSetInstance: (url: string) => ipcRenderer.invoke('social:setInstance', url),
+  socialInstall: () => ipcRenderer.invoke('social:install'),
+  socialRemove: () => ipcRenderer.invoke('social:remove'),
+  onSocialProgress: (cb: (p: unknown) => void) => {
+    const fn = (_e: unknown, p: unknown): void => cb(p);
+    ipcRenderer.on('social:progress', fn);
+    return () => ipcRenderer.off('social:progress', fn);
+  },
   setSchedule: (on: boolean, hour?: number) => ipcRenderer.invoke('app:setSchedule', on, hour),
   enrichOne: (id: string) => ipcRenderer.invoke('app:enrichOne', id),
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),

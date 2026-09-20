@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AiStatus, ScheduleState } from '../types.ts';
+import type { AiStatus, ScheduleState, SocialStatus } from '../types.ts';
 
 /** Keys live on this machine only. The app is deliberately usable without one. */
 export function Settings({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
@@ -11,13 +11,33 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   const [msg, setMsg] = useState('');
   const [sched, setSched] = useState<ScheduleState | null>(null);
   const [hour, setHour] = useState(7);
+  const [social, setSocial] = useState<SocialStatus | null>(null);
+  const [instance, setInstance] = useState('');
+  const [progress, setProgress] = useState<string>('');
 
   useEffect(() => {
     void window.pnr.aiStatus().then((s) => {
       setStatus(s); setProvider(s.provider); setLang(s.outputLang);
     });
     void window.pnr.scheduleState().then((s) => { setSched(s); setHour(s.dailyHour); });
+    void window.pnr.socialStatus().then((s) => { setSocial(s); setInstance(s.instanceUrl ?? ''); });
+    return window.pnr.onSocialProgress((p) => {
+      const x = p as { phase: string; received?: number; total?: number };
+      setProgress(
+        x.phase === 'downloading' && x.total
+          ? `下载中 ${Math.round((x.received! / x.total) * 100)}%`
+          : x.phase === 'verifying' ? '校验中…'
+          : x.phase === 'extracting' ? '解压中…' : ''
+      );
+    });
   }, []);
+
+  const installPack = async (): Promise<void> => {
+    setProgress('准备中…');
+    const r = await window.pnr.socialInstall();
+    setProgress(r.ok ? '' : `失败：${r.error ?? ''}`);
+    setSocial(await window.pnr.socialStatus());
+  };
 
   const toggleSchedule = async (on: boolean): Promise<void> => {
     setSched(await window.pnr.setSchedule(on, hour) as ScheduleState);
@@ -83,6 +103,53 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
             <button className="primary" onClick={() => void save()} disabled={saving}>保存</button>
             {msg && <span className="muted">{msg}</span>}
           </div>
+
+          <hr className="deep-sep" />
+
+          <h3 className="sub">社交媒体源</h3>
+          <p className="muted">
+            微博、B站、知乎、小红书、X 这些不提供 RSS，要靠 RSSHub 转换。
+            它有 370 MB，所以<strong>不随应用一起装</strong>——用不到就不占你的硬盘。
+          </p>
+
+          <label className="field">
+            <span>已有自己的 RSSHub 实例？填地址直接用</span>
+            <input placeholder="http://127.0.0.1:1200" value={instance}
+                   onChange={(e) => setInstance(e.target.value)}
+                   onBlur={async () => {
+                     await window.pnr.socialSetInstance(instance);
+                     setSocial(await window.pnr.socialStatus());
+                   }} />
+            <small className="muted">
+              自建或你信任的实例。<strong>我们不会替你连任何公共实例</strong>——
+              那等于把你在看什么告诉一台陌生的服务器。
+            </small>
+          </label>
+
+          {!social?.instanceUrl && (
+            <div className="pack-box">
+              {social?.pack.installed ? (
+                <>
+                  <p className="muted ok">
+                    已安装 · {Math.round((social.pack.bytes ?? 0) / 1048576)} MB
+                    {social.pack.version && <> · {social.pack.version.split('-').pop()}</>}
+                  </p>
+                  <button onClick={async () => {
+                    await window.pnr.socialRemove();
+                    setSocial(await window.pnr.socialStatus());
+                  }}>删除，腾出空间</button>
+                </>
+              ) : (
+                <>
+                  <p className="muted">没装的话，这类源用不了，其他一切照常。</p>
+                  <button className="primary" onClick={() => void installPack()} disabled={Boolean(progress)}>
+                    {progress || '下载并启用（约 63 MB）'}
+                  </button>
+                </>
+              )}
+              {progress && progress.startsWith('失败') && <p className="muted warn">{progress}</p>}
+            </div>
+          )}
 
           <hr className="deep-sep" />
 

@@ -3,7 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { aiAvailable, readSettings, writeSetting, invalidateProvider } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, addCorrection } from '@pnr/watch';
 import { newSinceYesterday, timeline, getDigest, recentFlashes } from '@pnr/generate';
-import { ingestSource, rssHubAvailable, resolveSourceInput, SUGGESTED_ROUTES } from '@pnr/feed';
+import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, SUGGESTED_ROUTES,
+         packState, installPack, removePack, type PackManifest } from '@pnr/feed';
 
 /** Everything the renderer can ask for. The renderer never touches SQLite
  *  directly; it asks through these, which keeps all storage logic in one place. */
@@ -222,7 +223,7 @@ export function createApi(db: Db) {
 
     suggestedRoutes(): unknown[] { return SUGGESTED_ROUTES; },
 
-    async rssHubReady(): Promise<boolean> { return rssHubAvailable(); },
+    async rssHubReady(): Promise<boolean> { return (await rssHubMode()) !== 'off'; },
 
     stats(): { items: number; sources: number; unread: number; lastRun: number | null } {
       const i = db.prepare('SELECT COUNT(*) c FROM items').get() as { c: number };

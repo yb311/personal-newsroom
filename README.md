@@ -52,9 +52,13 @@ We'd rather you know before you install.
 
 - **macOS only.** Background scheduling, notifications and packaging are built on
   launchd / `SMAppService`. Windows and Linux are not supported and not promised.
-- **Twitter/X needs a cookie from you.** There is no free zero-config way to read
-  X any more. You supply a logged-in web cookie, or pay for a scraping service.
-  Telegram, by contrast, works out of the box.
+- **Social sources are a separate 63 MB download.** Weibo, Bilibili, Zhihu,
+  Xiaohongshu and X have no RSS, so they go through RSSHub — which is 370 MB
+  installed and therefore not in the app. Enable it in settings, or point the
+  app at an instance you already run. Telegram is implemented natively and
+  works out of the box.
+- **Twitter/X needs a cookie from you.** There is no free zero-config way to
+  read X any more. You supply a logged-in web cookie, or pay for a scraper.
 - **Local storage ≠ fully offline.** Your data lives on your disk, but whatever
   gets sent to your AI provider does leave your machine. A fully local mode via
   Ollama is planned; it is slower and lower quality, and we'll say so.

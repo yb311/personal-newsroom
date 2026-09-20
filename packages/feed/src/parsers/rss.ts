@@ -18,8 +18,21 @@ const text = (v: unknown): string => {
 };
 const stripTags = (s: string): string => s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+export interface ParseFeedOptions {
+  /**
+   * Keep items that carry no date, stamped with the time they were seen and
+   * flagged `publishedAtEstimated`.
+   *
+   * Off by default: a feed is expected to date its items, and silently
+   * inventing one would be worse than dropping it. It is turned on for sources
+   * that genuinely publish undated items (several RSSHub routes), where
+   * dropping them would discard the whole source.
+   */
+  allowEstimatedDate?: boolean;
+}
+
 /** Parses RSS 2.0, Atom and RDF (RSS 1.0) into the shared DiscoveredItem shape. */
-export function parseFeed(xml: string, source: SourceRecord): ParseResult {
+export function parseFeed(xml: string, source: SourceRecord, opts: ParseFeedOptions = {}): ParseResult {
   const dropped: Record<string, number> = {};
   const drop = (r: string): void => { dropped[r] = (dropped[r] ?? 0) + 1; };
   const items: DiscoveredItem[] = [];
@@ -32,6 +45,7 @@ export function parseFeed(xml: string, source: SourceRecord): ParseResult {
   const rdf = doc['rdf:RDF'] ?? doc['RDF'];
   const atom = doc['feed'];
   const raw: any[] = rss ? asArray(rss['item']) : rdf ? asArray(rdf['item']) : atom ? asArray(atom['entry']) : [];
+  const seenAt = Date.now();
 
   for (const e of raw) {
     const title = text(e['title']);
@@ -45,12 +59,16 @@ export function parseFeed(xml: string, source: SourceRecord): ParseResult {
     if (!url) url = text(e['guid']) || text(e['id']);
 
     const dateRaw = text(e['pubDate']) || text(e['published']) || text(e['updated']) || text(e['dc:date']);
-    const ts = Date.parse(dateRaw);
+    const parsedTs = Date.parse(dateRaw);
+    const hasDate = Number.isFinite(parsedTs);
 
     if (!title) { drop('no_title'); continue; }
     if (!url || !/^https?:/i.test(url)) { drop('no_url'); continue; }
-    // Never fabricate a date: an item with no usable date is dropped, not backfilled with now().
-    if (!Number.isFinite(ts)) { drop('no_date'); continue; }
+    // A date is never fabricated. Without one the item is dropped, unless the
+    // caller opted into keeping it stamped with the discovery time and flagged.
+    if (!hasDate && !opts.allowEstimatedDate) { drop('no_date'); continue; }
+    if (!hasDate) drop('date_estimated');
+    const ts = hasDate ? parsedTs : seenAt;
 
     const clean = cleanUrl(url);
     const snippet = text(e['description']) || text(e['summary']);
@@ -61,6 +79,7 @@ export function parseFeed(xml: string, source: SourceRecord): ParseResult {
 
     items.push({
       title, url: clean, publishedAt: new Date(ts).toISOString(),
+      ...(hasDate ? {} : { publishedAtEstimated: true }),
       sourceId: source.id, sourceName: source.name, domain: domainOf(clean) || source.domain || '',
       ...(snippet ? { snippet: stripTags(snippet).slice(0, 600) } : {}),
       ...(content ? { contentHtml: content } : {}),
