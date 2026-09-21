@@ -24,7 +24,7 @@ export const GEMINI_PRICING: Record<string, { inputPerM: number; outputPerM: num
   'gemini-3.8-flash': { inputPerM: 0.75, outputPerM: 3.75 },
   'gemini-3.1-flash-lite': { inputPerM: 0.25, outputPerM: 1.50 }
 };
-const EMBED_PER_M = 0.15;
+export const EMBED_PER_M = 0.15;
 const PRICING = { ...GEMINI_PRICING['gemini-3.7-flash']!, embedPerM: EMBED_PER_M };
 
 /** Cost of one call, using the price of the model that actually ran. */

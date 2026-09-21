@@ -201,7 +201,7 @@ export async function generateDeepSummary(
 
   log({ event: 'deep.generated', entityId: itemId, elapsedMs: Date.now() - t0, attrs: {
     sources: refs.length, paragraphs: blocks.length, droppedUncited: dropped,
-    milestones: milestones.length, tokensIn: res.usage?.input, tokensOut: res.usage?.output
+    milestones: milestones.length, model: res.model, tokensIn: res.usage?.input, tokensOut: res.usage?.output
   }});
   return summary;
 }

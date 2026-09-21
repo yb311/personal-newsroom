@@ -73,7 +73,8 @@ export async function generateRecallAids(db: Db, provider: Provider, watch: Watc
   };
   saveRecallAids(db, watch.id, aids);
   log({ event: 'watch.aids', phase: 'completed', entityId: watch.id, elapsedMs: Date.now() - t0,
-        attrs: { aliases: aids.aliases.length, terms: aids.relatedTerms.length, sources: aids.sourceHints.length } });
+        attrs: { aliases: aids.aliases.length, terms: aids.relatedTerms.length, sources: aids.sourceHints.length,
+                 model: res.model, tokensIn: res.usage?.input, tokensOut: res.usage?.output } });
   return aids;
 }
 

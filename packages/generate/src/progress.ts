@@ -38,7 +38,7 @@ const SCHEMA = {
 
 /** Progress looks back a week: long enough to tell a story, short enough that
  *  last month's high scorers do not keep coming back. */
-const PROGRESS_WINDOW_DAYS = 7;
+export const PROGRESS_WINDOW_DAYS = 7;
 /** An open question nobody answered in two weeks is dropped. */
 const QUESTION_TTL_DAYS = 14;
 const MAX_OPEN_QUESTIONS = 5;

@@ -14,7 +14,7 @@ export type { Sensitivity };
 interface Thresholds { intent: number; quality: number }
 
 /** Exposed to the user as one slider — "宁可多看 ↔ 宁可少看" — not three numbers. */
-const THRESHOLDS: Record<Sensitivity, Thresholds> = {
+export const THRESHOLDS: Record<Sensitivity, Thresholds> = {
   more:     { intent: 0.45, quality: 0.25 },
   balanced: { intent: 0.60, quality: 0.35 },
   less:     { intent: 0.75, quality: 0.50 }

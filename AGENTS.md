@@ -268,7 +268,13 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
 - **milestone 的 id 要带运行时间**。只用「关注+日期+序号」时，同一天第二次运行的新节点
   会和早上的撞 id，被 `ON CONFLICT DO NOTHING` 静默丢掉
 - **离线跑流程**：`PNR_DISABLE_FETCH/EXTRACT/SEARCH=1`（`@pnr/core` 的 `flags`），
-  `dev/today.test.ts` 用脚本化的假模型验证今日/快讯的全部逻辑，不联网、不花钱
+  `dev/today.test.ts` 用脚本化的假模型验证今日/快讯的全部逻辑，不联网、不花钱。
+  `PNR_REPLAY=record` 把真实模型的回答按 prompt 录到 `dev/snapshots/`（不入库），
+  之后 `PNR_REPLAY=replay` 离线重放、零成本；改了 prompt 就是新的键，会报缺快照
+- **开发体检**：`npm run doctor` 只读地查环境、数据库、密钥、RSSHub，回显开关和阈值；
+  `npm run audit:recall`（`PNR_DATA_DIR=<数据目录的拷贝>`）用 👍/👎 和可选标注文件
+  量 R1/R2/R3、并集和「仅关键词」的召回率、判定准确度和各阶段花费。
+  新加的模型调用要在日志 attrs 里带 `model`、`tokensIn`、`tokensOut`，体检才算得到
 - **Miniflux 的 reader 包在 `internal/` 下，Go 不许跨模块 import**，所以是拷进
   `native/reader/third_party/miniflux` 的（`scripts/sync-miniflux.sh`，只改 import 路径）。
   `config`/`locale`/`mediaproxy` 是手写替身，给它加导出用 `native/reader/_overlay`，

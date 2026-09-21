@@ -2,6 +2,7 @@ import type { Db } from '@pnr/store';
 import type { Provider, ProviderProblem } from './provider.ts';
 import { GeminiProvider } from './gemini.ts';
 import { OllamaProvider } from './ollama.ts';
+import { withReplay } from './replay.ts';
 
 /**
  * The single gate every caller uses. Above this line nothing knows which
@@ -56,6 +57,8 @@ export async function resolveProvider(db: Db, force = false): Promise<Provider |
       provider = (await p.isAvailable()) ? p : null;
     }
   }
+  // Development record/replay (PNR_REPLAY); an explicit "no AI" still means none.
+  if (s.provider !== 'none') provider = withReplay(provider);
   cached = { provider, at: Date.now() };
   return provider;
 }

@@ -8,8 +8,8 @@ import { MATERIAL_COLS, materialBlock, type Material } from './material.ts';
 /** Today's brief is about the last day and a bit. When nothing that recent
  *  passed for a watch, it falls back to the last three days rather than
  *  resurfacing whatever scored highest last week. */
-const DIGEST_WINDOW_HOURS = 30;
-const DIGEST_FALLBACK_HOURS = 72;
+export const DIGEST_WINDOW_HOURS = 30;
+export const DIGEST_FALLBACK_HOURS = 72;
 
 export interface Digest {
   id: string;

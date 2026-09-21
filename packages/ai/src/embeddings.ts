@@ -1,5 +1,6 @@
 import type { Db } from '@pnr/store';
 import type { EmbedKind, Provider } from './provider.ts';
+import { log } from '@pnr/core';
 
 /**
  * Embeddings with a persistent cache.
@@ -25,7 +26,13 @@ export async function embedItems(
   }
   if (missing.length === 0) return out;
 
+  const t0 = Date.now();
   const vectors = await provider.embed(missing.map((m) => m.text), kind);
+  // Embedding APIs do not report tokens; characters are logged so the
+  // recall audit can estimate the cost (~4 characters per token for English,
+  // ~1–1.5 for Chinese).
+  log({ event: 'ai.embed', phase: 'completed', elapsedMs: Date.now() - t0,
+        attrs: { texts: missing.length, chars: missing.reduce((n, m) => n + m.text.length, 0), cached: items.length - missing.length } });
   // sqlite-vec virtual tables do not support ON CONFLICT, so replace by hand.
   const del = db.prepare('DELETE FROM embeddings WHERE item_id = ?');
   const ins = db.prepare('INSERT INTO embeddings (item_id, embedding) VALUES (?, ?)');

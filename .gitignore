@@ -44,3 +44,4 @@ vendor/rsshub/
 # Transient: iconutil input, assembled and removed by dev/make-icon.mjs
 assets/icon.iconset/
 /native/reader/bin/
+/dev/snapshots/
