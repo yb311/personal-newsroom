@@ -14,6 +14,7 @@
     "@pnr/watch": "*",
     "@pnr/recall": "*",
     "@pnr/reader": "*",
+    "@pnr/reader-core": "*",
     "@pnr/feed": "*"
   }
 }

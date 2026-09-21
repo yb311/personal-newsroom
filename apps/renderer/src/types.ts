@@ -62,6 +62,7 @@ export interface FlashRow {
   title: string; body: string; importance: number; importanceReason: string | null;
   category: string | null; basis: 'article' | 'snippet' | 'search'; followUpOf: string | null;
   sources: ItemRef[];
+  searchSources: { refId: string; url: string; title: string | null; publisher: string | null }[];
 }
 export interface OpenQuestion { id: number; question: string; askedAt: number }
 export interface RunResult {
@@ -79,6 +80,7 @@ export interface AiStatus {
   hasGeminiKey: boolean; hasOpenAiKey: boolean; hasAnthropicKey: boolean; hasCompatibleKey: boolean;
   compatibleEndpoint: string; writeModel: string; fastModel: string; embedModel: string; contextTokens: string;
   ollamaHost: string; ollamaWriteModel: string; ollamaFastModel: string; ollamaEmbedModel: string;
+  searchFillEnabled: boolean;
 }
 export interface SocialStatus {
   mode: 'off' | 'http' | 'library';

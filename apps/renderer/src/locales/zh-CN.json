@@ -157,7 +157,8 @@
     "snippetOnly": "仅依据摘要",
     "snippetOnlyHint": "没能抓到原文，这条只依据来源提供的摘要",
     "searchFilled": "搜索补全",
-    "searchFilledHint": "正文抓不到，内容由搜索补全"
+    "searchFilledHint": "正文抓不到，内容由搜索补全",
+    "verifiedSources": "展开已验证来源"
   },
   "background": {
     "title": "后台更新",
@@ -209,6 +210,8 @@
     "ollamaHint": "请先在这台 Mac 上安装并启动 Ollama。模型在本机运行，不支持搜索补全。",
     "outputLanguage": "输出语言",
     "outputLanguageHint": "用于生成的摘要和进展，不改变原文语言。",
+    "searchFillEnabled": "允许搜索补全",
+    "searchFillHint": "正文抓不到且事件足够重要时，用当前 AI 厂商的搜索工具查证并补全。",
     "connection": {
       "none": "已切换到阅读模式，不使用 AI",
       "ollama": "已保存，已连接本机 Ollama",

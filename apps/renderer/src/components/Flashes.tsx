@@ -66,6 +66,14 @@ export function Flashes({ aiReady, onSetup, onRead, onOpen, running }:
               <h3>{f.title}</h3>
               <p>{f.body}</p>
               {f.importanceReason && <p className="why">{f.importanceReason}</p>}
+              {f.basis === 'search' && f.searchSources.length > 0 && <details className="search-sources">
+                <summary>{t('flashes.verifiedSources')}</summary>
+                <ul>{f.searchSources.map((source) => <li key={source.refId}>
+                  <button className="link-button" onClick={() => void window.pnr.openExternal(source.url)}>
+                    {source.title || source.publisher || source.url}
+                  </button>
+                </li>)}</ul>
+              </details>}
               <Cites ids={f.itemIds} refs={refs} onOpen={onOpen} />
             </li>
           ))}

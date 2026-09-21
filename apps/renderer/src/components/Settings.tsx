@@ -30,6 +30,7 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   const [embedModel, setEmbedModel] = useState('');
   const [contextTokens, setContextTokens] = useState('');
   const [ollamaHost, setOllamaHost] = useState('http://127.0.0.1:11434');
+  const [searchFillEnabled, setSearchFillEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [sched, setSched] = useState<ScheduleState | null>(null);
@@ -48,6 +49,7 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
       setStatus(s); setProvider(s.provider); setLang(s.outputLang);
       setEndpoint(s.compatibleEndpoint); setWriteModel(s.writeModel); setFastModel(s.fastModel);
       setEmbedModel(s.embedModel); setContextTokens(s.contextTokens); setOllamaHost(s.ollamaHost);
+      setSearchFillEnabled(s.searchFillEnabled);
     });
     void window.pnr.scheduleState().then((s) => { setSched(s); setHour(s.dailyHour); });
     void window.pnr.readingLanguages().then(setLangs);
@@ -106,7 +108,7 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
 
   const save = async (): Promise<void> => {
     setSaving(true); setMsg(t('common.checking'));
-    const patch: Record<string, string> = { provider, outputLang: lang };
+    const patch: Record<string, string> = { provider, outputLang: lang, searchFillEnabled: searchFillEnabled ? '1' : '0' };
     const keyField = provider === 'gemini' ? 'geminiApiKey' : provider === 'openai' ? 'openaiApiKey'
       : provider === 'anthropic' ? 'anthropicApiKey' : 'compatibleApiKey';
     if (key.trim() && provider !== 'ollama' && provider !== 'none') patch[keyField] = key.trim();
@@ -203,6 +205,10 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
             </select>
             <small className="muted">{t('settings.outputLanguageHint')}</small>
           </label>
+
+          <label className="inline-check"><input type="checkbox" checked={searchFillEnabled}
+            onChange={(e) => setSearchFillEnabled(e.target.checked)} />{t('settings.searchFillEnabled')}</label>
+          <small className="muted">{t('settings.searchFillHint')}</small>
 
           <div className="settings-actions">
             <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? t('common.saving') : t('common.save')}</button>

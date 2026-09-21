@@ -7,7 +7,7 @@ import { listWatches, getWatch, prepareWatch, type Watch } from '@pnr/watch';
 import { recallForWatch, aiPrescreenWatches, judgeAll, gateWatch, matchKeywords } from '@pnr/recall';
 import { generateDigest, type Digest } from './digest.ts';
 import { generateProgress } from './progress.ts';
-import { generateFlashes, FLASH_WINDOW_HOURS } from './flashes.ts';
+import { generateFlashes, FLASH_WINDOW_HOURS, type SearchFillContext } from './flashes.ts';
 
 /**
  * The runs behind 今日 and 快讯, shared by the app and the background worker so
@@ -157,8 +157,10 @@ export async function runFlashCheck(db: Db, provider: Provider | null, opts: Run
     byLang.set(l, [...(byLang.get(l) ?? []), w]);
   }
   let flashes = 0;
+  const enabled = (db.prepare("SELECT value FROM settings WHERE key='ai.searchFillEnabled'").get() as { value: string } | undefined)?.value !== '0';
+  const searchFill: SearchFillContext | undefined = enabled ? { remaining: 5, byEvent: new Map() } : undefined;
   for (const [lang, group] of byLang) {
-    try { flashes += (await generateFlashes(db, provider, group, lang)).length; }
+    try { flashes += (await generateFlashes(db, provider, group, lang, searchFill)).length; }
     catch (e) { failed++; log({ event: 'run.flashes', phase: 'failed', reasonDetail: String(e).slice(0, 160) }); }
   }
   return { ...base, failed, flashes };

@@ -3,6 +3,7 @@ import type { Provider } from '@pnr/ai';
 import { log } from '@pnr/core';
 import type { Watch } from '@pnr/watch';
 import { MATERIAL_COLS, materialBlock, type Material } from './material.ts';
+import { fillFromSearch, type SearchFillResult } from './search-fill.ts';
 
 export interface Flash {
   id: string;
@@ -27,7 +28,10 @@ export interface Flash {
    *  search grounding (not used yet). */
   basis: 'article' | 'snippet' | 'search';
   followUpOf: string | null;
+  searchMaterialId: string | null;
 }
+
+export interface SearchFillContext { remaining: number; byEvent: Map<string, SearchFillResult> }
 
 /** Wider than the display window on purpose: outlets routinely publish their
  *  first report of an event a day or two late, so comparing only against the
@@ -81,7 +85,7 @@ type Candidate = Material & { watchIds: string; score: number };
  * THIS person's watches rather than for a general audience.
  */
 export async function generateFlashes(
-  db: Db, provider: Provider, watches: Watch[], lang: string
+  db: Db, provider: Provider, watches: Watch[], lang: string, searchFill?: SearchFillContext
 ): Promise<Flash[]> {
   const active = watches.filter((w) => w.active);
   if (active.length === 0) return [];
@@ -197,16 +201,35 @@ export async function generateFlashes(
       itemIds, lang, title, body, importance,
       importanceReason: String(f.importanceReason ?? '').slice(0, 120) || null,
       category: String(f.category ?? '').slice(0, 30) || null,
-      basis: primary.bodyState === 'ok' ? 'article' : 'snippet',
-      followUpOf: related
+      basis: itemIds.some((id) => byId.get(id)?.bodyState === 'ok') ? 'article' : 'snippet',
+      followUpOf: related, searchMaterialId: null
     });
     if (out.length >= MAX_PER_BATCH) break;
   }
 
+  // Search fill is limited across every output language in this run. The same
+  // event reuses its evidence and never spends the budget twice.
+  if (searchFill && provider.capabilities.search) for (const flash of out) {
+    if (flash.basis !== 'snippet' || flash.importance < 8) continue;
+    const primary = byId.get(flash.itemIds[0]!); if (!primary) continue;
+    let filled = searchFill.byEvent.get(primary.id);
+    if (!filled && searchFill.remaining > 0) {
+      searchFill.remaining--;
+      filled = await fillFromSearch(db, provider, { itemId: primary.id, title: primary.title,
+        snippet: primary.snippet, publishedAt: primary.publishedAt, lang });
+      searchFill.byEvent.set(primary.id, filled);
+    }
+    if (!filled?.publishable) continue;
+    flash.title = filled.title; flash.body = filled.body; flash.basis = 'search'; flash.searchMaterialId = filled.materialId;
+    for (const itemId of filled.sources.map((s) => s.itemId).filter((id): id is string => Boolean(id))) {
+      if (!flash.itemIds.includes(itemId)) flash.itemIds.push(itemId);
+    }
+  }
+
   const ins = db.prepare(
     `INSERT INTO flashes (id, watch_id, watch_ids_json, item_ids_json, item_published_at, batch_id, published_at,
-                          lang, title, body, importance, importance_reason, category, basis, follow_up_of, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`
+                          lang, title, body, importance, importance_reason, category, basis, follow_up_of, created_at, search_material_id)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`
   );
   const insTold = db.prepare(
     'INSERT INTO told_records (watch_id, narrative, surface, surface_id, told_at) VALUES (?,?,?,?,?)'
@@ -215,7 +238,7 @@ export async function generateFlashes(
     for (const f of out) {
       ins.run(f.id, f.watchIds[0] ?? null, JSON.stringify(f.watchIds), JSON.stringify(f.itemIds), f.itemPublishedAt,
               f.batchId, f.publishedAt, f.lang, f.title, f.body, f.importance, f.importanceReason,
-              f.category, f.basis, f.followUpOf, now);
+              f.category, f.basis, f.followUpOf, now, f.searchMaterialId);
       for (const w of f.watchIds) insTold.run(w, `${f.title}。${f.body}`, 'flash', f.id, now);
     }
   })();
@@ -244,7 +267,7 @@ export function recentFlashes(db: Db, hours = 24, watchId?: string): Flash[] {
       itemPublishedAt: r.item_published_at ?? null, itemIds,
       lang: r.lang, title: r.title, body: r.body, importance: r.importance,
       importanceReason: r.importance_reason, category: r.category,
-      basis: r.basis, followUpOf: r.follow_up_of
+      basis: r.basis, followUpOf: r.follow_up_of, searchMaterialId: r.search_material_id ?? null
     } satisfies Flash;
   }).filter((f) => f.watchIds.length > 0 && (!watchId || f.watchIds.includes(watchId)));
 }

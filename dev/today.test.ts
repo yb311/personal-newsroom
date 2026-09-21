@@ -30,6 +30,10 @@ const idsIn = (prompt: string): string[] => [...prompt.matchAll(/^(i\d+) \|/gm)]
 
 const stub: Provider = {
   id: 'gemini', name: 'stub', fastModel: 'fast', writeModel: 'write', embeddingDims: 768,
+  capabilities: { embedding: true, search: false, stream: true, structured: 'schema' },
+  limits: { fast: { maxInputTokens: 100_000, maxOutputTokens: 8_000 }, write: { maxInputTokens: 100_000, maxOutputTokens: 8_000 } },
+  vectorProfile: { provider: 'gemini', endpoint: 'stub', model: 'stub-embed', dimensions: 768, taskConfig: 'stub', inputVersion: 1 },
+  pricing: undefined,
   async isAvailable() { return true; },
   async check() { return { ok: true }; },
   async embed(texts) {
@@ -66,8 +70,10 @@ const stub: Provider = {
         ? [{ itemId: 'i1', alsoItemIds: ['i2'], watchIds, kind: 'new', importance: 8, title: '欧盟通过人工智能法案修订', body: '据材料。' }]
         : [] };
     }
-    return { data: data as T, model: 'stub', usedSearch: false };
-  }
+    return { data: data as T, provider: 'gemini', model: 'stub', usedSearch: false };
+  },
+  async *stream() { throw new Error('unused'); },
+  async search() { throw new Error('unused'); }
 };
 
 // ── fixture ────────────────────────────────────────────────────────────────

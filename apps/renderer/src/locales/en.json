@@ -167,7 +167,8 @@
     "snippetOnly": "From summary only",
     "snippetOnlyHint": "The article couldn't be fetched; this is based only on the source's summary",
     "searchFilled": "Filled by search",
-    "searchFilledHint": "The article couldn't be fetched; search filled in the content"
+    "searchFilledHint": "The article couldn't be fetched; search filled in the content",
+    "verifiedSources": "Show verified sources"
   },
   "background": {
     "title": "Background updates",
@@ -220,6 +221,8 @@
     "ollamaHint": "Install and start Ollama on this Mac first. Models run locally; search fill-in isn't available.",
     "outputLanguage": "Output language",
     "outputLanguageHint": "For the briefs and developments AI writes. Articles stay in their own language.",
+    "searchFillEnabled": "Allow search fill",
+    "searchFillHint": "When an important story body cannot be fetched, verify and fill it with the current AI provider's search tool.",
     "connection": {
       "none": "Switched to reading mode; AI is off",
       "ollama": "Saved and connected to Ollama on this Mac",

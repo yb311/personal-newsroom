@@ -233,7 +233,7 @@ export function createApi(db: Db, dataDir: string) {
       const allowed = new Set([
         'provider','geminiApiKey','openaiApiKey','anthropicApiKey','compatibleApiKey','compatibleEndpoint',
         'writeModel','fastModel','embedModel','contextTokens','compatibleSupportsSchema',
-        'ollamaHost','ollamaWriteModel','ollamaFastModel','ollamaEmbedModel','outputLang'
+        'ollamaHost','ollamaWriteModel','ollamaFastModel','ollamaEmbedModel','searchFillEnabled','outputLang'
       ]);
       for (const [k, v] of Object.entries(patch)) {
         if (!allowed.has(k)) continue;
@@ -307,7 +307,10 @@ export function createApi(db: Db, dataDir: string) {
       return recentFlashes(db, hours, watchId).map((f) => ({
         ...f,
         watchLabels: f.watchIds.map((id) => labels.get(id)).filter(Boolean),
-        sources: refsFor(f.itemIds)
+        sources: refsFor(f.itemIds),
+        searchSources: f.searchMaterialId ? db.prepare(`SELECT ref_id AS refId,url,title,publisher
+          FROM search_material_sources WHERE material_id=? AND relevant=1 AND supported=1 ORDER BY ref_id`)
+          .all(f.searchMaterialId) : []
       }));
     },
 

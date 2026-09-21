@@ -14,6 +14,7 @@ export interface AiSettings {
   writeModel?: string; fastModel?: string; embedModel?: string; contextTokens?: string;
   compatibleSupportsSchema?: string;
   ollamaHost?: string; ollamaWriteModel?: string; ollamaFastModel?: string; ollamaEmbedModel?: string;
+  searchFillEnabled?: string;
   outputLang?: string;
 }
 
@@ -22,6 +23,7 @@ export interface PublicAiSettings {
   hasGeminiKey: boolean; hasOpenAiKey: boolean; hasAnthropicKey: boolean; hasCompatibleKey: boolean;
   compatibleEndpoint: string; writeModel: string; fastModel: string; embedModel: string; contextTokens: string;
   ollamaHost: string; ollamaWriteModel: string; ollamaFastModel: string; ollamaEmbedModel: string;
+  searchFillEnabled: boolean;
 }
 
 export function readSettings(db: Db): AiSettings {
@@ -41,7 +43,8 @@ export function publicSettings(db: Db): PublicAiSettings {
     compatibleEndpoint: s.compatibleEndpoint ?? '', writeModel: s.writeModel ?? '', fastModel: s.fastModel ?? '',
     embedModel: s.embedModel ?? '', contextTokens: s.contextTokens ?? '',
     ollamaHost: s.ollamaHost ?? 'http://127.0.0.1:11434', ollamaWriteModel: s.ollamaWriteModel ?? 'qwen3:8b',
-    ollamaFastModel: s.ollamaFastModel ?? '', ollamaEmbedModel: s.ollamaEmbedModel ?? 'nomic-embed-text'
+    ollamaFastModel: s.ollamaFastModel ?? '', ollamaEmbedModel: s.ollamaEmbedModel ?? 'nomic-embed-text',
+    searchFillEnabled: s.searchFillEnabled !== '0'
   };
 }
 
