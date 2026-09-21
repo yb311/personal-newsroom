@@ -1,13 +1,13 @@
 /** One complete run, then export everything the UI needs so the result can be
  *  inspected in the renderer. */
-import { openDb } from '../packages/store/src/index.ts';
+import { openDb, readBody } from '../packages/store/src/index.ts';
 import { ingestAll } from '../packages/feed/src/index.ts';
 import { enrichPending } from '../packages/reader/src/index.ts';
 import { resolveProvider, writeSetting, invalidateProvider, geminiCost } from '../packages/ai/src/index.ts';
 import { createWatch, enablePreset, prepareWatch, listWatches, PRESETS } from '../packages/watch/src/index.ts';
 import { recallForWatch, judgeAll, gateWatch } from '../packages/recall/src/index.ts';
 import { generateDigest, generateProgress, newSinceYesterday, timeline, getDigest } from '../packages/generate/src/index.ts';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const key = process.env.GEMINI_API_KEY ?? '';
 const DIR = process.env.PNR_DATA_DIR!;
@@ -62,8 +62,10 @@ const items = q(`SELECT i.id,i.title,i.url,i.published_at publishedAt,i.snippet,
   NULL readAt,NULL starredAt,i.body_path bodyPath,i.body_error bodyError
   FROM items i JOIN sources s ON s.id=i.source_id ORDER BY (i.body_state='ok') DESC, i.published_at DESC LIMIT 140`);
 const bodies: Record<string, unknown> = {};
-for (const it of items) if (it.bodyPath && existsSync(it.bodyPath))
-  try { bodies[it.id] = JSON.parse(readFileSync(it.bodyPath,'utf8')).blocks; } catch {}
+for (const it of items) {
+  const b = readBody(it.bodyPath);
+  if (b) bodies[it.id] = { html: b.html, words: b.words, source: b.source };
+}
 const ws = listWatches(db).map(w => ({ ...w, newCount: newSinceYesterday(db,w.id).length,
   timelineCount: timeline(db,w.id).length,
   passed: (db.prepare('SELECT COUNT(*) c FROM matches WHERE watch_id=? AND passed_gate=1').get(w.id) as any).c }));

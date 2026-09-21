@@ -5,11 +5,15 @@ export interface ItemRow {
   bodyState: string; bodyWords: number | null;
   readAt: number | null; starredAt: number | null;
   dateEstimated?: number;
+  lang?: string | null;
 }
+/** Article body HTML, already sanitised by the reader core. */
+export interface ItemBody { html: string; words: number; source: 'feed' | 'page' }
 export interface SourceRow {
   id: string; name: string; kind: string; category: string | null;
   country: string | null; domain: string | null; enabled: number;
   unread: number; total: number; lastError: string | null;
+  newest?: number | null;
 }
 export type Block =
   | { type: 'paragraph'; text: string }
@@ -63,7 +67,10 @@ export interface Pnr {
   rssHubReady(): Promise<boolean>;
   listSources(): Promise<SourceRow[]>;
   listItems(o: { sourceId?: string; filter?: 'all'|'unread'|'starred'; limit?: number; offset?: number }): Promise<ItemRow[]>;
-  getItem(id: string): Promise<(ItemRow & { blocks: Block[] | null; bodyError: string | null }) | null>;
+  countItems(o: { sourceId?: string; filter?: 'all'|'unread'|'starred' }): Promise<number>;
+  readingLanguages(): Promise<{ available: { lang: string | null; count: number }[]; selected: string[] }>;
+  setReadingLanguages(langs: string[]): Promise<void>;
+  getItem(id: string): Promise<(ItemRow & { body: ItemBody | null; bodyError: string | null }) | null>;
   markRead(id: string, read: boolean): Promise<void>;
   toggleStar(id: string): Promise<boolean>;
   setSourceEnabled(id: string, enabled: boolean): Promise<void>;

@@ -25,10 +25,12 @@ cat > "$OUT/preview.html" <<'HTML'
       .filter(i => o.filter !== 'unread' || !read.has(i.id))
       .filter(i => o.filter !== 'starred' || star.has(i.id))
       .map(i => ({...i, readAt: read.has(i.id)?Date.now():null, starredAt: star.has(i.id)?Date.now():null})),
-    getItem: async (id) => { const i = d.items.find(x=>x.id===id); return i ? {...i, blocks: d.bodies[id] ?? null} : null; },
+    getItem: async (id) => { const i = d.items.find(x=>x.id===id); return i ? {...i, body: d.bodies[id] ?? null} : null; },
     markRead: async (id) => { read.add(id); },
     toggleStar: async (id) => { star.has(id) ? star.delete(id) : star.add(id); return star.has(id); },
     setSourceEnabled: async () => {}, catalogue: async () => d.cat,
+    countItems: async (o) => d.items.filter(i => !o.sourceId || i.sourceId === o.sourceId).length,
+    readingLanguages: async () => ({ available: [], selected: [] }), setReadingLanguages: async () => {},
     stats: async () => ({items: d.items.length, sources: d.sources.length, unread: d.items.length, lastRun: Date.now()}),
     refresh: async () => ({busy:false, inserted:0}), enrichOne: async () => null,
     openExternal: async () => {}, onProgress: () => () => {},

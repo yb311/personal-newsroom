@@ -1,8 +1,7 @@
 import type { DiscoveredItem } from '@pnr/core';
 import { cleanUrl, domainOf } from '@pnr/core';
 import type { Adapter, ParseResult, SourceRecord } from './types.ts';
-import { fetchText } from '../transport.ts';
-import { parseFeed } from '../parsers/rss.ts';
+import { fetchFeed } from '../parse.ts';
 
 const UA = 'personal-newsroom/0.1 (+https://github.com/yb311/personal-newsroom)';
 
@@ -60,8 +59,8 @@ export const redditAdapter: Adapter = async (source) => {
   const sub = source.url
     .replace(/^https?:\/\/(www\.|old\.)?reddit\.com/, '')
     .replace(/^\/?r\//, '').replace(/\/.*$/, '').trim();
-  const xml = await fetchText(`https://www.reddit.com/r/${encodeURIComponent(sub)}/hot.rss?limit=50`);
-  const res = parseFeed(xml, { ...source, name: source.name || `r/${sub}` });
+  const res = await fetchFeed({ ...source, name: source.name || `r/${sub}` },
+                              { url: `https://www.reddit.com/r/${encodeURIComponent(sub)}/hot.rss?limit=50` });
   return { ...res, items: res.items.map((i) => ({ ...i, domain: i.domain || 'reddit.com' })) };
 };
 

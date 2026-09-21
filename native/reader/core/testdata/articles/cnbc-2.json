@@ -1,0 +1,8 @@
+{
+ "url": "https://www.cnbc.com/2026/09/20/bessent-he-lifeng-trump-xi-summit.html",
+ "contentType": "text/html; charset=utf-8",
+ "body": ".ArticleBody-articleBody .group > p, .ArticleBody-articleBody h2",
+ "mustNot": [
+  "CREATE FREE ACCOUNT"
+ ]
+}

@@ -1,10 +1,4 @@
-/** Three-tier article fetch, ported from daily-brief lib/feed/multi-layer-fetch.ts.
- *  Each tier only fires when the previous one failed. Tiers 2 and 3 are optional
- *  and depend on user-supplied keys. */
-export type FetchTier = 'direct' | 'jina' | 'firecrawl';
-export interface FetchedHtml { html: string; tier: FetchTier }
-
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+import { download, DownloadError, ACCEPT_PAGE, type Downloaded } from '@pnr/core';
 
 /** Publishers that reliably serve a paywall interstitial instead of the article.
  *  Ported from daily-brief; they still contribute feed snippets and images. */
@@ -13,29 +7,26 @@ export const PAYWALLED = new Set([
   'latimes.com', 'politico.com', 'economist.com', 'news.google.com'
 ]);
 
-async function get(url: string, timeoutMs: number, headers: Record<string, string> = {}): Promise<string> {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: ctl.signal, redirect: 'follow', headers: { 'user-agent': UA, ...headers } });
-    if (!res.ok) throw new Error(`http_${res.status}`);
-    return await res.text();
-  } finally { clearTimeout(t); }
-}
+export type FetchTier = 'direct' | 'jina' | 'firecrawl';
 
-export async function fetchArticleHtml(url: string, timeoutMs = 25_000): Promise<FetchedHtml> {
+/**
+ * Downloads an article page. The direct request is the only one made unless
+ * the user has supplied a key for a fetching service: without one, nothing is
+ * sent to a third party. Ported from daily-brief lib/feed/multi-layer-fetch.ts.
+ */
+export async function fetchPage(url: string, timeoutMs = 25_000): Promise<Downloaded & { tier: FetchTier }> {
   try {
-    return { html: await get(url, timeoutMs, {
-      accept: 'text/html,application/xhtml+xml',
-      'accept-language': 'en-US,en;q=0.9'
-    }), tier: 'direct' };
+    return { ...(await download(url, { accept: ACCEPT_PAGE, timeoutMs })), tier: 'direct' };
   } catch (direct) {
     const jinaKey = process.env['JINA_API_KEY'];
-    try {
-      return { html: await get(`https://r.jina.ai/${url}`, timeoutMs, {
-        'x-return-format': 'html', ...(jinaKey ? { authorization: `Bearer ${jinaKey}` } : {})
-      }), tier: 'jina' };
-    } catch { /* fall through */ }
+    if (jinaKey) {
+      try {
+        const d = await download(`https://r.jina.ai/${url}`, {
+          timeoutMs, headers: { 'x-return-format': 'html', authorization: `Bearer ${jinaKey}` }
+        });
+        return { ...d, url, tier: 'jina' };
+      } catch { /* fall through */ }
+    }
 
     const fcKey = process.env['FIRECRAWL_API_KEY'];
     if (fcKey) {
@@ -47,12 +38,13 @@ export async function fetchArticleHtml(url: string, timeoutMs = 25_000): Promise
           headers: { 'content-type': 'application/json', authorization: `Bearer ${fcKey}` },
           body: JSON.stringify({ url, formats: ['html'] })
         });
-        if (res.ok) {
-          const j = (await res.json()) as { data?: { html?: string } };
-          if (j.data?.html) return { html: j.data.html, tier: 'firecrawl' };
+        const j = res.ok ? ((await res.json()) as { data?: { html?: string } }) : null;
+        if (j?.data?.html) {
+          return { body: new TextEncoder().encode(j.data.html), contentType: 'text/html; charset=utf-8',
+                   url, etag: null, lastModified: null, notModified: false, tier: 'firecrawl' };
         }
       } catch { /* fall through */ } finally { clearTimeout(t); }
     }
-    throw direct;
+    throw direct instanceof DownloadError ? direct : new DownloadError('network');
   }
 }

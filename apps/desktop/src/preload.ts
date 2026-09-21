@@ -4,7 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
  *  filesystem. Adding a method to ipc.ts means adding its name here. */
 const API_METHODS = [
   'listSources', 'listItems', 'getItem', 'markRead', 'toggleStar',
-  'setSourceEnabled', 'catalogue', 'stats',
+  'setSourceEnabled', 'catalogue', 'stats', 'countItems', 'readingLanguages', 'setReadingLanguages',
   'aiStatus', 'saveAiSettings', 'presets', 'watches', 'addWatch', 'editWatch',
   'removeWatch', 'togglePreset', 'correct', 'today', 'watchTimeline', 'watchItems', 'flashes', 'addSource', 'removeSource', 'suggestedRoutes', 'rssHubReady'
 ] as const;

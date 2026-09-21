@@ -24,7 +24,12 @@ export interface DiscoveredItem {
   sourceName: string;
   domain: string;
   snippet?: string;
+  /** Body HTML carried by the source itself. Raw from adapters that read JSON
+   *  or HTML; already sanitised when `contentText` is set (the reader core). */
   contentHtml?: string;
+  contentText?: string;
+  /** Word count of contentText (CJK characters count one each). */
+  words?: number;
   imageUrl?: string;
   author?: string;
   lang?: string;
@@ -39,6 +44,10 @@ export interface ParseDiagnostics {
 export interface ParseResult {
   items: DiscoveredItem[];
   diagnostics: ParseDiagnostics;
+  /** HTTP cache validators to send next time, so an unchanged feed is not re-downloaded. */
+  cache?: { etag: string | null; lastModified: string | null };
+  /** The server said nothing changed since last time. */
+  notModified?: boolean;
 }
 
 export type SourceKind =
@@ -59,4 +68,6 @@ export interface SourceRecord {
   enabled: number;
   dateHydration: 'article_html' | null;
   configJson: string | null;
+  etag?: string | null;
+  lastModified?: string | null;
 }

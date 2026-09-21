@@ -9,6 +9,11 @@ interface Props {
   onManage: () => void;
 }
 
+/** A source whose newest article is older than this has stopped publishing. */
+const STALE_DAYS = 45;
+const isStale = (s: SourceRow): boolean =>
+  Boolean(s.total && s.newest && Date.now() - s.newest > STALE_DAYS * 864e5);
+
 export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter, onManage }: Props) {
   const totalUnread = sources.reduce((a, s) => a + (s.unread ?? 0), 0);
   const filters: [Filter, string, number | null][] = [
@@ -53,9 +58,9 @@ export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter,
                   <button
                     aria-pressed={sourceId === s.id} className={sourceId === s.id ? 'active' : ''}
                     onClick={() => onPickSource(s.id)}
-                    title={s.lastError ? `上次抓取失败：${s.lastError}` : s.domain ?? s.name}
+                    title={s.lastError ? '上次更新失败' : isStale(s) ? `已经 ${STALE_DAYS} 天以上没有新文章` : s.domain ?? s.name}
                   >
-                    <span>{s.name}{s.lastError ? ' ⚠' : ''}</span>
+                    <span>{s.name}{s.lastError ? ' ⚠' : ''}{isStale(s) ? <small className="stale">已停更</small> : null}</span>
                     {s.unread ? <em>{s.unread}</em> : null}
                   </button>
                 </li>

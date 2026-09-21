@@ -1,6 +1,5 @@
 import type { DiscoveredItem } from '@pnr/core';
-import { fetchText } from '../transport.ts';
-import { parseFeed } from '../parsers/rss.ts';
+import { fetchFeed } from '../parse.ts';
 import type { Adapter, ParseResult, SourceRecord } from './types.ts';
 
 /**
@@ -21,7 +20,7 @@ export const googleNewsAdapter: Adapter = async (source) => {
   const country = source.country ?? (lang.split('-')[1] ?? 'US');
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}`
     + `&hl=${encodeURIComponent(lang)}&gl=${encodeURIComponent(country)}&ceid=${encodeURIComponent(`${country}:${lang.split('-')[0]}`)}`;
-  const res = parseFeed(await fetchText(url), source);
+  const res = await fetchFeed(source, { url });
   return { ...res, items: res.items.map(splitPublisher) };
 };
 
@@ -38,7 +37,7 @@ function splitPublisher(item: DiscoveredItem): DiscoveredItem {
 export const bingNewsAdapter: Adapter = async (source) => {
   const q = source.url.trim();
   if (!q) return { items: [], diagnostics: { fetched: 0, kept: 0, droppedByReason: { empty_query: 1 } } };
-  return parseFeed(await fetchText(`https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss`), source);
+  return fetchFeed(source, { url: `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss` });
 };
 
 /** Builds the Bing site-scoped probe daily-brief uses when a feed goes stale. */

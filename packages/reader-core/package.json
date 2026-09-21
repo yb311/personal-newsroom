@@ -1,0 +1,11 @@
+{
+  "name": "@pnr/reader-core",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "//": "Talks to native/reader (Go), built by scripts/build-reader.sh into native/reader/bin/pnr-reader."
+}

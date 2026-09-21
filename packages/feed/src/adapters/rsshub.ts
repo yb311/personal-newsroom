@@ -3,9 +3,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { existsSync } from 'node:fs';
 import type { DiscoveredItem, SourceRecord } from '@pnr/core';
-import { cleanUrl, domainOf, log } from '@pnr/core';
-import { fetchText } from '../transport.ts';
-import { parseFeed } from '../parsers/rss.ts';
+import { cleanUrl, domainOf, log, DownloadError } from '@pnr/core';
+import { fetchFeed } from '../parse.ts';
 import type { Adapter, ParseResult } from './types.ts';
 
 /**
@@ -128,15 +127,14 @@ async function viaHttp(path: string, source: SourceRecord): Promise<ParseResult>
     // An instance serves plain RSS, so the normal parser applies unchanged.
     // Estimated dates are allowed here for the same reason as the library path:
     // several routes publish undated items, and dropping them loses the source.
-    const xml = await fetchText(`${base}${path}`, 30_000);
-    const res = parseFeed(xml, source, { allowEstimatedDate: true });
+    const res = await fetchFeed(source, { url: `${base}${path}`, allowEstimatedDate: true, timeoutMs: 30_000 });
     return { ...res, items: res.items.map((i) => ({ ...i, domain: i.domain || domainOf(base) })) };
   } catch (e) {
-    const msg = String((e as Error)?.message ?? e);
-    if (/http_404/.test(msg)) return miss('route_not_found');
+    const reason = e instanceof DownloadError ? e.reason : 'error';
+    if (reason === 'not_found') return miss('route_not_found');
     // Anything else is the instance's problem, not the route's — an overloaded
     // or misconfigured instance must not be reported as "this source is dead".
-    return miss(`instance_${msg.slice(0, 24)}`);
+    return miss(`instance_${reason}`);
   }
 }
 
@@ -172,13 +170,13 @@ async function viaLibrary(path: string, source: SourceRecord): Promise<ParseResu
     if (!link || !/^https?:/i.test(link)) { dropped['no_url'] = (dropped['no_url'] ?? 0) + 1; continue; }
     if (!hasDate) dropped['date_estimated'] = (dropped['date_estimated'] ?? 0) + 1;
     const clean = cleanUrl(link);
-    const desc = String(it.description ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    // Titles and descriptions are cleaned by the reader core at ingest, with
+    // everything else that did not come through a feed parser.
     items.push({
       title, url: clean, publishedAt: new Date(ts).toISOString(),
       ...(hasDate ? {} : { publishedAtEstimated: true }),
       sourceId: source.id, sourceName: source.name || String(data.title ?? path),
       domain: domainOf(clean),
-      ...(desc ? { snippet: desc.slice(0, 600) } : {}),
       ...(it.description ? { contentHtml: String(it.description) } : {}),
       ...(it.author ? { author: String(it.author) } : {}),
       ...(it.image ? { imageUrl: String(it.image) } : {}),

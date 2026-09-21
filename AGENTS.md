@@ -63,7 +63,9 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 平台 | **只 macOS** | launchd / SMAppService。README 里直说不支持 Win/Linux |
 | 无 key | **能当纯 RSS 阅读器用** | 最好的上手坡道。所有 AI 功能**优雅降级，不报错不空白** |
 | 后台 | **SMAppService**（Electron `setLoginItemSettings` 的 `type: 'agentService'`） | plist 在 bundle 内，卸载即消失 |
-| 单实例锁 | **SQLite `locks` 表** + `BEGIN IMMEDIATE` + 15 秒心跳 | 不用文件锁，`kill -9` 后 flock 清理语义不可靠 |
+| 单实例锁 | **SQLite `locks` 表** + `BEGIN IMMEDIATE` + 15 秒心跳；App 另有 `requestSingleInstanceLock` | 不用文件锁，`kill -9` 后 flock 清理语义不可靠 |
+| 阅读核心 | **Go 程序 `native/reader`（`pnr-reader`）**：Miniflux 的解析/编码/清洗/站点规则 + go-trafilatura 抽正文。**全 TS 决策的唯一例外** | Trafilatura 没有 JS 版；新闻文章 F1：Trafilatura 0.926 vs Readability 0.825（WCXB）。Miniflux 的 reader 包带大量测试。见下文「阅读核心」 |
+| 下载在哪 | **一律在 Node（`@pnr/core` 的 `download`）**，Go 只处理字节，不联网 | France 24 等按 TLS 指纹拦截：Go 客户端和 curl 403，Node fetch 200 |
 | 进展形态 | 顶部「昨天到今天」板块 **+** Watch 页完整时间线 | 共用 `WatchState.timeline` 的 `firstSeenAt`，一份数据两种渲染，判断只做一次 |
 
 ## 从 daily-brief 移植什么
@@ -127,7 +129,9 @@ M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签�
 | `@pnr/core` | `DiscoveredItem` 统一契约、`canonicalDedupKey`、`RichBlock`、结构化日志 | — |
 | `@pnr/store` | 18 张表 + 2 个 vec0 虚拟表、3 个迁移（**SQL 嵌在 TS 里**）、SQLite 锁 | `test:schema` |
 | `@pnr/feed` | **11 种源适配器** + 注册表分发 + 粘贴内容自动识别 + 并发入库去重 | `test:adapters` 15/15 · `test:resolve` · `test:ingest` |
-| `@pnr/reader` | 三层抓取、双引擎按词数取胜、结构化兜底、样板过滤、落盘 | `test:reader` |
+| `native/reader` | Go 阅读核心：feed/sitemap 解析、编码识别、正文抽取、HTML 清洗、语言识别 | `reader:test`（含 Miniflux 原有测试 + 34 页抽取基准） |
+| `@pnr/reader-core` | 常驻子进程客户端（按需启动、崩溃重启、空闲 unref） | — |
+| `@pnr/reader` | 下载页面 → 阅读核心抽取 → 落盘 `{html,text,words}`；付费墙名单 | `test:reader` |
 | `@pnr/ai` | Provider 抽象（Gemini + Ollama）、无 key 闸门、向量缓存、按模型计价 | `test:ai` |
 | `@pnr/watch` | Watch 模型、10 个预置标签、意图向量、召回辅助、纠偏 | `test:watch` |
 | `@pnr/recall` | R1/R2/R3 三路并集、判定前免费排序截断、批量判定、意图闸门 | `test:pipeline` |
@@ -247,8 +251,16 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
   （`constructor(private x: T)`），也不支持 enum / namespace / 装饰器。用显式字段
 - **`import.meta.url` 在 esbuild 打成 CJS 后是 undefined**。主进程要用的资源
   （迁移 SQL 等）一律嵌进代码，不要在运行时读源码旁边的文件
-- **defuddle 在 jsdom 下会往 stderr 刷超长选择器错误**，它内部吞掉了不影响结果，
-  已在 `extract.ts` 里临时静音 `console.error`
+- **Miniflux 的 reader 包在 `internal/` 下，Go 不许跨模块 import**，所以是拷进
+  `native/reader/third_party/miniflux` 的（`scripts/sync-miniflux.sh`，只改 import 路径）。
+  `config`/`locale`/`mediaproxy` 是手写替身，给它加导出用 `native/reader/_overlay`，
+  **不要直接改拷进来的文件**，下次同步会被覆盖
+- **Miniflux 对没有日期的条目会填「现在」**。阅读核心据此判断（日期 ≥ 解析开始时刻）
+  并标 `dateEstimated`，不能把它当真实发布时间
+- **发布方声明的语言不可信**：路透社 sitemap 把西语、法语文章都标成 `en`。
+  语言以正文识别（py3langid，限定新闻常见语种）为准，声明只作兜底
+- **抽取基准的参考正文是人工标注的**（`core/testdata/articles/*.json` 的 `body` 选择器）。
+  标注时只按页面本身判断，别为了分数去贴合抽取器的输出
 - **`catalogs/build.ts` 只写 `candidates.json`**，`feeds.json` 由 `verify.ts` 产出。
   顺序是 build → verify → retry，别让 build 覆盖验证过的结果
 - **Reddit 的 `.json` 接口已对未认证客户端封禁（403），但 `.rss` 仍开放**

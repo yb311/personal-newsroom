@@ -1,0 +1,12 @@
+{
+ "url": "https://www.usatoday.com/story/news/nation/2026/09/20/patrick-clancy-lindsay-60-minutes/91863342007/",
+ "contentType": "text/html; charset=utf-8",
+ "body": ".gnt_ar_b > p, .gnt_ar_b > h2, .gnt_ar_b > h3",
+ "mustContain": [
+  "\"And I was completely fine with it.\""
+ ],
+ "mustNot": [
+  "Portrait of Thao Nguyen"
+ ],
+ "note": "the article from the original bug report"
+}

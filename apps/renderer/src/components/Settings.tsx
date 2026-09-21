@@ -1,4 +1,5 @@
 import { Dialog } from './Dialog.tsx';
+import { langName } from './ItemList.tsx';
 import { useEffect, useState } from 'react';
 import type { AiConnection, AiStatus, ScheduleState, SocialStatus } from '../types.ts';
 
@@ -16,7 +17,8 @@ const connectionMessage = (c: AiConnection): string => {
 
 /** Keys live on this machine only. The app is deliberately usable without one. */
 export function Settings({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
-  const [section, setSection] = useState<'ai' | 'sources' | 'background'>('ai');
+  const [section, setSection] = useState<'reading' | 'ai' | 'sources' | 'background'>('reading');
+  const [langs, setLangs] = useState<{ available: { lang: string | null; count: number }[]; selected: string[] } | null>(null);
   const [installing, setInstalling] = useState(false);
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [key, setKey] = useState('');
@@ -37,6 +39,7 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
       setStatus(s); setProvider(s.provider); setLang(s.outputLang);
     });
     void window.pnr.scheduleState().then((s) => { setSched(s); setHour(s.dailyHour); });
+    void window.pnr.readingLanguages().then(setLangs);
     void window.pnr.socialStatus().then((s) => { setSocial(s); setInstance(s.instanceUrl ?? ''); });
     return window.pnr.onSocialProgress((p) => {
       const x = p as { phase: string; received?: number; total?: number };
@@ -56,6 +59,23 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
       setSocial(await window.pnr.socialStatus());
     } catch { setProgress('失败：下载未完成，请重试'); }
     finally { setInstalling(false); }
+  };
+
+  // An empty selection means every language is shown.
+  const toggleLang = async (lang: string): Promise<void> => {
+    if (!langs) return;
+    const known = langs.available.map((a) => a.lang).filter((l): l is string => Boolean(l));
+    const current = langs.selected.length ? langs.selected : known;
+    let next = current.includes(lang) ? current.filter((l) => l !== lang) : [...current, lang];
+    if (next.length === 0 || known.every((l) => next.includes(l))) next = [];
+    await window.pnr.setReadingLanguages(next);
+    setLangs({ ...langs, selected: next });
+    onChanged();
+  };
+  const showAll = async (): Promise<void> => {
+    await window.pnr.setReadingLanguages([]);
+    if (langs) setLangs({ ...langs, selected: [] });
+    onChanged();
   };
 
   const toggleSchedule = async (on: boolean): Promise<void> => {
@@ -79,8 +99,20 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   return (
     <Dialog title="设置" onClose={onClose} className="settings-modal">
         <header><h2>设置</h2><span className="grow" /><button onClick={onClose}>完成</button></header>
-        <nav className="settings-nav" aria-label="设置分类">{([['ai', 'AI 与语言'], ['sources', '扩展订阅'], ['background', '后台更新']] as const).map(([id, label]) => <button key={id} aria-pressed={section === id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}</nav>
+        <nav className="settings-nav" aria-label="设置分类">{([['reading', '阅读'], ['ai', 'AI 与语言'], ['sources', '扩展订阅'], ['background', '后台更新']] as const).map(([id, label]) => <button key={id} aria-pressed={section === id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}</nav>
         <div className="settings">
+          <section hidden={section !== 'reading'}><h3 className="sub">阅读语言</h3>
+            <p className="muted">选择要在文章列表里显示的语言。语言由正文自动识别；识别不出语言的文章总会显示。</p>
+            <div className="lang-picker">
+              <label className="inline-check"><input type="checkbox" checked={!langs?.selected.length} onChange={() => void showAll()} />全部语言</label>
+              {langs?.available.filter((a) => a.lang).map((a) => (
+                <label key={a.lang} className="inline-check">
+                  <input type="checkbox" checked={!langs.selected.length || langs.selected.includes(a.lang!)} onChange={() => void toggleLang(a.lang!)} />
+                  {a.lang === 'zh' ? '中文' : a.lang === 'en' ? '英文' : langName(a.lang!)}<span className="muted small"> {a.count} 篇</span>
+                </label>
+              ))}
+            </div>
+          </section>
           <section hidden={section !== 'ai'}><h3 className="sub">AI 与语言</h3>
           <p className="muted">
             阅读无需 AI。连接后可生成摘要、快讯和进展。密钥保存在本机；使用云端 AI 时，相关内容会发送给所选服务。

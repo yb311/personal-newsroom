@@ -1,6 +1,5 @@
 import type { SourceKind } from '@pnr/core';
-import { fetchText } from '../transport.ts';
-import { parseFeed } from '../parsers/rss.ts';
+import { fetchFeed } from '../parse.ts';
 import type { Adapter, AdapterRegistry, AdapterCtx } from './types.ts';
 import { newsSitemapAdapter, newsSitemapIndexAdapter } from './sitemap.ts';
 import { telegramAdapter } from './telegram.ts';
@@ -9,7 +8,7 @@ import { googleNewsAdapter, bingNewsAdapter } from './search.ts';
 import { gdeltAdapter } from './gdelt.ts';
 import { rssHubAdapter } from './rsshub.ts';
 
-const rssAdapter: Adapter = async (source) => parseFeed(await fetchText(source.url), source);
+const rssAdapter: Adapter = (source) => fetchFeed(source, { conditional: true });
 
 /**
  * Every adapter returns the same DiscoveredItem shape, so dedupe, recall,

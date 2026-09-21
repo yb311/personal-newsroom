@@ -83,7 +83,7 @@ async function main(): Promise<void> {
     const stats: Record<string, unknown> = { mode };
 
     if (mode === 'fetch' || mode === 'daily') {
-      const ing = await ingestAll(db, 8);
+      const ing = await ingestAll(db, 8, { dataDir });
       stats['fetched'] = ing.inserted;
       const en = await enrichPending(db, dataDir, mode === 'daily' ? 60 : 25, 5);
       stats['extracted'] = en.ok;

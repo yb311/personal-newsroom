@@ -5,6 +5,22 @@ import type { SourceRow } from '../types.ts';
 
 type Tab = 'browse' | 'add';
 
+/** Why a new source produced nothing, by the reason code it failed with. */
+const SOURCE_FAILURE: Record<string, string> = {
+  parse_error: '这个地址返回的不是订阅源（可能是普通网页，或被网站的防护拦截了）',
+  not_found: '这个地址不存在',
+  forbidden: '网站拒绝了访问',
+  unauthorized: '网站要求登录',
+  rate_limited: '访问太频繁，网站暂时拒绝了',
+  server_error: '网站服务器出错',
+  timeout: '网络超时',
+  network: '网络连接失败',
+  route_not_found: '这个 RSSHub 路由不存在，或参数不对',
+  rsshub_not_available: '还没有安装社交平台扩展'
+};
+const sourceFailure = (code?: string): string =>
+  code ? SOURCE_FAILURE[code] ?? (code.startsWith('instance_') ? 'RSSHub 服务没有响应' : '暂时没抓到内容') : '暂时没抓到内容';
+
 /** Browse the built-in catalogue, or add anything the user has in mind. */
 export function Catalogue({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('browse');
@@ -94,7 +110,7 @@ function AddSource() {
     try {
     const r = await window.pnr.addSource({ kind, value, ...(name.trim() ? { name: name.trim() } : {}) });
     if (!r.ok) setResult({ ok: false, text: r.error ?? '添加失败' });
-    else if (r.items === 0) setResult({ ok: false, text: `已添加「${r.name}」，但${r.error ?? '暂时没抓到内容'}` });
+    else if (r.items === 0) setResult({ ok: false, text: `已添加「${r.name}」，但${sourceFailure(r.error)}` });
     else { setResult({ ok: true, text: `已添加「${r.name}」，抓到 ${r.items} 条` }); setValue(''); setName(''); }
     } catch { setResult({ ok: false, text: '未能添加订阅，请重试。' }); }
     finally { setBusy(false); }

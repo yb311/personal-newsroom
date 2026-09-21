@@ -44,7 +44,8 @@ export default {
     entitlements: resolve(root, 'packaging/entitlements.mac.plist'),
     entitlementsInherit: resolve(root, 'packaging/entitlements.mac.inherit.plist'),
     extraResources: [
-      { from: resolve(root, 'assets/Assets.car'), to: 'Assets.car' }
+      { from: resolve(root, 'assets/Assets.car'), to: 'Assets.car' },
+      { from: resolve(root, 'apps/desktop/packaging/bin/pnr-reader'), to: 'bin/pnr-reader' }
     ],
     extraFiles: [
       { from: resolve(root, 'packaging/launch-agents'), to: 'Library/LaunchAgents', filter: ['*.plist'] }

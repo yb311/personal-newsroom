@@ -11,6 +11,21 @@ Bundled to provide feeds for Telegram, Bilibili, Zhihu, GitHub, X and other
 services. Its full license text ships with the application; the corresponding
 source is available at the URL above.
 
+### Miniflux — Apache-2.0
+https://github.com/miniflux/v2
+
+Its feed-reading packages (parsing, charset handling, HTML sanitising, site
+rules) are copied into native/reader/third_party/miniflux with import paths
+rewritten; the upstream commit is recorded in UPSTREAM there, and its LICENSE
+ships alongside.
+
+### go-trafilatura — Apache-2.0
+https://github.com/markusmobius/go-trafilatura
+
+Article body extraction in the reader core. Its dependencies (go-readability,
+go-domdistiller, go-htmldate, go-py3langid and others) are MIT, BSD or
+Apache-2.0 licensed; see native/reader/go.mod.
+
 ## Feed catalogue
 
 The built-in feed catalogue is this project's own compilation. Every entry was

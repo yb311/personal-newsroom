@@ -31,7 +31,7 @@ app.on('second-instance', () => {
 
 const DATA_DIR = process.env['PNR_DATA_DIR'] ?? defaultDataDir();
 const db = openDb(join(DATA_DIR, 'newsroom.db'));
-const api = createApi(db);
+const api = createApi(db, DATA_DIR);
 
 seedCatalogueOnFirstRun();
 applyRssHubConfig(db);
@@ -50,8 +50,14 @@ function createWindow(): void {
   if (existsSync(built)) void win.loadFile(built);
   else void win.loadURL('http://localhost:5173');
 
-  // External links open in the real browser, never inside the app.
+  // External links open in the real browser, never inside the app: new-window
+  // requests (article links carry target=_blank) and in-place navigation alike.
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: 'deny' }; });
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url === win?.webContents.getURL()) return;
+    e.preventDefault();
+    if (/^https?:/i.test(url)) void shell.openExternal(url);
+  });
 }
 
 app.whenReady().then(() => {
@@ -164,7 +170,7 @@ ipcMain.handle('app:refresh', async () => {
   const runId = `run-${Date.now()}`;
   db.prepare('INSERT INTO runs (id, kind, started_at) VALUES (?, ?, ?)').run(runId, 'fetch', Date.now());
   try {
-    const r = await ingestAll(db, 8);
+    const r = await ingestAll(db, 8, { dataDir: DATA_DIR });
     win?.webContents.send('app:progress', { phase: 'extracting' });
     const e = await enrichPending(db, DATA_DIR, 40, 5);
     db.prepare("UPDATE runs SET finished_at=?, outcome='ok', stats_json=? WHERE id=?")

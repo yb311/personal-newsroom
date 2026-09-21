@@ -1,0 +1,13 @@
+{
+ "url": "https://www.japantimes.co.jp/business/2026/09/21/markets/yen-vulnerable-holiday/",
+ "contentType": "text/html; charset=UTF-8",
+ "body": ".article-body",
+ "mustNot": [
+  "SUBSCRIBE NOW",
+  "Today's print edition",
+  "Home Delivery",
+  "logo-white-2.png",
+  "bookmark-icon.svg"
+ ],
+ "note": "the page from the original bug report: navigation, logos and trending thumbnails leaked in"
+}

@@ -1,0 +1,6 @@
+{
+ "url": "https://www.france24.com/en/france/20260920-thousands-protest-in-france-against-bill-expanding-protections-for-police-use-of-force",
+ "contentType": "text/html; charset=UTF-8",
+ "body": ".t-content__chapo, .t-content__body",
+ "exclude": "[class*='o-self-promo'], [class*='ad-container'], [class*='m-interstitial'], [class*='m-block-ad'], [class*='newsletter'], [class*='m-em-']"
+}

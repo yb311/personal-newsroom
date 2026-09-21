@@ -1,7 +1,7 @@
-import { openDb } from '../packages/store/src/index.ts';
+import { openDb, readBody } from '../packages/store/src/index.ts';
 import { listWatches, PRESETS } from '../packages/watch/src/index.ts';
 import { newSinceYesterday, timeline, getDigest, recentFlashes } from '../packages/generate/src/index.ts';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 const DIR = process.env.PNR_DATA_DIR!;
 const db = openDb(`${DIR}/newsroom.db`);
 const q = (s: string, ...a: any[]) => db.prepare(s).all(...a) as any[];
@@ -11,11 +11,13 @@ const sources = q(`SELECT s.id,s.name,s.kind,s.category,s.country,s.domain,s.ena
   WHERE s.enabled=1 GROUP BY s.id ORDER BY s.name`);
 const items = q(`SELECT i.id,i.title,i.url,i.published_at publishedAt,i.snippet,i.image_url imageUrl,i.author,
   s.name sourceName,s.id sourceId,i.body_state bodyState,i.body_words bodyWords,s.domain,
-  NULL readAt,NULL starredAt,i.body_path bodyPath,i.body_error bodyError
+  NULL readAt,NULL starredAt,i.body_path bodyPath,i.body_error bodyError,i.lang
   FROM items i JOIN sources s ON s.id=i.source_id ORDER BY (i.body_state='ok') DESC, i.published_at DESC LIMIT 140`);
 const bodies: any = {};
-for (const it of items) if (it.bodyPath && existsSync(it.bodyPath))
-  try { bodies[it.id] = JSON.parse(readFileSync(it.bodyPath,'utf8')).blocks; } catch {}
+for (const it of items) {
+  const b = readBody(it.bodyPath);
+  if (b) bodies[it.id] = { html: b.html, words: b.words, source: b.source };
+}
 const ws = listWatches(db).map(w => ({ ...w, newCount: newSinceYesterday(db,w.id).length,
   timelineCount: timeline(db,w.id).length,
   passed: (db.prepare('SELECT COUNT(*) c FROM matches WHERE watch_id=? AND passed_gate=1').get(w.id) as any).c }));

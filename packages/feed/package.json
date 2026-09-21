@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "@pnr/core": "*",
-    "@pnr/store": "*",
-    "fast-xml-parser": "^5.11.1"
+    "@pnr/reader-core": "*",
+    "@pnr/store": "*"
   },
   "//": "rsshub is deliberately NOT a dependency: it is ~415MB and ships as a separately downloaded pack (see src/rsshub-pack.ts). The adapter imports it lazily and works without it."
 }

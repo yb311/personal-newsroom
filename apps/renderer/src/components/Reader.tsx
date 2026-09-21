@@ -1,9 +1,31 @@
 import { BookOpen, ArrowLeft, Star, ExternalLink, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { Block, ItemRow } from '../types.ts';
-import { Blocks } from './Blocks.tsx';
+import type { Block, ItemBody, ItemRow } from '../types.ts';
 
-type Full = ItemRow & { blocks: Block[] | null; bodyError: string | null };
+type Full = ItemRow & { body: ItemBody | null; bodyError: string | null };
+
+/** Below this a body is complete but brief (a results line, a breaking-news
+ *  stub); the reader says so rather than looking truncated. */
+const SHORT_WORDS = 120;
+
+/** Why a body could not be fetched, keyed by the reason codes from the
+ *  download layer and the reader core. */
+const FAILURE: Record<string, string> = {
+  paywalled: '该网站需要订阅，无法获取正文。',
+  forbidden: '网站拒绝了访问。',
+  unauthorized: '网站要求登录才能查看。',
+  blocked: '网站的防护拦截了访问。',
+  not_found: '原文已被删除或移动。',
+  rate_limited: '访问太频繁，网站暂时拒绝，请稍后重试。',
+  server_error: '网站服务器出错，请稍后重试。',
+  http_error: '网站返回了错误。',
+  timeout: '网络超时，请稍后重试。',
+  network: '网络连接失败，请检查网络后重试。',
+  not_html: '原文不是网页（可能是视频、音频或文件）。',
+  no_content: '页面里没有找到正文。',
+  too_thin: '页面里的正文太少，可能需要在浏览器里查看。',
+  encoding: '网页编码无法识别。'
+};
 
 interface Deep {
   blocks: Block[];
@@ -91,14 +113,16 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
               <Sparkles size={15} />{deepBusy ? '正在整理…' : '深入了解'}
             </button>
           )}
-          {item.bodyWords ? <span className="words">{item.bodyWords} 词</span> : null}
+          {item.body ? <span className="words">{item.body.words} 词{item.body.words < SHORT_WORDS ? ' · 正文较短' : ''}</span> : null}
         </div>
 
         {deepErr && <p className="muted warn">{deepErr}</p>}
         {deep && <DeepView deep={deep} />}
 
-        {item.blocks?.length
-          ? <div className="prose"><Blocks blocks={item.blocks} /></div>
+        {item.body
+          // Sanitised by the reader core (Miniflux's allow-list sanitiser): no
+          // scripts, styles or event handlers survive, and links open outside.
+          ? <div className="prose" dangerouslySetInnerHTML={{ __html: item.body.html }} />
           : <Unavailable state={item.bodyState} error={item.bodyError} snippet={item.snippet} onOpen={open} />}
       </article>
     </section>
@@ -166,9 +190,8 @@ function Unavailable(
   { state, error, snippet, onOpen }:
   { state: string; error: string | null; snippet: string | null; onOpen: () => void }
 ) {
-  const why = state === 'blocked' ? '该网站限制了访问，暂时无法获取正文。'
-    : state === 'pending' ? '正在抓取正文…'
-    : state === 'failed' ? `正文抓取失败${error ? `（${error}）` : ''}。`
+  const why = state === 'pending' ? '正在抓取正文…'
+    : state === 'blocked' || state === 'failed' ? FAILURE[error ?? ''] ?? '暂时无法获取正文。'
     : '暂时没有正文。';
   return (
     <div className="unavailable">

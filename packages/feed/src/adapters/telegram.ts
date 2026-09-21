@@ -1,5 +1,5 @@
 import type { DiscoveredItem } from '@pnr/core';
-import { domainOf } from '@pnr/core';
+import { cleanHtml } from '@pnr/reader-core';
 import type { Adapter, ParseResult, SourceRecord } from './types.ts';
 
 /**
@@ -12,41 +12,41 @@ import type { Adapter, ParseResult, SourceRecord } from './types.ts';
  */
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
-const decode = (s: string): string =>
-  s.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
-   .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
-   .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-   .replace(/[ \t]+/g, ' ').trim();
-
-export function parseTelegram(html: string, source: SourceRecord, channel: string): ParseResult {
+export async function parseTelegram(html: string, source: SourceRecord, channel: string): Promise<ParseResult> {
   const dropped: Record<string, number> = {};
   const drop = (r: string): void => { dropped[r] = (dropped[r] ?? 0) + 1; };
-  const items: DiscoveredItem[] = [];
 
+  const posts: { url: string; ts: number; html: string; photo?: string }[] = [];
   const blocks = html.split('tgme_widget_message_wrap').slice(1);
   for (const b of blocks) {
     const idM = b.match(/data-post="([^"]+)"/);
     const timeM = b.match(/datetime="([^"]+)"/);
     const textM = b.match(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/);
     if (!idM?.[1]) { drop('no_id'); continue; }
-    if (!timeM?.[1]) { drop('no_date'); continue; }
-    const ts = Date.parse(timeM[1]);
+    const ts = Date.parse(timeM?.[1] ?? '');
     if (!Number.isFinite(ts)) { drop('no_date'); continue; }
-    const body = textM?.[1] ? decode(textM[1]) : '';
-    if (!body) { drop('no_text'); continue; }   // media-only posts
+    if (!textM?.[1]) { drop('no_text'); continue; }   // media-only posts
+    const photo = b.match(/background-image:url\('([^']+)'\)/)?.[1];
+    posts.push({ url: `https://t.me/${idM[1]}`, ts, html: textM[1], ...(photo ? { photo } : {}) });
+  }
 
-    const url = `https://t.me/${idM[1]}`;
-    const title = body.split('\n')[0]!.slice(0, 120) || body.slice(0, 120);
-    const photo = b.match(/background-image:url\('([^']+)'\)/);
+  // A post has no headline, so its first line serves as one. The reader core
+  // turns the post's markup into text the same way it does for every feed.
+  const cleaned = await cleanHtml(posts.map((p) => ({ baseUrl: p.url, html: p.html })));
+  const items: DiscoveredItem[] = [];
+  posts.forEach((p, i) => {
+    const c = cleaned[i]!;
+    if (!c.text) { drop('no_text'); return; }
     items.push({
-      title, url, publishedAt: new Date(ts).toISOString(),
+      title: c.text.split('\n')[0]!.slice(0, 120), url: p.url, publishedAt: new Date(p.ts).toISOString(),
       sourceId: source.id, sourceName: source.name || `Telegram @${channel}`,
       domain: 't.me',
-      snippet: body.slice(0, 600),
-      ...(photo?.[1] ? { imageUrl: photo[1] } : {}),
+      snippet: c.text.replace(/\n/g, ' ').slice(0, 600),
+      contentHtml: c.html, contentText: c.text, words: c.words,
+      ...(p.photo ? { imageUrl: p.photo } : {}),
       ...(source.lang ? { lang: source.lang } : {})
     });
-  }
+  });
   return { items, diagnostics: { fetched: blocks.length, kept: items.length, droppedByReason: dropped } };
 }
 

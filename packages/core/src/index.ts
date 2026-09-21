@@ -6,3 +6,4 @@ export type {
   TableBlock, TableColumn, ImageBlock, ClaimType
 } from './blocks.ts';
 export { blockText, countWords } from './blocks.ts';
+export { download, DownloadError, ACCEPT_FEED, ACCEPT_PAGE, type Downloaded } from './http.ts';

@@ -298,8 +298,16 @@ const M003_ESTIMATED_DATES = `-- Some upstreams (several RSSHub routes, a few si
 ALTER TABLE items ADD COLUMN date_estimated INTEGER NOT NULL DEFAULT 0;
 `;
 
+const M004_FEED_CACHE = `-- HTTP cache validators from the last successful download of each source.
+-- Sent back as If-None-Match / If-Modified-Since so an unchanged feed costs a
+-- 304 instead of a full download and parse.
+ALTER TABLE sources ADD COLUMN etag TEXT;
+ALTER TABLE sources ADD COLUMN last_modified TEXT;
+`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_init', sql: M001_INIT },
   { name: '002_vectors', sql: M002_VECTORS },
-  { name: '003_estimated_dates', sql: M003_ESTIMATED_DATES }
+  { name: '003_estimated_dates', sql: M003_ESTIMATED_DATES },
+  { name: '004_feed_cache', sql: M004_FEED_CACHE }
 ];

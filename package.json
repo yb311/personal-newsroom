@@ -13,6 +13,8 @@
   ],
   "scripts": {
     "typecheck": "tsc --build",
+    "reader:build": "scripts/build-reader.sh",
+    "reader:test": "cd native/reader && go test ./...",
     "doctor": "node --experimental-strip-types packages/core/src/doctor.ts",
     "catalog:build": "node --experimental-strip-types catalogs/build.ts",
     "catalog:verify": "node --experimental-strip-types catalogs/verify.ts",
@@ -29,7 +31,7 @@
     "preview": "dev/preview.sh",
     "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",
     "icon:build": "electron dev/make-icon.mjs",
-    "package:prepare": "npm run build --workspace=@pnr/desktop && npm run build --workspace=@pnr/worker && node scripts/prepare-package.mjs",
+    "package:prepare": "npm run reader:build && npm run build --workspace=@pnr/desktop && npm run build --workspace=@pnr/worker && node scripts/prepare-package.mjs",
     "package:dir": "npm run package:prepare && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dir --arm64",
     "package:mac": "npm run package:prepare && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dmg zip --arm64"
   },

@@ -11,6 +11,9 @@ import { Settings } from './components/Settings.tsx';
 import { Flashes } from './components/Flashes.tsx';
 
 export type Filter = 'all' | 'unread' | 'starred';
+
+/** How many articles the list loads at a time. */
+const PAGE = 200;
 type Tab = 'today' | 'flashes' | 'read' | 'watches';
 
 const TABS = [{ id: 'today', label: '今日', icon: Sun }, { id: 'flashes', label: '快讯', icon: Zap }, { id: 'read', label: '阅读', icon: BookOpen }, { id: 'watches', label: '关注', icon: Bookmark }] as const;
@@ -19,6 +22,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('read');
   const [sources, setSources] = useState<SourceRow[]>([]);
   const [items, setItems] = useState<ItemRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [sourceId, setSourceId] = useState<string | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
   const [selected, setSelected] = useState<string | null>(null);
@@ -36,9 +40,15 @@ export default function App() {
   const loadSources = useCallback(async () => setSources(await window.pnr.listSources()), []);
   const loadItems = useCallback(async () => {
     const request = ++requestId.current;
-    const rows = await window.pnr.listItems({ ...(sourceId ? { sourceId } : {}), filter, limit: 200 });
-    if (request === requestId.current) setItems(rows);
+    const query = { ...(sourceId ? { sourceId } : {}), filter };
+    const [rows, count] = await Promise.all([window.pnr.listItems({ ...query, limit: PAGE }), window.pnr.countItems(query)]);
+    if (request === requestId.current) { setItems(rows); setTotal(count); }
   }, [sourceId, filter]);
+  const loadMore = async (): Promise<void> => {
+    const request = requestId.current;
+    const more = await window.pnr.listItems({ ...(sourceId ? { sourceId } : {}), filter, limit: PAGE, offset: items.length });
+    if (request === requestId.current) setItems((prev) => [...prev, ...more.filter((m) => !prev.some((p) => p.id === m.id))]);
+  };
   const loadAi = useCallback(async () => {
     const s = await window.pnr.aiStatus();
     setAiReady(s.available);
@@ -149,7 +159,9 @@ export default function App() {
         </header>
         {note && <div className="status-note" role="status">{note}</div>}
         {tab === 'read' && <div className={`body ${selected ? 'has-selection' : ''}`}>
-          <ItemList items={visibleItems} selected={selected} onSelect={onSelect} onStar={onStar}
+          <ItemList items={visibleItems} total={query ? visibleItems.length : total}
+            onMore={items.length < total && !query ? () => void loadMore() : undefined}
+            selected={selected} onSelect={onSelect} onStar={onStar}
             query={query} onQuery={setQuery} filter={filter} onManage={() => setShowCatalogue(true)} />
           <Reader id={selected} onStar={onStar} aiReady={aiReady} revision={revision} onBack={() => setSelected(null)} />
         </div>}
@@ -158,7 +170,7 @@ export default function App() {
         {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} />}
       </main>
       {showCatalogue && <Catalogue onClose={() => { setShowCatalogue(false); void loadSources(); void loadItems(); }} />}
-      {showSettings && <Settings onClose={() => setShowSettings(false)} onChanged={() => void loadAi()} />}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} onChanged={() => { void loadAi(); void loadItems(); }} />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { readFileSync, existsSync } from 'node:fs';
 import type { Db } from '@pnr/store';
+import { readBody } from '@pnr/store';
 import type { Provider } from '@pnr/ai';
 import type { RichBlock } from '@pnr/core';
 import { log } from '@pnr/core';
@@ -134,14 +134,7 @@ export async function generateDeepSummary(
     const refId = `s${idx + 1}`;
     refs.push({ refId, title: r.title, url: r.url, domain: r.domain ?? null });
     const row = db.prepare('SELECT body_path AS p FROM items WHERE id = ?').get(r.id) as { p: string | null };
-    let text = r.snippet ?? '';
-    if (row?.p && existsSync(row.p)) {
-      try {
-        const blocks = JSON.parse(readFileSync(row.p, 'utf8')).blocks as RichBlock[];
-        text = blocks.filter((b) => b.type === 'paragraph').map((b) => (b as { text: string }).text)
-          .join(' ').slice(0, 2200);
-      } catch { /* fall back to the snippet */ }
-    }
+    const text = readBody(row?.p)?.text.replace(/\n/g, ' ').slice(0, 2200) ?? r.snippet ?? '';
     const d = new Date(r.publishedAt).toISOString().slice(0, 10);
     material.push(`[${refId}] ${d} | ${r.sourceName} | ${r.title}\n${text}`);
   });

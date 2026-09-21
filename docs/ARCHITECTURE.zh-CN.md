@@ -269,7 +269,15 @@ show = intentMatch ≥ τ_intent
 
 ### E. 阅读器（v1 简单版）
 
-正文抽取从「生成管线的一环」变成直接对用户的服务。`evidence-enrichment.ts` 的双引擎并行抽取（defuddle vs extractus 按词数取胜 + 结构化 DOM 兜底）本来就是为质量调的。
+正文抽取从「生成管线的一环」变成直接对用户的服务。
+
+**【已改，2026-09-21】** 原计划沿用 `evidence-enrichment.ts` 的双引擎（defuddle vs extractus 按词数取胜 + 结构化兜底）。实际用下来「按词数取胜」会让把导航、推荐区一起抓进来的那个引擎胜出（Japan Times 一篇抓出 22 个导航列表、32 张图），而且自写的 XML 解析不解数字实体、不识别 GBK。现改为 Go 阅读核心 `native/reader`：
+
+- **解析 / 编码 / 清洗**：直接复用 Miniflux（Apache-2.0）的 reader 包，含它自带的测试
+- **正文抽取**：go-trafilatura（Trafilatura 2.2 的 Go 移植，同一测试集 F1 0.914 vs Python 版 0.912），precision 模式；Miniflux 站点规则优先，另有少量本项目站点规则
+- **下载留在 Node**：部分网站按 TLS 指纹拦截 Go 客户端
+- **优先用 feed 自带全文**，够 150 词就不抓网页
+- 验收：34 个真实页面（含 GB2312 页面）人工标注参考正文，词级 F1 均值 ≥ 0.9
 
 v1 只做四件事：
 

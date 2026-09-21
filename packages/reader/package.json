@@ -8,10 +8,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@extractus/article-extractor": "^9.0.1",
-    "defuddle": "^0.19.4",
-    "jsdom": "^30.1.0",
     "@pnr/core": "*",
+    "@pnr/reader-core": "*",
     "@pnr/store": "*"
   }
 }

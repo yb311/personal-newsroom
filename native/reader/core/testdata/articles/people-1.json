@@ -1,0 +1,11 @@
+{
+ "url": "http://politics.people.com.cn/n1/2025/0605/c1001-40494898.html",
+ "contentType": "text/html",
+ "body": ".rm_txt_con",
+ "mustNot": [
+  "打开客户端体验更多服务",
+  "logo.png",
+  "icon_download"
+ ],
+ "note": "site chrome inside the article container; covered by a site rule"
+}

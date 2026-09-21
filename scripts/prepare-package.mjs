@@ -14,10 +14,14 @@ const destination = join(staging, 'node_modules');
 
 rmSync(join(root, 'apps', 'desktop', 'packaging'), { recursive: true, force: true });
 mkdirSync(staging, { recursive: true });
+mkdirSync(join(root, 'apps', 'desktop', 'packaging', 'bin'), { recursive: true });
 
 cpSync(join(root, 'apps', 'desktop', 'dist'), join(staging, 'dist'), { recursive: true });
 cpSync(join(root, 'apps', 'desktop', 'catalogs'), join(staging, 'catalogs'), { recursive: true });
 cpSync(join(root, 'apps', 'worker', 'dist', 'worker.cjs'), join(staging, 'worker.cjs'));
+// The reader core is a standalone executable; electron-builder puts it in
+// Contents/Resources/bin, where both the app and the background worker look.
+cpSync(join(root, 'native', 'reader', 'bin', 'pnr-reader'), join(root, 'apps', 'desktop', 'packaging', 'bin', 'pnr-reader'));
 const packageMetadata = {
   name: 'personal-newsroom',
   productName: '所闻',
@@ -31,7 +35,6 @@ writeFileSync(join(staging, 'package.json'), JSON.stringify({
   ...packageMetadata,
   dependencies: {
     'better-sqlite3': '13.0.3',
-    'jsdom': '30.1.0',
     'sqlite-vec': '0.1.9'
   }
 }, null, 2));

@@ -1,20 +1,16 @@
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Db } from '@pnr/store';
+import { writeBody } from '@pnr/store';
 import { log, domainOf } from '@pnr/core';
-import { fetchArticleHtml, PAYWALLED } from './fetch.ts';
-import { extractArticle, MIN_WORDS } from './extract.ts';
+import { extractArticle } from '@pnr/reader-core';
+import { fetchPage, PAYWALLED } from './fetch.ts';
 
 export type BodyState = 'pending' | 'ok' | 'blocked' | 'failed' | 'skipped';
 
 export interface EnrichResult { state: BodyState; words: number; engine?: string; reason?: string }
 
-/** Article bodies live on disk, not in the database: they are large, they are
- *  never queried by content, and keeping them as files makes backup a folder copy. */
-export function bodyPathFor(dataDir: string, itemId: string): string {
-  const shard = itemId.slice(0, 2);
-  return join(dataDir, 'bodies', shard, `${itemId}.json`);
-}
+/** A clean extraction shorter than this is a brief rather than a failure:
+ *  sports results and breaking-news stubs are complete at 60 words. */
+export const MIN_WORDS = 40;
 
 /** Fetches and extracts one item's body. Never throws: failure is recorded on
  *  the row so the reader can be honest about it instead of pretending. */
@@ -30,39 +26,29 @@ export async function enrichItem(
     return { state, words, ...(engine ? { engine } : {}), ...(reason ? { reason } : {}) };
   };
 
-  const domain = domainOf(item.url);
-  if (PAYWALLED.has(domain)) {
+  if (PAYWALLED.has(domainOf(item.url))) {
     // Do not spend a request or pretend: the reader shows the snippet and an
     // "open in browser" button instead.
     return finish('blocked', 0, undefined, 'paywalled');
   }
 
-  let html: string;
-  let tier: string;
-  try {
-    const r = await fetchArticleHtml(item.url);
-    html = r.html; tier = r.tier;
-  } catch (e) {
-    return finish('failed', 0, undefined, (e as Error)?.message?.slice(0, 60) ?? 'fetch_failed');
-  }
+  let page;
+  try { page = await fetchPage(item.url); }
+  catch (e) { return finish('failed', 0, undefined, (e as { reason?: string }).reason ?? 'network'); }
 
-  let extraction;
-  try { extraction = await extractArticle(html, item.url); }
-  catch (e) { return finish('failed', 0, undefined, `extract:${(e as Error)?.message?.slice(0, 40)}`); }
+  let article;
+  try { article = await extractArticle(page.url, page.body, page.contentType); }
+  catch (e) { return finish('failed', 0, undefined, (e as { reason?: string }).reason ?? 'no_content'); }
 
-  if (!extraction || extraction.blocks.length === 0) return finish('failed', 0, undefined, 'no_content');
-  if (extraction.words < MIN_WORDS) return finish('failed', extraction.words, extraction.engine, 'too_thin');
+  if (article.words < MIN_WORDS) return finish('failed', article.words, article.engine, 'too_thin');
 
-  const path = bodyPathFor(dataDir, item.id);
-  mkdirSync(join(path, '..'), { recursive: true });
-  writeFileSync(path, JSON.stringify({
-    itemId: item.id, url: item.url, fetchTier: tier, engine: extraction.engine,
-    words: extraction.words, extractedAt: now, blocks: extraction.blocks
-  }));
-
+  const path = writeBody(dataDir, {
+    itemId: item.id, url: item.url, html: article.html, text: article.text, words: article.words,
+    lang: article.lang ?? null, source: 'page', engine: article.engine, extractedAt: now
+  });
   log({ event: 'reader.enrich', phase: 'completed', entityId: item.id,
-        attrs: { words: extraction.words, engine: extraction.engine, tier } });
-  return finish('ok', extraction.words, extraction.engine, undefined, path);
+        attrs: { words: article.words, engine: article.engine, tier: page.tier } });
+  return finish('ok', article.words, article.engine, undefined, path);
 }
 
 /** Enriches pending items, newest first, with bounded concurrency. */

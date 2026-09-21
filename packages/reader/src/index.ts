@@ -1,3 +1,3 @@
-export { fetchArticleHtml, PAYWALLED, type FetchTier, type FetchedHtml } from './fetch.ts';
-export { extractArticle, htmlToBlocks, MIN_WORDS, type Extraction } from './extract.ts';
-export { enrichItem, enrichPending, bodyPathFor, type BodyState, type EnrichResult } from './enrich.ts';
+export { fetchPage, PAYWALLED, type FetchTier } from './fetch.ts';
+export { enrichItem, enrichPending, MIN_WORDS, type BodyState, type EnrichResult } from './enrich.ts';
+export { bodyPathFor } from '@pnr/store';

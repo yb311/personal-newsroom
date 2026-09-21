@@ -1,0 +1,6 @@
+{
+ "url": "https://www.rfi.fr/cn/%E4%B8%93%E6%A0%8F%E6%A3%80%E7%B4%A2/%E8%A6%81%E9%97%BB%E5%88%86%E6%9E%90/20260920-%E7%89%B9%E6%9C%97%E6%99%AE%E8%A7%8A%E8%A7%8E%E5%8A%A0%E6%8B%BF%E5%A4%A7%E5%92%8C%E6%B3%95%E5%9B%BD%E9%A2%86%E5%9C%9F%EF%BC%8C%E9%A9%AC%E5%85%8B%E9%BE%99%E4%B8%8E%E5%8A%A0%E6%8B%BF%E5%A4%A7%E6%80%BB%E7%90%86%E5%AE%A3%E5%B8%83%E5%B0%86%E5%8A%A0%E5%BC%BA%E5%8F%8C%E8%BE%B9%E5%85%B3%E7%B3%BB",
+ "contentType": "text/html; charset=UTF-8",
+ "body": ".t-content__chapo, .t-content__body",
+ "exclude": "[class*='o-self-promo'], [class*='ad-container'], [class*='m-interstitial'], [class*='m-block-ad'], [class*='newsletter'], [class*='m-em-']"
+}

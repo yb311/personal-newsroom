@@ -108,6 +108,14 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
 .prose table { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; font-size: 13px; }
 .prose th, .prose td { padding: 9px 12px; border: 1px solid var(--border); text-align: left; }
 .prose th { background: var(--bg2); }
+.prose a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent); text-underline-offset: 3px; }
+.prose a:hover { color: var(--accent); }
+.prose h1, .prose h4 { font: 600 19px/1.5 var(--serif); color: var(--fg); margin: 1.6em 0 .5em; }
+.prose pre { overflow-x: auto; padding: 14px 16px; background: var(--bg2); border-radius: 8px; font: 13px/1.6 var(--mono); }
+.prose code { font-family: var(--mono); font-size: .9em; }
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
+.prose iframe, .prose video { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; height: auto; border: 0; border-radius: 8px; }
+.prose audio { width: 100%; }
 .unavailable { padding: 10px 0; }
 .unavailable .why { font-size: 13px; color: var(--fg2); }
 .unavailable .snippet { margin-top: 20px; padding: 18px; background: var(--bg2); border-radius: 10px; }
@@ -363,3 +371,10 @@ button.primary { padding: 6px 13px; font-size: 12px; border-radius: 6px; }
 @media (max-width: 1000px) { .app-sidebar { width: 172px; } .body { grid-template-columns: 270px minmax(0,1fr); } .watch-workspace { grid-template-columns: 220px minmax(0,1fr); } .watch-detail { padding: 20px; } }
 @media (max-width: 900px) { .body { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .watch-workspace { grid-template-columns: 1fr; } .watch-workspace.has-selection .watch-browser { display: none; } .watch-workspace:not(.has-selection) .watch-detail { display: none; } .watch-back { display: inline-flex; margin-bottom: 15px; padding: 4px 6px; font-size: 11px; } .detail-heading { align-items: flex-start; flex-direction: column; gap: 4px; } }
+
+/* Article list: language label, load-more, stale sources */
+.lang-tag { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--secondary); }
+.list-more { display: flex; justify-content: center; padding: 18px 12px 26px; }
+.list-more button { font-size: 12.5px; color: var(--fg2); }
+.sidebar .stale { margin-left: 6px; font-size: 10px; color: var(--secondary); font-weight: 400; }
+.lang-picker { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
