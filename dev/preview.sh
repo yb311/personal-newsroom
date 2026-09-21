@@ -35,7 +35,13 @@ cat > "$OUT/preview.html" <<'HTML'
     refresh: async () => ({busy:false, inserted:0}), enrichOne: async () => null,
     openExternal: async () => {}, onProgress: () => () => {},
     aiStatus: async () => d.ai, saveAiSettings: async () => ({ mode: 'none', connected: false }),
-    presets: async () => d.presets, watches: async () => d.watches,
+    presets: async (l) => l && l.startsWith('en') ? d.presetsEn : d.presets, watches: async () => d.watches,
+    // ?lang=en previews the English interface.
+    uiLanguage: async () => { const l = window.__ui ?? (new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'zh-CN'); return { choice: l, resolved: l }; },
+    setUiLanguage: async (c) => { window.__ui = c; return { choice: c, resolved: c === 'en' ? 'en' : 'zh-CN' }; },
+    scheduleState: async () => ({ enabled: false, dailyHour: 7, flashIntervalHours: 3, status: 'disabled', mode: 'launchAgent', lastRun: null }),
+    socialStatus: async () => ({ instanceUrl: null, pack: { installed: false } }), onSocialProgress: () => () => {},
+    hasApifyToken: async () => false, rssHubReady: async () => false, rsshubRoutes: async () => [],
     addWatch: async () => d.watches[0], editWatch: async () => d.watches[0],
     removeWatch: async () => {}, togglePreset: async () => {}, correct: async () => {},
     today: async () => d.today, headlines: async () => d.headlines, itemRefs: async () => [],
@@ -45,7 +51,7 @@ cat > "$OUT/preview.html" <<'HTML'
     runWatches: async () => ({busy:false, watches:d.watches.length, digest:true}),
     runFlashes: async () => ({busy:false, published:0}),
     flashes: async () => d.flashes,
-    deepSummary: async (id) => d.deeps[id] ? {summary: d.deeps[id]} : {error:'这条还没生成过深度总结'}
+    deepSummary: async (id) => d.deeps[id] ? {summary: d.deeps[id]} : {error:'no deep summary in this snapshot'}
   };
   const html = await (await fetch('./index.html')).text();
   const l = document.createElement('link'); l.rel='stylesheet';

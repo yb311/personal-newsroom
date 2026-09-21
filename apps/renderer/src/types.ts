@@ -114,10 +114,12 @@ export interface Pnr {
   onProgress(cb: (p: unknown) => void): () => void;
   aiStatus(): Promise<AiStatus>;
   saveAiSettings(patch: Record<string, string>): Promise<AiConnection>;
-  presets(): Promise<PresetRow[]>;
+  presets(lang?: string): Promise<PresetRow[]>;
   watches(): Promise<WatchRow[]>;
   addWatch(i: { label: string; intent: string; keywords?: string[]; outputLang?: string | null }): Promise<WatchRow>;
-  addPresets(ids: string[]): Promise<string[]>;
+  addPresets(ids: string[], lang?: string): Promise<string[]>;
+  uiLanguage(): Promise<{ choice: 'system' | 'zh-CN' | 'en'; resolved: 'zh-CN' | 'en' }>;
+  setUiLanguage(choice: 'system' | 'zh-CN' | 'en'): Promise<{ choice: 'system' | 'zh-CN' | 'en'; resolved: 'zh-CN' | 'en' }>;
   backgroundPrompt(): Promise<boolean>;
   dismissBackgroundPrompt(): Promise<void>;
   editWatch(id: string, patch: Record<string, unknown>): Promise<WatchRow>;

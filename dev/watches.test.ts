@@ -23,6 +23,10 @@ const ids = api.addPresets(['p-ai', 'p-ukraine', 'p-ai']);
 check(ids.length === 3 && new Set(ids).size === 2, '多选一次添加，重复的不会加两遍');
 check(getWatch(db, 'p-ai')!.keywords.includes('人工智能'), '预置主题自带关键词');
 check(api.presets().find((p) => p.id === 'p-ai')!.enabled, '已添加的主题在主题库里标为已添加');
+const english = api.presets('en');
+check(english.every((p) => !/[\u4e00-\u9fff]/.test(p.label + p.intent)), '英文界面下每个主题都有英文名称和原话');
+api.addPresets(['p-climate'], 'en');
+check(getWatch(db, 'p-climate')!.intent.startsWith('I want'), '英文界面添加的主题，原话是英文');
 
 console.log('\n=== 纠偏 ===');
 db.prepare("INSERT INTO matches (watch_id,item_id,recalled_by,intent_score,passed_gate,judged_at,created_at) VALUES ('p-ai','i1','r1_vector',7,1,?,?)").run(now, now);

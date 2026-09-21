@@ -50,7 +50,8 @@ export const CATEGORIES: Record<string, [label: string, ...synonyms: string[]]> 
   tennis: ['网球'],
   travel: ['旅行', '旅游'],
   'ui-ux': ['产品设计', '设计', '交互'],
-  'web-development': ['网页开发', '前端', 'Web']
+  'web-development': ['网页开发', '前端', 'Web'],
+  custom: ['自定义', 'custom']
 };
 
 /** Country as stored in the catalogue → Chinese name. */
@@ -64,8 +65,21 @@ export const COUNTRIES: Record<string, string> = {
   Korea: '韩国', 'South Korea': '韩国'
 };
 
-export const categoryLabel = (key: string | null): string =>
-  key ? CATEGORIES[key]?.[0] ?? key : '其他';
+/** English labels where title-casing the key would read wrong. */
+const CATEGORY_EN: Record<string, string> = {
+  tech: 'Technology', 'business-economy': 'Business & Economy', 'animal-wildlife': 'Animals & Wildlife',
+  diy: 'DIY', 'ios-development': 'iOS Development', 'ui-ux': 'UI/UX', 'cyber-security': 'Cybersecurity',
+  memes: 'Internet Culture', funny: 'Offbeat', 'personal-finance': 'Personal Finance'
+};
+const titleCase = (key: string): string => key.split('-').map((w) => w[0]!.toUpperCase() + w.slice(1)).join(' ');
+const isZh = (lang?: string): boolean => !lang || lang.startsWith('zh');
 
-export const countryLabel = (name: string | null): string | null =>
-  name ? COUNTRIES[name] ?? name : null;
+/** Display name of a category in the interface language (Chinese by default). */
+export const categoryLabel = (key: string | null, lang?: string): string =>
+  !key ? (isZh(lang) ? '其他' : 'Other')
+    : isZh(lang) ? CATEGORIES[key]?.[0] ?? key
+    : CATEGORY_EN[key] ?? (CATEGORIES[key] ? titleCase(key) : key);
+
+/** The catalogue stores countries in English; Chinese gets its own names. */
+export const countryLabel = (name: string | null, lang?: string): string | null =>
+  name ? (isZh(lang) ? COUNTRIES[name] ?? name : name) : null;

@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { HeadlineGroup, ItemRef, Today as TodayData } from '../types.ts';
 import { Blocks } from './Blocks.tsx';
 import { Cites } from './Cites.tsx';
-
-const clock = (ts: number): string => new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+import { useTranslation } from 'react-i18next';
+import { clock } from '../i18n.ts';
 
 /**
  * The 今日 tab. With AI: 昨天到今天 on top, then the brief, then the day's
@@ -14,6 +14,7 @@ const clock = (ts: number): string => new Date(ts).toLocaleTimeString('zh-CN', {
  */
 export function Today({ aiReady, onSetup, onRun, onOpen, running }:
   { aiReady: boolean; onSetup: () => void; onRun: () => void; onOpen: (id: string) => void; running: boolean }) {
+  const { t } = useTranslation();
   const [data, setData] = useState<TodayData | null>(null);
   const [headlines, setHeadlines] = useState<HeadlineGroup[]>([]);
 
@@ -31,7 +32,7 @@ export function Today({ aiReady, onSetup, onRun, onOpen, running }:
       <div className="pane-inner today-page">
         {changes.length > 0 && (
           <div className="changes">
-            <h2>昨天到今天</h2>
+            <h2>{t('today.changes')}</h2>
             {changes.map((c) => (
               <div key={c.watchId} className="change-group">
                 <h3>{c.label}</h3>
@@ -47,25 +48,25 @@ export function Today({ aiReady, onSetup, onRun, onOpen, running }:
 
         {digest ? (
           <article className="digest">
-            <div className="digest-meta">{data?.date} · 生成于 {clock(digest.generatedAt)}</div>
+            <div className="digest-meta">{t('today.generatedAt', { date: data?.date, time: clock(digest.generatedAt) })}</div>
             <h1>{digest.title}</h1>
             <div className="prose"><Blocks blocks={digest.blocks} refs={refs} onOpen={onOpen} /></div>
           </article>
         ) : aiReady ? (
           <div className="empty-block">
-            <p>今天还没有生成摘要。</p>
-            <button className="primary" onClick={onRun} disabled={running}>{running ? '正在生成…' : '现在生成'}</button>
+            <p>{t('today.noDigest')}</p>
+            <button className="primary" onClick={onRun} disabled={running}>{running ? t('today.generating') : t('today.generate')}</button>
           </div>
         ) : (
           <p className="muted today-note">
-            <Sparkles size={14} /> 连接 AI 后，这里会先显示按你的关注写的今日摘要。
-            <button className="link" onClick={onSetup}>去设置</button>
+            <Sparkles size={14} /> {t('today.aiHint')}
+            <button className="link" onClick={onSetup}>{t('common.goSettings')}</button>
           </p>
         )}
 
         <div className="headlines">
-          <h2>今日要闻</h2>
-          {headlines.length === 0 && <p className="muted">最近 24 小时还没有新文章，刷新订阅试试。</p>}
+          <h2>{t('today.headlines')}</h2>
+          {headlines.length === 0 && <p className="muted">{t('today.noHeadlines')}</p>}
           {headlines.map((g) => (
             <div key={g.sourceId} className="headline-group">
               <h3>{g.sourceName}</h3>

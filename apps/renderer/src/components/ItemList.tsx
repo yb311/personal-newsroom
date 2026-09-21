@@ -2,25 +2,11 @@ import { useEffect, useRef } from 'react';
 import { Search, Star, Inbox } from 'lucide-react';
 import type { Filter } from '../App.tsx';
 import type { ItemRow } from '../types.ts';
-
-const when = (ts: number): string => {
-  const mins = Math.round((Date.now() - ts) / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins} 分钟前`;
-  const h = Math.round(mins / 60);
-  if (h < 24) return `${h} 小时前`;
-  const d = Math.round(h / 24);
-  return d < 30 ? `${d} 天前` : new Date(ts).toLocaleDateString('zh-CN');
-};
+import { useTranslation } from 'react-i18next';
+import { ago, languageName } from '../i18n.ts';
 
 /** Languages readers here can be assumed to read; anything else is labelled. */
 const FAMILIAR = new Set(['zh', 'en']);
-const LANG_NAMES: Record<string, string> = {
-  ja: '日文', ko: '韩文', es: '西班牙文', pt: '葡萄牙文', fr: '法文', de: '德文', it: '意大利文',
-  ru: '俄文', ar: '阿拉伯文', nl: '荷兰文', uk: '乌克兰文', pl: '波兰文', tr: '土耳其文', vi: '越南文',
-  id: '印尼文', th: '泰文', hi: '印地文', fa: '波斯文', he: '希伯来文'
-};
-export const langName = (lang: string): string => LANG_NAMES[lang] ?? lang.toUpperCase();
 
 interface Props {
   items: ItemRow[]; total: number; onMore: (() => void) | undefined; selected: string | null;
@@ -29,10 +15,11 @@ interface Props {
 }
 
 export function ItemList({ items, total, onMore, selected, onSelect, onStar, query, onQuery, filter, onManage }: Props) {
+  const { t } = useTranslation();
   const list = useRef<HTMLElement>(null);
   useEffect(() => { list.current?.querySelector('.selected')?.scrollIntoView({ block: 'nearest' }); }, [selected]);
   return (
-    <section ref={list} className="list" aria-label="文章列表" tabIndex={0} onKeyDown={e => {
+    <section ref={list} className="list" aria-label={t('list.label')} tabIndex={0} onKeyDown={e => {
       if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
       e.preventDefault();
@@ -42,12 +29,12 @@ export function ItemList({ items, total, onMore, selected, onSelect, onStar, que
       if (next) onSelect(next.id);
     }}>
       <div className="list-toolbar">
-        <div className="list-heading"><h2>{filter === 'unread' ? '未读文章' : filter === 'starred' ? '我的收藏' : '全部文章'}</h2><span>{total} 篇</span></div>
-        <label className="search-field"><Search size={16} /><input type="search" aria-label="搜索当前列表" placeholder="搜索当前列表" value={query} onChange={e => onQuery(e.target.value)} /></label>
+        <div className="list-heading"><h2>{t(`filters.${filter}`)}</h2><span>{t('list.count', { count: total })}</span></div>
+        <label className="search-field"><Search size={16} /><input type="search" aria-label={t('list.search')} placeholder={t('list.search')} value={query} onChange={e => onQuery(e.target.value)} /></label>
       </div>
-      {items.length === 0 && <div className="empty-state"><Inbox size={30} /><h3>{query ? '没有找到文章' : filter === 'starred' ? '还没有收藏' : filter === 'unread' ? '暂时没有未读文章' : '从一份订阅开始'}</h3>
-        <p>{query ? '试试其他关键词，或清除搜索。' : filter === 'starred' ? '点击文章旁的收藏按钮，留待稍后阅读。' : filter === 'unread' ? '刷新订阅，看看有没有新内容。' : '添加你喜欢的媒体，新闻会出现在这里。'}</p>
-        {query ? <button onClick={() => onQuery('')}>清除搜索</button> : filter === 'all' ? <button className="primary" onClick={onManage}>添加订阅</button> : null}
+      {items.length === 0 && <div className="empty-state"><Inbox size={30} /><h3>{t(query ? 'list.emptyQuery' : filter === 'starred' ? 'list.emptyStarred' : filter === 'unread' ? 'list.emptyUnread' : 'list.emptyAll')}</h3>
+        <p>{t(query ? 'list.hintQuery' : filter === 'starred' ? 'list.hintStarred' : filter === 'unread' ? 'list.hintUnread' : 'list.hintAll')}</p>
+        {query ? <button onClick={() => onQuery('')}>{t('list.clearSearch')}</button> : filter === 'all' ? <button className="primary" onClick={onManage}>{t('app.addSubscription')}</button> : null}
       </div>}
       {items.map((it) => (
         <article
@@ -60,22 +47,22 @@ export function ItemList({ items, total, onMore, selected, onSelect, onStar, que
             <span className="dot">·</span>
             {/* The upstream gave no date, so this is when we first saw it.
                 Saying so is cheap; quietly passing it off as a publish time is not. */}
-            <span title={it.dateEstimated ? '这个来源没有提供发布时间，显示的是首次发现的时间' : undefined}>
-              {it.dateEstimated ? '发现于 ' : ''}{when(it.publishedAt)}
+            <span title={it.dateEstimated ? t('common.noDateHint') : undefined}>
+              {it.dateEstimated ? t('common.seenAt', { when: ago(it.publishedAt) }) : ago(it.publishedAt)}
             </span>
-            {it.lang && !FAMILIAR.has(it.lang) && <span className="lang-tag">{langName(it.lang)}</span>}
+            {it.lang && !FAMILIAR.has(it.lang) && <span className="lang-tag">{languageName(it.lang)}</span>}
             <button
               className={`star ${it.starredAt ? 'on' : ''}`}
               onClick={(e) => { e.stopPropagation(); onStar(it.id); }}
-              title={it.starredAt ? '取消收藏' : '收藏'}
-              aria-label={it.starredAt ? '取消收藏' : '收藏'} aria-pressed={Boolean(it.starredAt)}
+              title={it.starredAt ? t('list.unstar') : t('list.star')}
+              aria-label={it.starredAt ? t('list.unstar') : t('list.star')} aria-pressed={Boolean(it.starredAt)}
             ><Star size={15} fill={it.starredAt ? 'currentColor' : 'none'} /></button>
           </div>
           <h3><button className="article-title" aria-current={selected === it.id ? true : undefined} onClick={(e) => { e.stopPropagation(); onSelect(it.id); }}>{it.title}</button></h3>
           {it.snippet && <p>{it.snippet.slice(0, 180)}</p>}
         </article>
       ))}
-      {onMore && <div className="list-more"><button onClick={onMore}>加载更多（还有 {total - items.length} 篇）</button></div>}
+      {onMore && <div className="list-more"><button onClick={onMore}>{t('list.more', { count: total - items.length })}</button></div>}
     </section>
   );
 }

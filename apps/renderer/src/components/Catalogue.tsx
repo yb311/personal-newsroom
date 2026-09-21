@@ -2,55 +2,41 @@ import { categoryLabel, countryLabel } from '@pnr/core/catalog-labels';
 import { Dialog } from './Dialog.tsx';
 import { RssHubPicker } from './RssHubPicker.tsx';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { CatalogueResult, SourceRow } from '../types.ts';
 
 type Tab = 'browse' | 'social' | 'add';
 
-/** Why a new source produced nothing, by the reason code it failed with. */
-const SOURCE_FAILURE: Record<string, string> = {
-  parse_error: '这个地址返回的不是订阅源（可能是普通网页，或被网站的防护拦截了）',
-  not_found: '这个地址不存在',
-  forbidden: '网站拒绝了访问',
-  unauthorized: '网站要求登录',
-  rate_limited: '访问太频繁，网站暂时拒绝了',
-  server_error: '网站服务器出错',
-  timeout: '网络超时',
-  network: '网络连接失败',
-  route_not_found: '这个 RSSHub 路由不存在，或参数不对',
-  rsshub_not_available: '还没有安装社交平台扩展',
-  needs_browser: '这个路由需要浏览器环境，本应用暂不支持',
-  upstream_blocked: '对方网站拒绝了访问（可能是限流或需要登录），稍后再试',
-  upstream_error: '对方网站出错了，稍后再试',
-  route_error: 'RSSHub 处理这个路由时出错',
-  empty: '这个来源暂时没有内容',
-  apify_no_token: '还没有填 Apify 令牌（设置 → 扩展订阅）',
-  apify_bad_token: 'Apify 令牌无效，请检查',
-  apify_no_credit: 'Apify 账户余额不足'
-};
-const sourceFailure = (code?: string): string =>
-  code ? SOURCE_FAILURE[code] ?? (code.startsWith('instance_') ? 'RSSHub 服务没有响应' : '暂时没抓到内容') : '暂时没抓到内容';
+/** Why a new source produced nothing, from the reason code it failed with. */
+const sourceFailure = (t: TFunction, code?: string): string =>
+  !code ? t('catalogue.failure.unknown')
+    : code.startsWith('instance_') ? t('catalogue.failure.instance')
+    : t(`catalogue.failure.${code}`, { defaultValue: t('catalogue.failure.unknown') });
 
 /** Browse the built-in catalogue, or add anything the user has in mind. */
 export function Catalogue({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('browse');
   return (
-    <Dialog title="订阅管理" onClose={onClose}>
+    <Dialog title={t('catalogue.title')} onClose={onClose}>
         <header>
-          <h2>订阅源</h2>
+          <h2>{t('catalogue.heading')}</h2>
           <nav className="tabs small">
-            <button className={tab === 'browse' ? 'active' : ''} onClick={() => setTab('browse')}>内置目录</button>
-            <button className={tab === 'social' ? 'active' : ''} onClick={() => setTab('social')}>社交平台</button>
-            <button className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>添加链接</button>
+            {(['browse', 'social', 'add'] as const).map((id) => (
+              <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{t(`catalogue.tabs.${id}`)}</button>
+            ))}
           </nav>
           <span className="grow" />
-          <button onClick={onClose}>完成</button>
+          <button onClick={onClose}>{t('common.done')}</button>
         </header>
-        {tab === 'browse' ? <Browse /> : tab === 'social' ? <RssHubPicker describe={sourceFailure} /> : <AddSource />}
+        {tab === 'browse' ? <Browse /> : tab === 'social' ? <RssHubPicker describe={(code) => sourceFailure(t, code)} /> : <AddSource />}
     </Dialog>
   );
 }
 
 function Browse() {
+  const { t, i18n } = useTranslation();
   const [q, setQ] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [country, setCountry] = useState<string | null>(null);
@@ -74,36 +60,36 @@ function Browse() {
   return (
     <>
       <div className="modal-search">
-        <input autoFocus aria-label="搜索订阅源" placeholder="搜索媒体、分类、国家或域名，例如：国际新闻、美国、bbc" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input autoFocus aria-label={t('catalogue.search')} placeholder={t('catalogue.searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      <div className="facets" aria-label="按分类筛选">
-        <button className={category === null ? 'chip active' : 'chip'} onClick={() => setCategory(null)}>全部分类</button>
+      <div className="facets" aria-label={t('catalogue.byCategory')}>
+        <button className={category === null ? 'chip active' : 'chip'} onClick={() => setCategory(null)}>{t('catalogue.allCategories')}</button>
         {result?.categories.slice(0, 16).map((c) => (
           <button key={c.key} className={category === c.key ? 'chip active' : 'chip'} onClick={() => setCategory(category === c.key ? null : c.key)}>
-            {categoryLabel(c.key)} <small>{c.count}</small>
+            {categoryLabel(c.key, i18n.language)} <small>{c.count}</small>
           </button>
         ))}
       </div>
       {(result?.countries.length ?? 0) > 0 && (
-        <div className="facets" aria-label="按国家筛选">
-          <button className={country === null ? 'chip active' : 'chip'} onClick={() => setCountry(null)}>全部国家</button>
+        <div className="facets" aria-label={t('catalogue.byCountry')}>
+          <button className={country === null ? 'chip active' : 'chip'} onClick={() => setCountry(null)}>{t('catalogue.allCountries')}</button>
           {result!.countries.map((c) => (
             <button key={c.key} className={country === c.key ? 'chip active' : 'chip'} onClick={() => setCountry(country === c.key ? null : c.key)}>
-              {countryLabel(c.key)} <small>{c.count}</small>
+              {countryLabel(c.key, i18n.language)} <small>{c.count}</small>
             </button>
           ))}
         </div>
       )}
-      <p className="modal-note">找到 {rows.length} 个，其中已订阅 {rows.filter((r) => r.enabled).length} 个。</p>
+      <p className="modal-note">{t('catalogue.found', { count: rows.length, enabled: rows.filter((r) => r.enabled).length })}</p>
       <ul className="catalogue">
-        {rows.length === 0 && <li className="empty-block">没有找到订阅源，试试其他关键词。</li>}
+        {rows.length === 0 && <li className="empty-block">{t('catalogue.none')}</li>}
         {rows.map((s) => (
           <li key={s.id}>
             <label>
               <input type="checkbox" checked={Boolean(s.enabled)} onChange={() => void toggle(s)} />
               <span className="name">{s.name}</span>
-              <span className="tag">{categoryLabel(s.category)}</span>
-              {s.country && <span className="tag country">{countryLabel(s.country)}</span>}
+              <span className="tag">{categoryLabel(s.category, i18n.language)}</span>
+              {s.country && <span className="tag country">{countryLabel(s.country, i18n.language)}</span>}
               <span className="domain">{s.domain}</span>
             </label>
           </li>
@@ -113,19 +99,12 @@ function Browse() {
   );
 }
 
-const KINDS: { id: string; label: string; hint: string; example: string }[] = [
-  { id: 'auto',       label: '自动识别',  hint: '粘贴订阅链接或频道名，自动识别类型', example: 'https://example.com/feed 或 @durov' },
-  { id: 'rss',        label: 'RSS 地址',  hint: '任何 RSS / Atom 地址',        example: 'https://www.theverge.com/rss/index.xml' },
-  { id: 'telegram',   label: 'Telegram', hint: '公开频道，不需要登录',         example: 'durov 或 https://t.me/durov' },
-  { id: 'reddit',     label: 'Reddit',   hint: '子版名',                       example: 'worldnews' },
-  { id: 'hackernews', label: 'Hacker News', hint: '首页热门',                  example: 'front_page' },
-  { id: 'github',     label: 'GitHub',   hint: '用户动态、owner/repo 的发布，或 trending（近一周新星仓库，可加语言，如 trending:rust）', example: 'torvalds、nodejs/node 或 trending' },
-  { id: 'apify_x',    label: 'X / Twitter', hint: '通过 Apify 抓取，需要在「设置 → 扩展订阅」里填 Apify 令牌；按条计费，每次约 0.02 美元', example: '@nasa 或 search:AI regulation' },
-  { id: 'rsshub',     label: 'RSSHub 路由', hint: '手动输入 RSSHub 路由（常用平台请用「社交平台」）', example: '/bilibili/popular/all' }
-];
+/** Source kinds; their names, hints and examples are in the dictionaries. */
+const KINDS = ['auto', 'rss', 'telegram', 'reddit', 'hackernews', 'github', 'apify_x', 'rsshub'] as const;
 
 function AddSource() {
-  const [kind, setKind] = useState('auto');
+  const { t } = useTranslation();
+  const [kind, setKind] = useState<(typeof KINDS)[number]>('auto');
   const [value, setValue] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -139,31 +118,31 @@ function AddSource() {
     setBusy(true); setResult(null);
     try {
     const r = await window.pnr.addSource({ kind, value, ...(name.trim() ? { name: name.trim() } : {}) });
-    if (!r.ok) setResult({ ok: false, text: r.error ?? '添加失败' });
-    else if (r.items === 0) setResult({ ok: false, text: `已添加「${r.name}」，但${sourceFailure(r.error)}` });
-    else { setResult({ ok: true, text: `已添加「${r.name}」，抓到 ${r.items} 条` }); setValue(''); setName(''); }
-    } catch { setResult({ ok: false, text: '未能添加订阅，请重试。' }); }
+    if (!r.ok) setResult({ ok: false, text: r.error ? sourceFailure(t, r.error) : t('catalogue.addFailed') });
+    else if (r.items === 0) setResult({ ok: false, text: t('catalogue.addedEmpty', { name: r.name, why: sourceFailure(t, r.error) }) });
+    else { setResult({ ok: true, text: t('catalogue.added', { name: r.name, count: r.items }) }); setValue(''); setName(''); }
+    } catch { setResult({ ok: false, text: t('catalogue.addError') }); }
     finally { setBusy(false); }
   };
 
-  const active = KINDS.find((k) => k.id === kind)!;
+  const example = t(`catalogue.kinds.${kind}.example`);
 
   return (
     <div className="add-source">
       <div className="kind-picker">
         {KINDS.map((k) => (
-          <button key={k.id} className={kind === k.id ? 'active' : ''} onClick={() => setKind(k.id)}>{k.label}</button>
+          <button key={k} className={kind === k ? 'active' : ''} onClick={() => setKind(k)}>{t(`catalogue.kinds.${k}.label`)}</button>
         ))}
       </div>
-      <p className="muted">{active.hint}　例：<code>{active.example}</code></p>
+      <p className="muted">{t(`catalogue.kinds.${kind}.hint`)}　{t('catalogue.example')}<code>{example}</code></p>
 
       <div className="new-watch">
-        <input aria-label="订阅名称（选填）" placeholder="名称（选填）" value={name} onChange={(e) => setName(e.target.value)} />
-        <input autoFocus aria-label="订阅地址或频道" placeholder={active.example} value={value}
+        <input aria-label={t('catalogue.name')} placeholder={t('catalogue.namePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
+        <input autoFocus aria-label={t('catalogue.address')} placeholder={example} value={value}
                onChange={(e) => setValue(e.target.value)}
                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit(); }} />
         <button className="primary" onClick={() => void submit()} disabled={busy || !value.trim()}>
-          {busy ? '正在验证…' : '添加'}
+          {busy ? t('common.checking') : t('common.add')}
         </button>
       </div>
 
@@ -171,15 +150,13 @@ function AddSource() {
 
       {kind === 'rsshub' && (
         <p className="muted">
-          {rssHub === false && <span className="warn">这台机器上还没有 RSSHub 扩展，先到「社交平台」里下载。</span>}
-          常用平台已经在「社交平台」里整理好了，可以直接挑选、填表；这里用于手动输入其他路由。
+          {rssHub === false && <span className="warn">{t('catalogue.rsshubMissing')}</span>}
+          {t('catalogue.rsshubHint')}
         </p>
       )}
 
       {kind === 'telegram' && (
-        <p className="muted">
-          公开频道不需要登录、不需要 API key。少数频道关掉了网页预览，那种目前抓不到。
-        </p>
+        <p className="muted">{t('catalogue.telegramHint')}</p>
       )}
     </div>
   );

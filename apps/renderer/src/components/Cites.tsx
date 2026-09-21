@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ItemRef } from '../types.ts';
 
 /**
@@ -6,13 +7,14 @@ import type { ItemRef } from '../types.ts';
  * article in the reader, so any sentence can be checked against its source.
  */
 export function Cites({ ids, refs, onOpen }: { ids: string[] | undefined; refs: Map<string, ItemRef>; onOpen: (id: string) => void }) {
+  const { t } = useTranslation();
   const found = [...new Set(ids ?? [])].map((id) => refs.get(id)).filter((r): r is ItemRef => Boolean(r));
   if (found.length === 0) return null;
   return (
     <span className="cites">
       {found.map((r) => (
         <button key={r.id} className="cite-chip" title={r.title} onClick={() => onOpen(r.id)}>
-          {r.sourceName ?? '来源'}
+          {r.sourceName ?? t('common.source')}
         </button>
       ))}
     </span>

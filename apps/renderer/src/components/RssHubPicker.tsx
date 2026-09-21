@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { CuratedRoute, SocialStatus } from '../types.ts';
 
 /** Values a route's example uses, so each field can show a working sample. */
@@ -35,6 +36,7 @@ function fill(route: CuratedRoute, values: Record<string, string>): string | nul
  * 少数派 author, a 即刻 circle — and the matching route is filled in.
  */
 export function RssHubPicker({ describe }: { describe: (reason?: string) => string }) {
+  const { t } = useTranslation();
   const [routes, setRoutes] = useState<CuratedRoute[]>([]);
   const [social, setSocial] = useState<SocialStatus | null>(null);
   const [ready, setReady] = useState<boolean | null>(null);
@@ -46,17 +48,20 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
   const [preview, setPreview] = useState<{ ok: boolean; titles: string[]; reason?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState('');
+  const [failed, setFailed] = useState('');
 
   useEffect(() => {
     void window.pnr.rsshubRoutes().then((r) => { setRoutes(r); setPlatform(r[0]?.platform ?? null); });
     void window.pnr.rssHubReady().then(setReady);
     void window.pnr.socialStatus().then(setSocial);
+  }, []);
+  useEffect(() => {
     return window.pnr.onSocialProgress((p) => {
       const x = p as { phase: string; received?: number; total?: number };
-      setInstalling(x.phase === 'downloading' && x.total ? `下载中 ${Math.round((x.received! / x.total) * 100)}%`
-        : x.phase === 'verifying' ? '校验中…' : x.phase === 'extracting' ? '解压中…' : '');
+      setInstalling(x.phase === 'downloading' && x.total ? t('settings.downloading', { percent: Math.round((x.received! / x.total) * 100) })
+        : x.phase === 'verifying' ? t('settings.verifyingPack') : x.phase === 'extracting' ? t('settings.extracting') : '');
     });
-  }, []);
+  }, [t]);
 
   const platforms = useMemo(() => [...new Set(routes.map((r) => r.platform))], [routes]);
   const choose = (r: CuratedRoute, preset?: Record<string, string>): void => {
@@ -66,9 +71,10 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
   const examples = route ? exampleValues(route) : {};
 
   const install = async (): Promise<void> => {
-    setInstalling('准备中…');
+    setInstalling(t('settings.preparing')); setFailed('');
     const r = await window.pnr.socialInstall().catch(() => ({ ok: false, error: undefined }));
-    setInstalling(r.ok ? '' : `失败：${r.error ?? '请重试'}`);
+    setInstalling('');
+    if (!r.ok) setFailed(t('common.failedWith', { error: r.error ? t(`catalogue.packError.${r.error}`, { defaultValue: r.error }) : t('common.retry') }));
     setReady(await window.pnr.rssHubReady());
     setSocial(await window.pnr.socialStatus());
   };
@@ -76,7 +82,7 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
   const recognise = async (): Promise<void> => {
     const hit = await window.pnr.matchRoute(pasted);
     const r = hit ? routes.find((x) => x.id === hit.routeId) : null;
-    if (!hit || !r) { setResult('没认出这个地址。可以在下面按平台挑选，或到「添加链接」里手动填路由。'); return; }
+    if (!hit || !r) { setResult(t('rsshub.notRecognised')); return; }
     setPlatform(r.platform);
     // Recover the values from the matched path so the form shows them.
     const tpl = r.path.split('/').filter(Boolean);
@@ -84,7 +90,7 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
     const v: Record<string, string> = {};
     tpl.forEach((seg, i) => { const m = seg.match(/^:([A-Za-z0-9_]+)/); if (m && got[i]) v[m[1]!] = decodeURIComponent(got[i]!); });
     choose(r, v);
-    setResult(`认出来了：${r.platform} · ${r.name}`);
+    setResult(t('rsshub.recognised', { platform: r.platform, name: r.name }));
   };
 
   const tryIt = async (): Promise<void> => {
@@ -99,8 +105,8 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
     setBusy(true); setResult('');
     try {
       const r = await window.pnr.addSource({ kind: 'rsshub', value: path, name: `${route.platform} · ${route.name}` });
-      setResult(!r.ok ? r.error ?? '添加失败' : r.items ? `已添加「${r.name}」，抓到 ${r.items} 条` : `已添加「${r.name}」，但${describe(r.error)}`);
-    } catch { setResult('未能添加，请重试。'); }
+      setResult(!r.ok ? (r.error ? describe(r.error) : t('catalogue.addFailed')) : r.items ? t('catalogue.added', { name: r.name, count: r.items }) : t('catalogue.addedEmpty', { name: r.name, why: describe(r.error) }));
+    } catch { setResult(t('catalogue.addError')); }
     finally { setBusy(false); }
   };
 
@@ -109,22 +115,22 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
     <div className="rsshub-picker">
       {ready === false && !usingInstance && (
         <div className="pack-banner">
-          <p>社交平台订阅由 RSSHub 提供，需要先下载扩展（约 63 MB，安装后约 370 MB，放在本机，可随时移除）。</p>
-          <button className="primary" disabled={Boolean(installing) && !installing.startsWith('失败')} onClick={() => void install()}>
-            {installing && !installing.startsWith('失败') ? installing : '下载扩展'}
+          <p>{t('rsshub.packBanner')}</p>
+          <button className="primary" disabled={Boolean(installing)} onClick={() => void install()}>
+            {installing || t('settings.downloadPack')}
           </button>
-          {installing.startsWith('失败') && <p className="muted warn">{installing}</p>}
+          {failed && <p className="muted warn">{failed}</p>}
         </div>
       )}
 
       <div className="paste-row">
-        <input value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="粘贴网页地址，例如少数派作者主页、即刻圈子、小宇宙播客页"
+        <input value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={t('rsshub.pastePlaceholder')}
                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void recognise(); }} />
-        <button onClick={() => void recognise()} disabled={!pasted.trim()}>识别</button>
+        <button onClick={() => void recognise()} disabled={!pasted.trim()}>{t('rsshub.recognise')}</button>
       </div>
 
       <div className="picker-body">
-        <nav className="platforms" aria-label="平台">
+        <nav className="platforms" aria-label={t('rsshub.platforms')}>
           {platforms.map((p) => (
             <button key={p} className={platform === p ? 'active' : ''} onClick={() => { setPlatform(p); setRoute(null); }}>{p}</button>
           ))}
@@ -135,7 +141,7 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
               <li key={r.id}>
                 <button className={route?.id === r.id ? 'active' : ''} onClick={() => choose(r)}>
                   <strong>{r.name}</strong>
-                  <small>{r.params.some((p) => !p.advanced && !p.optional) ? '需要填写' : '直接可用'}{r.sources.length ? ' · 可粘贴网址' : ''}</small>
+                  <small>{r.params.some((p) => !p.advanced && !p.optional) ? t('rsshub.needsInput') : t('rsshub.ready')}{r.sources.length ? t('rsshub.pasteable') : ''}</small>
                 </button>
               </li>
             ))}
@@ -146,26 +152,26 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
               <h4>{route.platform} · {route.name}</h4>
               {route.params.filter((p) => !p.advanced).map((p) => (
                 <label key={p.key} className="field">
-                  <span>{p.description.split(/[，,。]/)[0] || p.key}{p.optional ? '（选填）' : ''}</span>
+                  <span>{p.description.split(/[，,。]/)[0] || p.key}{p.optional ? t('rsshub.optional') : ''}</span>
                   {p.options?.length
                     ? <select value={values[p.key] ?? p.default ?? ''} onChange={(e) => setValues({ ...values, [p.key]: e.target.value })}>
-                        {p.optional && <option value="">默认</option>}
+                        {p.optional && <option value="">{t('rsshub.default')}</option>}
                         {p.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
-                    : <input value={values[p.key] ?? ''} placeholder={examples[p.key] ? `例如 ${examples[p.key]}` : ''}
+                    : <input value={values[p.key] ?? ''} placeholder={examples[p.key] ? t('rsshub.exampleValue', { value: examples[p.key] }) : ''}
                              onChange={(e) => setValues({ ...values, [p.key]: e.target.value })} />}
                   {p.description && <small className="muted">{p.description}</small>}
                 </label>
               ))}
-              {route.sources.length > 0 && <p className="muted small">也可以直接把对应页面的网址粘贴到上面识别，例如：{route.sources[0]}</p>}
-              <p className="muted small">路由：<code>{path ?? '（还差必填项）'}</code></p>
+              {route.sources.length > 0 && <p className="muted small">{t('rsshub.pasteHint', { example: route.sources[0] })}</p>}
+              <p className="muted small">{t('rsshub.route')}<code>{path ?? t('rsshub.missing')}</code></p>
               <div className="dialog-actions">
-                <button disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void tryIt()}>{busy ? '请稍候…' : '试抓'}</button>
-                <button className="primary" disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void add()}>添加</button>
+                <button disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void tryIt()}>{busy ? t('common.pleaseWait') : t('rsshub.try')}</button>
+                <button className="primary" disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void add()}>{t('common.add')}</button>
               </div>
               {preview && (preview.ok
                 ? <ul className="preview-titles">{preview.titles.map((t, i) => <li key={i}>{t}</li>)}</ul>
-                : <p className="muted warn">试抓没有结果：{describe(preview.reason)}</p>)}
+                : <p className="muted warn">{t('rsshub.tryEmpty', { why: describe(preview.reason) })}</p>)}
             </div>
           )}
         </div>

@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('pnr', {
     return () => ipcRenderer.off('app:command', fn);
   },
   refresh: () => ipcRenderer.invoke('app:refresh'),
+  uiLanguage: () => ipcRenderer.invoke('app:uiLanguage'),
+  setUiLanguage: (choice: string) => ipcRenderer.invoke('app:setUiLanguage', choice),
   runWatches: () => ipcRenderer.invoke('app:runWatches'),
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),
   runWatch: (id: string) => ipcRenderer.invoke('app:runWatch', id),

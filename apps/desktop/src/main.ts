@@ -5,11 +5,13 @@ import { setSink } from '@pnr/core';
 import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_MS } from '@pnr/store';
 import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
-import { resolveProvider, readSettings, type Provider } from '@pnr/ai';
+import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr/ai';
 import { runDaily, runFlashCheck, runWatch, generateDeepSummary, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
+import zhCN from '../../renderer/src/locales/zh-CN.json';
+import en from '../../renderer/src/locales/en.json';
 
 // `productName` controls packaged builds. This keeps development builds from
 // showing the workspace package name in the menu bar and About panel.
@@ -92,51 +94,73 @@ app.whenReady().then(() => {
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
+// ── interface language ──────────────────────────────────────────────────────
+// Stored as 'system' | 'zh-CN' | 'en'. "Match system" is resolved here, where
+// the OS languages are known; anything Chinese gets Chinese, the rest English.
+type UiChoice = 'system' | 'zh-CN' | 'en';
+const UI_LANGUAGE_KEY = 'ui.language';
+function uiLanguage(): { choice: UiChoice; resolved: 'zh-CN' | 'en' } {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(UI_LANGUAGE_KEY) as { value: string } | undefined;
+  const choice = (row?.value === 'zh-CN' || row?.value === 'en' ? row.value : 'system') as UiChoice;
+  const system = app.getPreferredSystemLanguages()[0] ?? app.getLocale();
+  return { choice, resolved: choice === 'system' ? (system.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en') : choice };
+}
+ipcMain.handle('app:uiLanguage', () => uiLanguage());
+ipcMain.handle('app:setUiLanguage', (_e, choice: UiChoice) => {
+  writeSetting(db, UI_LANGUAGE_KEY, choice === 'zh-CN' || choice === 'en' ? choice : 'system');
+  installApplicationMenu();
+  return uiLanguage();
+});
+
+/** The menu, from the same dictionaries as the window. */
 function installApplicationMenu(): void {
+  const m = (uiLanguage().resolved === 'en' ? en : zhCN).menu;
+  const tabs = (uiLanguage().resolved === 'en' ? en : zhCN).tabs;
+  const send = (command: string) => () => win?.webContents.send('app:command', command);
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: '所闻',
       submenu: [
-        { role: 'about', label: '关于所闻' },
-        { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => win?.webContents.send('app:command', 'settings') },
+        { role: 'about', label: m.about },
+        { label: m.settings, accelerator: 'CmdOrCtrl+,', click: send('settings') },
         { type: 'separator' },
-        { role: 'services', label: '服务' },
+        { role: 'services', label: m.services },
         { type: 'separator' },
-        { role: 'hide', label: '隐藏所闻' },
-        { role: 'hideOthers', label: '隐藏其他' },
-        { role: 'unhide', label: '全部显示' },
+        { role: 'hide', label: m.hide },
+        { role: 'hideOthers', label: m.hideOthers },
+        { role: 'unhide', label: m.unhide },
         { type: 'separator' },
-        { role: 'quit', label: '退出所闻' }
+        { role: 'quit', label: m.quit }
       ]
     },
-    { label: '文件', submenu: [
-      { label: '添加订阅…', accelerator: 'CmdOrCtrl+N', click: () => win?.webContents.send('app:command', 'subscribe') },
-      { role: 'close', label: '关闭窗口' }
+    { label: m.file, submenu: [
+      { label: m.subscribe, accelerator: 'CmdOrCtrl+N', click: send('subscribe') },
+      { role: 'close', label: m.close }
     ] },
     {
-      label: '编辑',
+      label: m.edit,
       submenu: [
-        { role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' },
+        { role: 'undo', label: m.undo }, { role: 'redo', label: m.redo },
         { type: 'separator' },
-        { role: 'cut', label: '剪切' }, { role: 'copy', label: '拷贝' },
-        { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }
+        { role: 'cut', label: m.cut }, { role: 'copy', label: m.copy },
+        { role: 'paste', label: m.paste }, { role: 'selectAll', label: m.selectAll }
       ]
     },
-    { label: '显示', submenu: [
-      ...(['今日', '快讯', '阅读', '关注'] as const).map((label, i) => ({ label, accelerator: `CmdOrCtrl+${i + 1}`, click: () => win?.webContents.send('app:command', ['today', 'flashes', 'read', 'watches'][i]) })),
+    { label: m.view, submenu: [
+      ...(['today', 'flashes', 'read', 'watches'] as const).map((id, i) => ({ label: tabs[id], accelerator: `CmdOrCtrl+${i + 1}`, click: send(id) })),
       { type: 'separator' as const },
-      { label: '显示或隐藏侧边栏', accelerator: 'CmdOrCtrl+Ctrl+S', click: () => win?.webContents.send('app:command', 'sidebar') },
-      { label: '搜索文章', accelerator: 'CmdOrCtrl+F', click: () => win?.webContents.send('app:command', 'search') },
-      { label: '更新订阅', accelerator: 'CmdOrCtrl+R', click: () => win?.webContents.send('app:command', 'refresh') },
-      { role: 'togglefullscreen', label: '进入全屏幕' }
+      { label: m.sidebar, accelerator: 'CmdOrCtrl+Ctrl+S', click: send('sidebar') },
+      { label: m.search, accelerator: 'CmdOrCtrl+F', click: send('search') },
+      { label: m.refresh, accelerator: 'CmdOrCtrl+R', click: send('refresh') },
+      { role: 'togglefullscreen', label: m.fullscreen }
     ] },
     {
-      label: '窗口',
+      label: m.window,
       submenu: [
-        { role: 'minimize', label: '最小化' },
-        { role: 'zoom', label: '缩放' },
+        { role: 'minimize', label: m.minimize },
+        { role: 'zoom', label: m.zoom },
         { type: 'separator' },
-        { role: 'front', label: '前置全部窗口' }
+        { role: 'front', label: m.front }
       ]
     }
   ]));

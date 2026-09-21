@@ -24,9 +24,11 @@
     "@pnr/recall": "*",
     "@pnr/store": "*",
     "@pnr/watch": "*",
+    "i18next": "^26.4.2",
     "lucide-react": "^1.47.0",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "react-i18next": "^17.0.14"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

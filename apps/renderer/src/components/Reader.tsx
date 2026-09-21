@@ -1,31 +1,14 @@
 import { BookOpen, ArrowLeft, Star, ExternalLink, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Block, ItemBody, ItemRow } from '../types.ts';
+import { useTranslation } from 'react-i18next';
+import { dateTime } from '../i18n.ts';
 
 type Full = ItemRow & { body: ItemBody | null; bodyError: string | null };
 
 /** Below this a body is complete but brief (a results line, a breaking-news
  *  stub); the reader says so rather than looking truncated. */
 const SHORT_WORDS = 120;
-
-/** Why a body could not be fetched, keyed by the reason codes from the
- *  download layer and the reader core. */
-const FAILURE: Record<string, string> = {
-  paywalled: '该网站需要订阅，无法获取正文。',
-  forbidden: '网站拒绝了访问。',
-  unauthorized: '网站要求登录才能查看。',
-  blocked: '网站的防护拦截了访问。',
-  not_found: '原文已被删除或移动。',
-  rate_limited: '访问太频繁，网站暂时拒绝，请稍后重试。',
-  server_error: '网站服务器出错，请稍后重试。',
-  http_error: '网站返回了错误。',
-  timeout: '网络超时，请稍后重试。',
-  network: '网络连接失败，请检查网络后重试。',
-  not_html: '原文不是网页（可能是视频、音频或文件）。',
-  no_content: '页面里没有找到正文。',
-  too_thin: '页面里的正文太少，可能需要在浏览器里查看。',
-  encoding: '网页编码无法识别。'
-};
 
 interface Deep {
   blocks: Block[];
@@ -35,6 +18,7 @@ interface Deep {
 
 export function Reader({ id, onStar, aiReady, revision, onBack }:
   { id: string | null; onStar: (id: string) => void; aiReady: boolean; revision: number; onBack: () => void }) {
+  const { t } = useTranslation();
   const [item, setItem] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
   const [deep, setDeep] = useState<Deep | null>(null);
@@ -60,7 +44,7 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
           const again = await window.pnr.getItem(id);
           if (live) setItem(again);
         }
-      } catch { if (live) { setLoading(false); setDeepErr('文章暂时无法载入，请重新选择或稍后重试。'); } }
+      } catch { if (live) { setLoading(false); setDeepErr(t('reader.loadFailed')); } }
     })();
     return () => { live = false; };
   }, [id]);
@@ -73,9 +57,9 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
     return () => { live = false; };
   }, [id, revision]);
 
-  if (!id) return <section className="reader empty"><div className="empty-state"><BookOpen size={38} strokeWidth={1.4} /><h2>未选择文章</h2><p>从列表中选择文章。</p></div></section>;
-  if (loading && !item) return <section className="reader"><button className="reader-back" onClick={onBack}><ArrowLeft size={16} />返回列表</button><p className="empty-state" role="status">载入中…</p></section>;
-  if (!item) return <section className="reader"><button className="reader-back" onClick={onBack}><ArrowLeft size={16} />返回列表</button><p className="empty-state">{deepErr || '找不到这一篇。请重新选择文章。'}</p></section>;
+  if (!id) return <section className="reader empty"><div className="empty-state"><BookOpen size={38} strokeWidth={1.4} /><h2>{t('reader.noneTitle')}</h2><p>{t('reader.noneHint')}</p></div></section>;
+  if (loading && !item) return <section className="reader"><button className="reader-back" onClick={onBack}><ArrowLeft size={16} />{t('reader.back')}</button><p className="empty-state" role="status">{t('common.loading')}</p></section>;
+  if (!item) return <section className="reader"><button className="reader-back" onClick={onBack}><ArrowLeft size={16} />{t('reader.back')}</button><p className="empty-state">{deepErr || t('reader.notFound')}</p></section>;
 
   const open = (): void => { void window.pnr.openExternal(item.url); };
 
@@ -85,32 +69,32 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
     try {
       const r = await window.pnr.deepSummary(requestedId);
       if (activeId.current !== requestedId) return;
-      if (r.noProvider) setDeepErr('请先连接 AI 服务');
+      if (r.noProvider) setDeepErr(t('reader.needAi'));
       else if (r.error) setDeepErr(r.error);
       else setDeep(r.summary as Deep);
-    } catch { if (activeId.current === requestedId) setDeepErr('暂时无法生成，请重试。'); }
+    } catch { if (activeId.current === requestedId) setDeepErr(t('reader.deepFailed')); }
     finally { if (activeId.current === requestedId) setDeepBusy(false); }
   };
 
   return (
     <section className="reader" key={id}>
-      <button className="reader-back" onClick={onBack}><ArrowLeft size={16} />返回列表</button>
+      <button className="reader-back" onClick={onBack}><ArrowLeft size={16} />{t('reader.back')}</button>
       <div className="reader-actions">
-          <button aria-pressed={Boolean(item.starredAt)} onClick={() => onStar(item.id)}><Star size={15} fill={item.starredAt ? 'currentColor' : 'none'} />{item.starredAt ? '已收藏' : '收藏'}</button>
-          <button onClick={open}><ExternalLink size={15} />查看原文</button>
+          <button aria-pressed={Boolean(item.starredAt)} onClick={() => onStar(item.id)}><Star size={15} fill={item.starredAt ? 'currentColor' : 'none'} />{item.starredAt ? t('reader.starred') : t('reader.star')}</button>
+          <button onClick={open}><ExternalLink size={15} />{t('reader.original')}</button>
           {aiReady && !deep && (
             <button onClick={() => void goDeep()} disabled={deepBusy}>
-              <Sparkles size={15} />{deepBusy ? '正在整理…' : '深入了解'}
+              <Sparkles size={15} />{deepBusy ? t('reader.deepBusy') : t('reader.deep')}
             </button>
           )}
-          {item.body ? <span className="words">{item.body.words} 词{item.body.words < SHORT_WORDS ? ' · 正文较短' : ''}</span> : null}
+          {item.body ? <span className="words">{t('reader.words', { count: item.body.words })}{item.body.words < SHORT_WORDS ? t('reader.short') : ''}</span> : null}
         </div>
       <article>
         <div className="reader-meta">
           <span className="src">{item.sourceName}</span>
           <span className="dot">·</span>
-          <time title={item.dateEstimated ? '这个来源没有提供发布时间，显示的是首次发现的时间' : undefined}>
-            {item.dateEstimated ? '发现于 ' : ''}{new Date(item.publishedAt).toLocaleString('zh-CN')}
+          <time title={item.dateEstimated ? t('common.noDateHint') : undefined}>
+            {item.dateEstimated ? t('common.seenAt', { when: dateTime(item.publishedAt) }) : dateTime(item.publishedAt)}
           </time>
           {item.author && <><span className="dot">·</span><span>{item.author}</span></>}
         </div>
@@ -133,6 +117,7 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
  *  written from, and those map to the source list below, so any sentence can be
  *  traced back to the article it came from. */
 function DeepView({ deep }: { deep: Deep }) {
+  const { t } = useTranslation();
   const byRef = new Map(deep.sources.map((s) => [s.refId, s]));
   return (
     <div className="deep">
@@ -158,7 +143,7 @@ function DeepView({ deep }: { deep: Deep }) {
 
       {deep.milestones.length > 0 && (
         <div className="timeline">
-          <h4>来龙去脉</h4>
+          <h4>{t('reader.background')}</h4>
           <ul>
             {deep.milestones.map((m, i) => (
               <li key={i}><time>{m.date}</time><span>{m.text}</span></li>
@@ -168,7 +153,7 @@ function DeepView({ deep }: { deep: Deep }) {
       )}
 
       <div className="deep-sources">
-        <h4>依据的材料</h4>
+        <h4>{t('reader.materials')}</h4>
         <ol>
           {deep.sources.map((s) => (
             <li key={s.refId}>
@@ -190,14 +175,16 @@ function Unavailable(
   { state, error, snippet, onOpen }:
   { state: string; error: string | null; snippet: string | null; onOpen: () => void }
 ) {
-  const why = state === 'pending' ? '正在抓取正文…'
-    : state === 'blocked' || state === 'failed' ? FAILURE[error ?? ''] ?? '暂时无法获取正文。'
-    : '暂时没有正文。';
+  const { t } = useTranslation();
+  // Reason codes come from the download layer and the reader core.
+  const why = state === 'pending' ? t('reader.fetching')
+    : state === 'blocked' || state === 'failed' ? t(`reader.failure.${error ?? 'unknown'}`, { defaultValue: t('reader.unavailable') })
+    : t('reader.noBody');
   return (
     <div className="unavailable">
       <p className="why">{why}</p>
-      {snippet && <div className="snippet"><span className="eyebrow">来源提供的摘要 · 非完整正文</span><p>{snippet}</p></div>}
-      {state !== 'pending' && <button onClick={onOpen}>在浏览器打开原文</button>}
+      {snippet && <div className="snippet"><span className="eyebrow">{t('reader.snippetLabel')}</span><p>{snippet}</p></div>}
+      {state !== 'pending' && <button onClick={onOpen}>{t('reader.openInBrowser')}</button>}
     </div>
   );
 }

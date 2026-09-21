@@ -64,9 +64,9 @@ We'd rather you know before you install.
   Ollama is planned; it is slower and lower quality, and we'll say so.
 - **Paywalls are paywalls.** When article text can't be fetched, the reader says
   so and offers to open the page. It does not dress up a summary as the article.
-- **The app's own interface is Chinese-only for now.** Per-Watch *content* language
-  (what language your briefs and flashes are written in) is fully configurable —
-  the UI chrome around it (menus, labels, settings) isn't translated yet.
+- **The interface comes in Chinese and English** (Settings → General; it follows
+  the system by default). That is separate from the language AI writes your
+  briefs and flashes in, which is set globally and per Watch.
 
 ## Roadmap
 

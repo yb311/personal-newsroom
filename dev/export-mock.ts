@@ -31,7 +31,7 @@ const watchItems: any = {}; for (const w of ws) watchItems[w.id] = api.watchItem
 writeFileSync(new URL('../apps/desktop/dist/renderer/mock.json', import.meta.url), JSON.stringify({
   sources, items, bodies,
   cat: q('SELECT id,name,kind,category,country,domain,enabled,NULL lastError,0 unread,0 total FROM sources ORDER BY enabled DESC,name LIMIT 300'),
-  watches: ws, presets: api.presets(),
+  watches: ws, presets: api.presets(), presetsEn: api.presets('en'),
   today: api.today(), headlines: api.headlines(24, 4),
   timelines, watchItems, flashes, deeps, ai: { available: true, provider: 'gemini', outputLang: 'zh-CN' }
 }));

@@ -1,7 +1,7 @@
 import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
 import { aiAvailable, checkConnection, readSettings, writeSetting, invalidateProvider, type AiConnection } from '@pnr/ai';
-import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, addCorrection } from '@pnr/watch';
+import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection } from '@pnr/watch';
 import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
 import { CATEGORIES, countryLabel } from '@pnr/core/catalog-labels';
@@ -242,9 +242,10 @@ export function createApi(db: Db, dataDir: string) {
       return checkConnection(db);
     },
 
-    presets(): { id: string; group: string; label: string; intent: string; keywords: string[]; enabled: boolean }[] {
+    /** The topic library, in the interface language. */
+    presets(lang?: string): { id: string; group: string; label: string; intent: string; keywords: string[]; enabled: boolean }[] {
       const on = new Set(listWatches(db).map((w) => w.id));
-      return PRESETS.map((p) => ({ ...p, enabled: on.has(p.id) }));
+      return PRESETS.map((p) => ({ ...localisePreset(p, lang), enabled: on.has(p.id) }));
     },
 
     watches(): unknown[] {
@@ -268,8 +269,8 @@ export function createApi(db: Db, dataDir: string) {
                                keywords: input.keywords ?? [], outputLang: input.outputLang ?? null });
     },
     /** Adds several presets at once, from the topic library. */
-    addPresets(ids: string[]): string[] {
-      return ids.map((id) => enablePreset(db, id)).filter((x): x is string => Boolean(x));
+    addPresets(ids: string[], lang?: string): string[] {
+      return ids.map((id) => enablePreset(db, id, lang)).filter((x): x is string => Boolean(x));
     },
     editWatch(id: string, patch: Record<string, unknown>): unknown { return updateWatch(db, id, patch as never); },
     removeWatch(id: string): void { deleteWatch(db, id); },
@@ -378,19 +379,19 @@ export function createApi(db: Db, dataDir: string) {
      */
     async addSource(input: { kind: string; value: string; name?: string; category?: string }): Promise<{ ok: boolean; id?: string; name?: string; items?: number; error?: string }> {
       const resolved = resolveSourceInput(input.value, (input.kind as never) ?? 'auto');
-      if (!resolved) return { ok: false, error: '看不懂这是什么，换个格式试试' };
+      if (!resolved) return { ok: false, error: 'unrecognised' };
       const { kind, url, domain } = resolved;
 
       const id = `user-${kind}-${Buffer.from(url).toString('base64url').slice(0, 24)}`;
       if (db.prepare('SELECT 1 FROM sources WHERE id = ?').get(id)) {
-        return { ok: false, error: '这个源已经添加过了' };
+        return { ok: false, error: 'duplicate' };
       }
 
       const name = input.name?.trim() || resolved.suggestedName;
       db.prepare(
         `INSERT INTO sources (id, kind, name, domain, url, category, trust, enabled, added_by, created_at)
          VALUES (?, ?, ?, ?, ?, ?, 0.9, 1, 'user', ?)`
-      ).run(id, kind, name, domain, url, input.category ?? '自定义', Date.now());
+      ).run(id, kind, name, domain, url, input.category ?? 'custom', Date.now());
 
       // Fetch immediately: a source that silently does nothing is worse than an
       // error, so the user finds out right away whether it works.
@@ -402,7 +403,7 @@ export function createApi(db: Db, dataDir: string) {
       const r = await ingestSource(db, source, { dataDir });
       if (r.kept === 0) {
         const err = (db.prepare('SELECT last_error AS e FROM sources WHERE id = ?').get(id) as { e: string | null }).e;
-        return { ok: true, id, name, items: 0, ...(err ? { error: err } : { error: '暂时没抓到内容' }) };
+        return { ok: true, id, name, items: 0, ...(err ? { error: err } : { error: 'empty' }) };
       }
       return { ok: true, id, name, items: r.inserted };
     },

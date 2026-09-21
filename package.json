@@ -32,6 +32,7 @@
     "test:today": "node --experimental-strip-types dev/today.test.ts",
     "test:catalogue": "node --experimental-strip-types dev/catalogue.test.ts",
     "test:watches": "node --experimental-strip-types dev/watches.test.ts",
+    "test:i18n": "node --experimental-strip-types dev/i18n.test.ts",
     "test:rsshub": "node --experimental-strip-types dev/rsshub.test.ts",
     "test:flash-deep": "node --experimental-strip-types dev/flash-deep.test.ts",
     "preview": "dev/preview.sh",

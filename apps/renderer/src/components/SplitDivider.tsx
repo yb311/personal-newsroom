@@ -1,15 +1,17 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /** A desktop split view divider: pointer capture keeps dragging reliable across
  * panes; arrow keys provide the same adjustment without a mouse. */
 export function SplitDivider({ width, onChange }: { width: number; onChange: (width: number) => void }) {
+  const { t } = useTranslation();
   const start = useRef<{ x: number; width: number } | null>(null);
   const resize = (value: number): void => {
     const next = Math.max(250, Math.min(440, value));
     onChange(next);
     try { localStorage.setItem('pnr.listWidth', String(next)); } catch { /* Storage may be unavailable. */ }
   };
-  return <div className="split-divider" role="separator" aria-label="调整文章列表宽度"
+  return <div className="split-divider" role="separator" aria-label={t('split.resize')}
     aria-orientation="vertical" aria-valuemin={250} aria-valuemax={440} aria-valuenow={width} tabIndex={0}
     onDoubleClick={() => resize(310)}
     onKeyDown={e => {

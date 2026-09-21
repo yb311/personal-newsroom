@@ -64,11 +64,11 @@ export function socialApi(db: Db, getWin: () => BrowserWindow | null) {
     },
 
     async install(): Promise<{ ok: boolean; error?: string; version?: string }> {
-      if (installing) return { ok: false, error: '已经在下载了' };
+      if (installing) return { ok: false, error: 'already_installing' };
       installing = true;
       try {
         const res = await fetch(MANIFEST_URL);
-        if (!res.ok) throw new Error(`清单下载失败 (HTTP ${res.status})`);
+        if (!res.ok) throw new Error('manifest_unavailable');
         const manifest = (await res.json()) as PackManifest;
         const st = await installPack(SOCIAL_DIR, manifest, (p) => {
           getWin()?.webContents.send('social:progress', p);

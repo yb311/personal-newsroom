@@ -11,6 +11,7 @@ import { Watches } from './components/Watches.tsx';
 import { Settings } from './components/Settings.tsx';
 import { Flashes } from './components/Flashes.tsx';
 import { BackgroundPrompt } from './components/BackgroundPrompt.tsx';
+import { useTranslation } from 'react-i18next';
 
 export type Filter = 'all' | 'unread' | 'starred';
 
@@ -18,9 +19,10 @@ export type Filter = 'all' | 'unread' | 'starred';
 const PAGE = 200;
 type Tab = 'today' | 'flashes' | 'read' | 'watches';
 
-const TABS = [{ id: 'today', label: '今日', icon: Sun }, { id: 'flashes', label: '快讯', icon: Zap }, { id: 'read', label: '阅读', icon: BookOpen }, { id: 'watches', label: '关注', icon: Bookmark }] as const;
+const TABS = [{ id: 'today', icon: Sun }, { id: 'flashes', icon: Zap }, { id: 'read', icon: BookOpen }, { id: 'watches', icon: Bookmark }] as const;
 
 export default function App() {
+  const { t } = useTranslation();
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [listWidth, setListWidth] = useState(() => {
     try { return Math.max(250, Math.min(440, Number(localStorage.getItem('pnr.listWidth')) || 310)); } catch { return 310; }
@@ -76,10 +78,10 @@ export default function App() {
 
   useEffect(() => window.pnr.onProgress((p) => {
     const x = p as { phase?: string; label?: string };
-    setNote(x.phase === 'watch' ? `正在处理「${x.label}」…`
-      : x.phase === 'writing' ? '正在写摘要…'
-      : x.phase === 'extracting' ? '正在抽取正文…' : '');
-  }), []);
+    setNote(x.phase === 'watch' ? t('app.progressWatch', { label: x.label })
+      : x.phase === 'writing' ? t('app.progressWriting')
+      : x.phase === 'extracting' ? t('app.progressExtracting') : '');
+  }), [t]);
 
   useEffect(() => () => clearTimeout(noticeTimer.current), []);
 
@@ -89,39 +91,39 @@ export default function App() {
     clearTimeout(noticeTimer.current);
     setBusy(true); setNote(message);
     try { setNote(await task()); }
-    catch { setNote('操作未完成，请重试。'); }
+    catch { setNote(t('app.failed')); }
     finally {
       operation.current = false; setBusy(false); setRevision((v) => v + 1);
       noticeTimer.current = setTimeout(() => setNote(''), 6000);
     }
   };
-  const refresh = (): Promise<void> => perform('正在更新订阅…', async () => {
+  const refresh = (): Promise<void> => perform(t('app.refreshing'), async () => {
     const r = await window.pnr.refresh();
     await Promise.all([loadSources(), loadItems()]);
     // First-run consent: once the reader works, ask once whether it may keep
     // collecting news in the background. Nothing is installed without a yes.
     if (!r.busy && !r.error && await window.pnr.backgroundPrompt()) setAskBackground(true);
-    return r.busy ? '订阅正在更新' : r.error ? `更新失败：${r.error.slice(0, 70)}` : `已更新 · 新增 ${r.inserted ?? 0} 篇`;
+    return r.busy ? t('app.refreshBusy') : r.error ? t('app.refreshFailed', { error: r.error.slice(0, 70) }) : t('app.refreshed', { count: r.inserted ?? 0 });
   });
-  const runFlashes = (): Promise<void> => perform('正在检查新进展…', async () => {
+  const runFlashes = (): Promise<void> => perform(t('app.flashChecking'), async () => {
     const r = await window.pnr.runFlashes();
     void loadItems(); void loadSources();
-    return r.busy ? '正在检查，请稍候' : r.error ? `检查失败：${r.error.slice(0, 70)}`
-      : `新抓到 ${r.fetched ?? 0} 篇，新增 ${r.flashes ?? 0} 条快讯${r.failed ? `（${r.failed} 项没有完成）` : ''}`;
+    return r.busy ? t('app.flashBusy') : r.error ? t('app.flashFailed', { error: r.error.slice(0, 70) })
+      : t('app.flashDone', { fetched: r.fetched ?? 0, count: r.flashes ?? 0 }) + (r.failed ? t('app.partial', { count: r.failed }) : '');
   });
-  const runWatches = (): Promise<void> => perform('正在整理你的关注…', async () => {
+  const runWatches = (): Promise<void> => perform(t('app.watchesRunning'), async () => {
     const r = await window.pnr.runWatches();
     void loadItems(); void loadSources();
-    return r.busy ? '正在整理，请稍候' : r.error ? `更新失败：${r.error.slice(0, 70)}`
-      : r.mode === 'keywords' ? `已按关键词更新 ${r.watches ?? 0} 个关注`
-      : `已更新 ${r.watches ?? 0} 个关注${r.digest ? '，今日摘要已生成' : ''}${r.failed ? `（${r.failed} 项没有完成）` : ''}`;
+    return r.busy ? t('app.watchesBusy') : r.error ? t('app.refreshFailed', { error: r.error.slice(0, 70) })
+      : r.mode === 'keywords' ? t('app.watchesKeywords', { count: r.watches ?? 0 })
+      : t('app.watchesDone', { count: r.watches ?? 0 }) + (r.digest ? t('app.digestReady') : '') + (r.failed ? t('app.partial', { count: r.failed }) : '');
   });
 
   useEffect(() => window.pnr.onCommand?.(command => {
     if (document.querySelector('dialog[open]')) return;
     if (command === 'settings') setShowSettings(true);
     else if (command === 'sidebar') setSidebarVisible(v => !v);
-    else if (command === 'search') { setTab('read'); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[aria-label="搜索当前列表"]')?.focus()); }
+    else if (command === 'search') { setTab('read'); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.list .search-field input')?.focus()); }
     else if (command === 'subscribe') setShowCatalogue(true);
     else if (command === 'refresh') void refresh();
     else if (TABS.some(t => t.id === command)) setTab(command as Tab);
@@ -149,7 +151,7 @@ export default function App() {
   };
 
   const visibleItems = items.filter(i => `${i.title} ${i.sourceName} ${i.snippet ?? ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
-  const title = TABS.find(t => t.id === tab)!.label;
+  const title = t(`tabs.${tab}`);
   const pickSource = (id: string | undefined): void => { setTab('read'); setFilter('all'); setSourceId(id); setSelected(null); setQuery(''); };
   const pickFilter = (value: Filter): void => { setTab('read'); setSourceId(undefined); setFilter(value); setSelected(null); setQuery(''); };
 
@@ -162,28 +164,28 @@ export default function App() {
   return (
     <div className={`app ${sidebarVisible ? '' : 'sidebar-hidden'}`} style={{ '--list-width': `${listWidth}px` } as CSSProperties}>
       <aside className="app-sidebar" hidden={!sidebarVisible}>
-        <div className="sidebar-brand"><button className="sidebar-toggle" title="隐藏侧边栏（⌘⌃S）" aria-label="隐藏侧边栏" onClick={() => setSidebarVisible(false)}><PanelLeft size={18} /></button></div>
-        <nav className="main-nav" aria-label="主导航">
-          {TABS.map(({ id, label, icon: Icon }) => <button key={id} aria-current={tab === id ? 'page' : undefined}
-            className={tab === id && id !== 'read' ? 'active' : ''} onClick={() => setTab(id)}><Icon size={19} /><span>{label}</span></button>)}
+        <div className="sidebar-brand"><button className="sidebar-toggle" title={`${t('app.hideSidebar')} (⌘⌃S)`} aria-label={t('app.hideSidebar')} onClick={() => setSidebarVisible(false)}><PanelLeft size={18} /></button></div>
+        <nav className="main-nav" aria-label={t('app.mainNav')}>
+          {TABS.map(({ id, icon: Icon }) => <button key={id} aria-current={tab === id ? 'page' : undefined}
+            className={tab === id && id !== 'read' ? 'active' : ''} onClick={() => setTab(id)}><Icon size={19} /><span>{t(`tabs.${id}`)}</span></button>)}
         </nav>
         <div className="sidebar-content">
           <Sidebar sources={sources} sourceId={sourceId} filter={filter}
             onPickSource={pickSource} onPickFilter={pickFilter} onManage={() => setShowCatalogue(true)} active={tab === 'read'} />
         </div>
         <div className="sidebar-footer">
-          <button onClick={() => setShowCatalogue(true)}><Plus size={18} />添加订阅</button>
-          <button onClick={() => setShowSettings(true)}><SettingsIcon size={18} />设置<span className="connection">{aiReady ? 'AI 已连接' : '阅读模式'}</span></button>
+          <button onClick={() => setShowCatalogue(true)}><Plus size={18} />{t('app.addSubscription')}</button>
+          <button onClick={() => setShowSettings(true)}><SettingsIcon size={18} />{t('app.settings')}<span className="connection">{aiReady ? t('common.aiConnected') : t('common.readingMode')}</span></button>
         </div>
       </aside>
       <main className="workspace">
         <header className="titlebar">
-          <div className="window-heading">{!sidebarVisible && <button aria-label="显示侧边栏" title="显示侧边栏（⌘⌃S）" onClick={() => setSidebarVisible(true)}><PanelLeft size={18} /></button>}<h1>{tab === 'read' ? (sources.find(s => s.id === sourceId)?.name ?? '阅读') : title}</h1>{tab === 'read' && <span className="toolbar-subtitle">{total.toLocaleString()} 篇文章</span>}</div>
+          <div className="window-heading">{!sidebarVisible && <button aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌘⌃S)`} onClick={() => setSidebarVisible(true)}><PanelLeft size={18} /></button>}<h1>{tab === 'read' ? (sources.find(s => s.id === sourceId)?.name ?? t('tabs.read')) : title}</h1>{tab === 'read' && <span className="toolbar-subtitle">{t('app.articleCount', { count: total })}</span>}</div>
           <div className="titlebar-actions">
-            {tab === 'read' && <div className="article-navigation"><button aria-label="上一篇文章" title="上一篇文章" disabled={selectedIndex <= 0} onClick={() => stepArticle(-1)}><ChevronLeft size={17} /></button><button aria-label="下一篇文章" title="下一篇文章" disabled={!visibleItems.length || selectedIndex === visibleItems.length - 1} onClick={() => stepArticle(1)}><ChevronRight size={17} /></button></div>}
-            {tab === 'flashes' && aiReady && <button onClick={() => void runFlashes()} disabled={busy}>检查新进展</button>}
-            {(tab === 'today' || tab === 'watches') && <button onClick={() => void runWatches()} disabled={busy}>更新关注</button>}
-            <button onClick={() => void refresh()} disabled={busy} title="更新订阅（⌘R）" aria-label="更新订阅"><RefreshCw size={16} className={busy ? 'spinning' : ''} /></button>
+            {tab === 'read' && <div className="article-navigation"><button aria-label={t('app.prevArticle')} title={t('app.prevArticle')} disabled={selectedIndex <= 0} onClick={() => stepArticle(-1)}><ChevronLeft size={17} /></button><button aria-label={t('app.nextArticle')} title={t('app.nextArticle')} disabled={!visibleItems.length || selectedIndex === visibleItems.length - 1} onClick={() => stepArticle(1)}><ChevronRight size={17} /></button></div>}
+            {tab === 'flashes' && aiReady && <button onClick={() => void runFlashes()} disabled={busy}>{t('app.checkFlashes')}</button>}
+            {(tab === 'today' || tab === 'watches') && <button onClick={() => void runWatches()} disabled={busy}>{t('app.updateWatches')}</button>}
+            <button onClick={() => void refresh()} disabled={busy} title={`${t('app.updateSubscriptions')} (⌘R)`} aria-label={t('app.updateSubscriptions')}><RefreshCw size={16} className={busy ? 'spinning' : ''} /></button>
           </div>
         </header>
         {tab === 'read' && <div className={`body ${selected ? 'has-selection' : ''}`}>
@@ -197,7 +199,7 @@ export default function App() {
         {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRun={() => void runWatches()} onOpen={openItem} running={busy} />}
         {tab === 'flashes' && <Flashes aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onOpen={openItem} running={busy} />}
         {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} onOpen={openItem} />}
-        <footer className="window-status" role="status"><span className={busy ? 'busy-dot' : 'status-dot'} />{note || (tab === 'read' ? `${sources.length} 个订阅源 · ${filter === 'unread' ? '未读文章' : filter === 'starred' ? '我的收藏' : '全部文章'}` : '所闻')}<span className="grow" /><span>{aiReady ? 'AI 已连接' : '阅读模式'}</span></footer>
+        <footer className="window-status" role="status"><span className={busy ? 'busy-dot' : 'status-dot'} />{note || (tab === 'read' ? t('app.statusLine', { count: sources.length, filter: t(`filters.${filter}`) }) : '所闻')}<span className="grow" /><span>{aiReady ? t('common.aiConnected') : t('common.readingMode')}</span></footer>
       </main>
       {showCatalogue && <Catalogue onClose={() => { setShowCatalogue(false); void loadSources(); void loadItems(); }} />}
       {askBackground && <BackgroundPrompt onDone={() => setAskBackground(false)} />}
