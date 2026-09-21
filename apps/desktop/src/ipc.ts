@@ -242,31 +242,62 @@ export function createApi(db: Db, dataDir: string) {
       return checkConnection(db);
     },
 
-    presets(): { id: string; label: string; intent: string; enabled: boolean }[] {
+    presets(): { id: string; group: string; label: string; intent: string; keywords: string[]; enabled: boolean }[] {
       const on = new Set(listWatches(db).map((w) => w.id));
       return PRESETS.map((p) => ({ ...p, enabled: on.has(p.id) }));
     },
 
     watches(): unknown[] {
-      return listWatches(db).map((w) => ({
-        ...w,
-        newCount: newSinceYesterday(db, w.id).length,
-        timelineCount: timeline(db, w.id).length,
-        passed: (db.prepare('SELECT COUNT(*) c FROM matches WHERE watch_id = ? AND passed_gate = 1').get(w.id) as { c: number }).c
-      }));
+      const count = db.prepare(
+        `SELECT COUNT(*) AS candidates, SUM(passed_gate) AS passed FROM matches WHERE watch_id = ?`
+      );
+      return listWatches(db).map((w) => {
+        const c = count.get(w.id) as { candidates: number; passed: number | null };
+        return {
+          ...w,
+          newCount: newSinceYesterday(db, w.id).length,
+          timelineCount: timeline(db, w.id).length,
+          candidates: c.candidates, passed: c.passed ?? 0,
+          openQuestions: openQuestions(db, w.id).length
+        };
+      });
     },
 
-    addWatch(input: { label: string; intent: string; outputLang?: string }): unknown {
+    addWatch(input: { label: string; intent: string; keywords?: string[]; outputLang?: string | null }): unknown {
       return createWatch(db, { origin: 'intent', label: input.label, intent: input.intent,
-                               outputLang: input.outputLang ?? null });
+                               keywords: input.keywords ?? [], outputLang: input.outputLang ?? null });
+    },
+    /** Adds several presets at once, from the topic library. */
+    addPresets(ids: string[]): string[] {
+      return ids.map((id) => enablePreset(db, id)).filter((x): x is string => Boolean(x));
     },
     editWatch(id: string, patch: Record<string, unknown>): unknown { return updateWatch(db, id, patch as never); },
     removeWatch(id: string): void { deleteWatch(db, id); },
     togglePreset(id: string, on: boolean): void {
       if (on) enablePreset(db, id); else deleteWatch(db, id);
     },
+    /**
+     * The person's verdict on one article. It is stored in their own words for
+     * the judge to read next time, and it takes effect at once: "不要" removes
+     * the article from this watch, "要" keeps it.
+     */
     correct(watchId: string, itemId: string, verdict: 'wanted' | 'not_wanted', note?: string): void {
-      addCorrection(db, watchId, itemId, verdict, note);
+      db.transaction(() => {
+        addCorrection(db, watchId, itemId, verdict, note?.trim() || undefined);
+        db.prepare('UPDATE matches SET passed_gate = ? WHERE watch_id = ? AND item_id = ?')
+          .run(verdict === 'wanted' ? 1 : 0, watchId, itemId);
+      })();
+    },
+
+    /** Whether to ask, once, about running in the background (first-run consent). */
+    backgroundPrompt(): boolean {
+      const asked = db.prepare("SELECT 1 FROM settings WHERE key = 'onboarding.backgroundAsked'").get();
+      const on = db.prepare("SELECT value FROM settings WHERE key = 'schedule.enabled'").get() as { value: string } | undefined;
+      return !asked && on?.value !== '1';
+    },
+    dismissBackgroundPrompt(): void {
+      db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES ('onboarding.backgroundAsked', '1', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = excluded.updated_at`).run(Date.now());
     },
 
     flashes(hours = 24, watchId?: string): unknown[] {
@@ -325,14 +356,18 @@ export function createApi(db: Db, dataDir: string) {
       return { milestones: ms, refs: refsFor(ms.flatMap((m) => m.itemIds)), questions: openQuestions(db, id) };
     },
 
+    /** What passed for a watch, with the judge's score and reason (or a
+     *  keyword-match marker) and the person's own verdict, if they gave one. */
     watchItems(id: string, limit = 60): unknown[] {
       return db.prepare(
-        `SELECT ${ITEM_COLS}, m.intent_score AS score, m.reason, m.recalled_by AS arms
+        `SELECT ${ITEM_COLS}, m.intent_score AS score, m.reason, m.recalled_by AS arms,
+                (SELECT verdict FROM corrections c WHERE c.watch_id = m.watch_id AND c.item_id = m.item_id
+                 ORDER BY c.id DESC LIMIT 1) AS verdict
          FROM matches m JOIN items i ON i.id = m.item_id
          JOIN sources s ON s.id = i.source_id
          LEFT JOIN reading_state r ON r.item_id = i.id
          WHERE m.watch_id = ? AND m.passed_gate = 1
-         ORDER BY m.intent_score DESC, i.published_at DESC LIMIT ?`
+         ORDER BY i.published_at DESC LIMIT ?`
       ).all(id, limit);
     },
 

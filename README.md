@@ -87,9 +87,7 @@ M1 is deliberately shippable on its own: install it, pick from a catalogue of
 ~1000 curated feeds, read. The AI features layer on top when you add a key.
 
 The milestones above cover the main line; a handful of smaller items inside
-them are still open (first-run consent screen
-for the background worker, per-Watch language picker in the UI, a couple of
-niche source adapters). None of it blocks daily use — tracked in `AGENTS.md`
+them are still open (a couple of niche source adapters). None of it blocks daily use — tracked in `AGENTS.md`
 for anyone picking up the work.
 
 ## License

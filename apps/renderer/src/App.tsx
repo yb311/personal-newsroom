@@ -10,6 +10,7 @@ import { Today } from './components/Today.tsx';
 import { Watches } from './components/Watches.tsx';
 import { Settings } from './components/Settings.tsx';
 import { Flashes } from './components/Flashes.tsx';
+import { BackgroundPrompt } from './components/BackgroundPrompt.tsx';
 
 export type Filter = 'all' | 'unread' | 'starred';
 
@@ -38,6 +39,7 @@ export default function App() {
   const [aiReady, setAiReady] = useState(false);
   const [query, setQuery] = useState('');
   const [revision, setRevision] = useState(0);
+  const [askBackground, setAskBackground] = useState(false);
   const requestId = useRef(0);
   const operation = useRef(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -96,6 +98,9 @@ export default function App() {
   const refresh = (): Promise<void> => perform('正在更新订阅…', async () => {
     const r = await window.pnr.refresh();
     await Promise.all([loadSources(), loadItems()]);
+    // First-run consent: once the reader works, ask once whether it may keep
+    // collecting news in the background. Nothing is installed without a yes.
+    if (!r.busy && !r.error && await window.pnr.backgroundPrompt()) setAskBackground(true);
     return r.busy ? '订阅正在更新' : r.error ? `更新失败：${r.error.slice(0, 70)}` : `已更新 · 新增 ${r.inserted ?? 0} 篇`;
   });
   const runFlashes = (): Promise<void> => perform('正在检查新进展…', async () => {
@@ -177,7 +182,7 @@ export default function App() {
           <div className="titlebar-actions">
             {tab === 'read' && <div className="article-navigation"><button aria-label="上一篇文章" title="上一篇文章" disabled={selectedIndex <= 0} onClick={() => stepArticle(-1)}><ChevronLeft size={17} /></button><button aria-label="下一篇文章" title="下一篇文章" disabled={!visibleItems.length || selectedIndex === visibleItems.length - 1} onClick={() => stepArticle(1)}><ChevronRight size={17} /></button></div>}
             {tab === 'flashes' && aiReady && <button onClick={() => void runFlashes()} disabled={busy}>检查新进展</button>}
-            {(tab === 'today' || tab === 'watches') && aiReady && <button onClick={() => void runWatches()} disabled={busy}>更新关注</button>}
+            {(tab === 'today' || tab === 'watches') && <button onClick={() => void runWatches()} disabled={busy}>更新关注</button>}
             <button onClick={() => void refresh()} disabled={busy} title="更新订阅（⌘R）" aria-label="更新订阅"><RefreshCw size={16} className={busy ? 'spinning' : ''} /></button>
           </div>
         </header>
@@ -191,10 +196,11 @@ export default function App() {
         </div>}
         {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRun={() => void runWatches()} onOpen={openItem} running={busy} />}
         {tab === 'flashes' && <Flashes aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onOpen={openItem} running={busy} />}
-        {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} />}
+        {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} onOpen={openItem} />}
         <footer className="window-status" role="status"><span className={busy ? 'busy-dot' : 'status-dot'} />{note || (tab === 'read' ? `${sources.length} 个订阅源 · ${filter === 'unread' ? '未读文章' : filter === 'starred' ? '我的收藏' : '全部文章'}` : '所闻')}<span className="grow" /><span>{aiReady ? 'AI 已连接' : '阅读模式'}</span></footer>
       </main>
       {showCatalogue && <Catalogue onClose={() => { setShowCatalogue(false); void loadSources(); void loadItems(); }} />}
+      {askBackground && <BackgroundPrompt onDone={() => setAskBackground(false)} />}
       {showSettings && <Settings onClose={() => setShowSettings(false)} onChanged={() => { void loadAi(); void loadItems(); }} />}
     </div>
   );

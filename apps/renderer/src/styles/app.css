@@ -526,3 +526,33 @@ button, summary { cursor: default; }
 .facets .chip small { color: var(--secondary); margin-left: 2px; }
 .facets .chip.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .facets .chip.active small { color: inherit; opacity: .7; }
+
+/* 关注 */
+.watch-row.paused { opacity: .55; }
+.detail-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+.detail-heading button { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.watch-tabs { margin: 14px 0 16px; }
+.watch-empty { padding: 18px 0; }
+.watch-items { list-style: none; padding: 0; margin: 0; }
+.watch-items li { position: relative; padding: 12px 64px 12px 0; border-bottom: 1px solid var(--border); }
+.watch-items .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; color: var(--secondary); }
+.watch-items .headline { display: block; text-align: left; margin: 4px 0 2px; padding: 0; background: none; border: 0; font-size: 14.5px; line-height: 1.5; color: var(--fg); }
+.watch-items .headline:hover { color: var(--accent); }
+.watch-items .why { font-size: 12px; color: var(--secondary); margin: 2px 0 0; }
+.watch-items .verdicts { position: absolute; right: 0; top: 12px; display: flex; gap: 4px; }
+.watch-items .verdicts button { padding: 4px 6px; }
+.watch-items .note-row { display: flex; gap: 6px; margin-top: 8px; }
+.watch-items .note-row input { flex: 1; }
+.tag.ok { color: var(--accent); }
+.open-questions { margin-bottom: 22px; padding: 14px 16px; border-radius: 10px; background: var(--bg2); }
+.open-questions h4 { margin: 0 0 2px; }
+.open-questions ul { margin: 8px 0 0; padding-left: 1.2em; }
+.sensitivity { border: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.sensitivity legend { font-size: 12px; color: var(--fg2); margin-bottom: 6px; width: 100%; }
+.preset-library { max-height: 56vh; overflow-y: auto; padding: 0 2px; }
+.preset-group h4 { font-size: 12px; color: var(--secondary); margin: 14px 0 6px; }
+.preset-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.preset-chips .chip { font-size: 12.5px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border); background: transparent; }
+.preset-chips .chip.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.preset-chips .chip:disabled { opacity: .45; }
+.background-prompt p { line-height: 1.7; }

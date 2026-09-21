@@ -33,13 +33,18 @@ export interface Milestone {
   id: string; watchId: string; occurredOn: string; summary: string;
   itemIds: string[]; firstSeenAt: number; isNew: boolean;
 }
+export type Sensitivity = 'more' | 'balanced' | 'less';
 export interface WatchRow {
   id: string; origin: 'preset' | 'intent' | 'customized'; label: string; intent: string;
-  outputLang: string | null; active: boolean;
+  outputLang: string | null; active: boolean; keywords: string[]; sensitivity: Sensitivity;
   recallAids: { aliases: string[]; relatedTerms: string[]; sourceHints: string[]; updatedAt: string } | null;
-  newCount: number; timelineCount: number; passed: number;
+  lastRunAt: number | null;
+  newCount: number; timelineCount: number; candidates: number; passed: number; openQuestions: number;
 }
-export interface PresetRow { id: string; label: string; intent: string; enabled: boolean }
+export interface PresetRow { id: string; group: string; label: string; intent: string; keywords: string[]; enabled: boolean }
+export interface WatchItem extends ItemRow {
+  score: number | null; reason: string | null; arms: string; verdict: 'wanted' | 'not_wanted' | null;
+}
 /** What a citation needs to be shown and opened. */
 export interface ItemRef { id: string; title: string; url: string; publishedAt: number; sourceName: string | null }
 export interface Today {
@@ -105,7 +110,10 @@ export interface Pnr {
   saveAiSettings(patch: Record<string, string>): Promise<AiConnection>;
   presets(): Promise<PresetRow[]>;
   watches(): Promise<WatchRow[]>;
-  addWatch(i: { label: string; intent: string; outputLang?: string }): Promise<WatchRow>;
+  addWatch(i: { label: string; intent: string; keywords?: string[]; outputLang?: string | null }): Promise<WatchRow>;
+  addPresets(ids: string[]): Promise<string[]>;
+  backgroundPrompt(): Promise<boolean>;
+  dismissBackgroundPrompt(): Promise<void>;
   editWatch(id: string, patch: Record<string, unknown>): Promise<WatchRow>;
   removeWatch(id: string): Promise<void>;
   togglePreset(id: string, on: boolean): Promise<void>;
@@ -115,7 +123,7 @@ export interface Pnr {
   headlines(hours?: number, perSource?: number): Promise<HeadlineGroup[]>;
   itemRefs(ids: string[]): Promise<ItemRef[]>;
   runWatch(id: string): Promise<RunResult>;
-  watchItems(id: string, limit?: number): Promise<(ItemRow & { score: number; reason: string; arms: string })[]>;
+  watchItems(id: string, limit?: number): Promise<WatchItem[]>;
   runWatches(): Promise<RunResult>;
   runFlashes(): Promise<RunResult>;
   flashes(hours?: number, watchId?: string): Promise<FlashRow[]>;

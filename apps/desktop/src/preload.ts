@@ -6,7 +6,7 @@ const API_METHODS = [
   'listSources', 'listItems', 'getItem', 'markRead', 'toggleStar',
   'setSourceEnabled', 'catalogue', 'stats', 'countItems', 'headlines', 'itemRefs', 'readingLanguages', 'setReadingLanguages',
   'aiStatus', 'saveAiSettings', 'presets', 'watches', 'addWatch', 'editWatch',
-  'removeWatch', 'togglePreset', 'correct', 'today', 'watchTimeline', 'watchItems', 'flashes', 'addSource', 'removeSource', 'suggestedRoutes', 'rssHubReady'
+  'removeWatch', 'togglePreset', 'correct', 'addPresets', 'backgroundPrompt', 'dismissBackgroundPrompt', 'today', 'watchTimeline', 'watchItems', 'flashes', 'addSource', 'removeSource', 'suggestedRoutes', 'rssHubReady'
 ] as const;
 
 const api: Record<string, unknown> = {};

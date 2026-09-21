@@ -160,7 +160,7 @@ export function recentCorrections(db: Db, watchId: string, limit = 12): Correcti
   return (db.prepare(
     `SELECT c.*, i.title FROM corrections c
      LEFT JOIN items i ON i.id = c.item_id
-     WHERE c.watch_id = ? ORDER BY c.created_at DESC LIMIT ?`
+     WHERE c.watch_id = ? ORDER BY c.created_at DESC, c.id DESC LIMIT ?`
   ).all(watchId, limit) as any[]).map((r) => ({
     id: r.id, watchId: r.watch_id, itemId: r.item_id, verdict: r.verdict,
     userNote: r.user_note, createdAt: r.created_at, title: r.title
