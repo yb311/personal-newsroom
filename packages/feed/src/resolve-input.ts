@@ -1,6 +1,7 @@
 import type { SourceKind } from '@pnr/core';
 import { channelOf } from './adapters/telegram.ts';
 import { normalizeRoute } from './adapters/rsshub.ts';
+import { curatedRoutes, matchRouteFromUrl } from './rsshub-routes.ts';
 
 export interface ResolvedSource {
   kind: SourceKind;
@@ -22,10 +23,19 @@ export function resolveSourceInput(raw: string, hint: SourceKind | 'auto' = 'aut
   const value = raw.trim();
   if (!value) return null;
 
+  // A page on a platform RSSHub covers (a Bilibili space, a Zhihu column …)
+  // becomes that platform's route, so people can paste what is in their
+  // address bar instead of learning route syntax.
+  if (hint === 'auto' || hint === 'rsshub') {
+    const hit = /^https?:\/\/|^[\w-]+\.[\w.-]+\//.test(value) ? matchRouteFromUrl(curatedRoutes(), value) : null;
+    if (hit) return { kind: 'rsshub', url: hit.path, domain: hit.route.site, suggestedName: `${hit.route.platform} · ${hit.route.name}` };
+  }
+
   let kind: SourceKind;
   if (hint !== 'auto') kind = hint;
   else if (/(?:^|\/\/)t\.me\//.test(value) || /^@[A-Za-z0-9_]{4,32}$/.test(value)) kind = 'telegram';
   else if (/^https?:\/\/(www\.|old\.)?reddit\.com\/r\//.test(value)) kind = 'reddit';
+  else if (/^https?:\/\/(www\.)?(x|twitter)\.com\/[A-Za-z0-9_]+/i.test(value)) kind = 'apify_x';
   else if (/^https?:\/\/(www\.)?github\.com\//.test(value)) kind = 'github';
   else if (value.startsWith('/')) kind = 'rsshub';
   else if (/^https?:\/\//.test(value) || value.includes('.')) kind = 'rss';
@@ -47,6 +57,9 @@ export function resolveSourceInput(raw: string, hint: SourceKind | 'auto' = 'aut
     case 'github':
       url = value.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\/$/, '');
       break;
+    case 'apify_x':
+      url = /^search:/i.test(value) ? value : value.replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0]!;
+      break;
     case 'rss': {
       url = /^https?:/i.test(value) ? value : `https://${value}`;
       try { domain = new URL(url).hostname.replace(/^www\./, '').toLowerCase(); } catch { return null; }
@@ -62,7 +75,8 @@ function nameFor(kind: SourceKind, url: string, domain: string | null): string {
   switch (kind) {
     case 'telegram': return `Telegram @${url}`;
     case 'reddit': return `r/${url}`;
-    case 'github': return url.includes('/') ? `${url} 发布` : `${url} 的动态`;
+    case 'github': return /^trending/i.test(url) ? `GitHub 新星仓库${url.includes(':') ? ` · ${url.split(':')[1]}` : ''}` : url.includes('/') ? `${url} 发布` : `${url} 的动态`;
+    case 'apify_x': return /^search:/i.test(url) ? `X 搜索：${url.slice(7)}` : `X @${url}`;
     case 'hackernews': return 'Hacker News';
     case 'rsshub': return url.split('/').filter(Boolean).slice(0, 2).join(' / ') || url;
     default: return domain ?? url;

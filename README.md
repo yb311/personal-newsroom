@@ -86,9 +86,7 @@ We'd rather you know before you install.
 M1 is deliberately shippable on its own: install it, pick from a catalogue of
 ~1000 curated feeds, read. The AI features layer on top when you add a key.
 
-The milestones above cover the main line; a handful of smaller items inside
-them are still open (a couple of niche source adapters). None of it blocks daily use — tracked in `AGENTS.md`
-for anyone picking up the work.
+Remaining work (signing and notarisation, auto-update) is tracked in `AGENTS.md`.
 
 ## License
 

@@ -1,0 +1,891 @@
+[
+ {
+  "id": "bilibili-popular-all-embed",
+  "platform": "哔哩哔哩",
+  "name": "综合热门",
+  "path": "/bilibili/popular/all/:embed?",
+  "example": "/bilibili/popular/all",
+  "params": [
+   {
+    "key": "embed",
+    "description": "默认为开启内嵌视频, 任意值为关闭",
+    "optional": true,
+    "advanced": true
+   }
+  ],
+  "sources": [],
+  "site": "www.bilibili.com"
+ },
+ {
+  "id": "bilibili-weekly-embed",
+  "platform": "哔哩哔哩",
+  "name": "每周必看",
+  "path": "/bilibili/weekly/:embed?",
+  "example": "/bilibili/weekly",
+  "params": [
+   {
+    "key": "embed",
+    "description": "默认为开启内嵌视频, 任意值为关闭",
+    "optional": true,
+    "advanced": true
+   }
+  ],
+  "sources": [],
+  "site": "www.bilibili.com"
+ },
+ {
+  "id": "bilibili-precious-embed",
+  "platform": "哔哩哔哩",
+  "name": "入站必刷",
+  "path": "/bilibili/precious/:embed?",
+  "example": "/bilibili/precious",
+  "params": [
+   {
+    "key": "embed",
+    "description": "默认为开启内嵌视频, 任意值为关闭",
+    "optional": true,
+    "advanced": true
+   }
+  ],
+  "sources": [],
+  "site": "www.bilibili.com"
+ },
+ {
+  "id": "zhihu-daily",
+  "platform": "知乎",
+  "name": "知乎日报",
+  "path": "/zhihu/daily",
+  "example": "/zhihu/daily",
+  "params": [],
+  "sources": [
+   "daily.zhihu.com/*"
+  ],
+  "site": "daily.zhihu.com/*"
+ },
+ {
+  "id": "zhihu-pin-daily",
+  "platform": "知乎",
+  "name": "想法 · 24 小时新闻汇总",
+  "path": "/zhihu/pin/daily",
+  "example": "/zhihu/pin/daily",
+  "params": [],
+  "sources": [
+   "daily.zhihu.com/*"
+  ],
+  "site": "daily.zhihu.com/*"
+ },
+ {
+  "id": "36kr-category-subCategory-keyword",
+  "platform": "36氪",
+  "name": "资讯 / 快讯",
+  "path": "/36kr/:category/:subCategory?/:keyword?",
+  "example": "/36kr/newsflashes",
+  "params": [
+   {
+    "key": "category",
+    "description": "分类，必填项",
+    "optional": false
+   },
+   {
+    "key": "subCategory",
+    "description": "子分类，选填项，目的是为了兼容老逻辑",
+    "optional": true
+   },
+   {
+    "key": "keyword",
+    "description": "关键词，选填项，仅搜索文章/快讯时有效",
+    "optional": true
+   }
+  ],
+  "sources": [],
+  "site": "36kr.com"
+ },
+ {
+  "id": "36kr-hot-list-category",
+  "platform": "36氪",
+  "name": "热榜",
+  "path": "/36kr/hot-list/:category?",
+  "example": "/36kr/hot-list",
+  "params": [
+   {
+    "key": "category",
+    "description": "分类，默认为24小时热榜",
+    "optional": true
+   }
+  ],
+  "sources": [
+   "36kr.com/hot-list/:category",
+   "36kr.com/"
+  ],
+  "site": "36kr.com"
+ },
+ {
+  "id": "sspai-index",
+  "platform": "少数派",
+  "name": "首页",
+  "path": "/sspai/index",
+  "example": "/sspai/index",
+  "params": [],
+  "sources": [
+   "sspai.com/index"
+  ],
+  "site": "sspai.com/index"
+ },
+ {
+  "id": "sspai-matrix",
+  "platform": "少数派",
+  "name": "Matrix 社区",
+  "path": "/sspai/matrix",
+  "example": "/sspai/matrix",
+  "params": [],
+  "sources": [
+   "sspai.com/matrix"
+  ],
+  "site": "sspai.com/matrix"
+ },
+ {
+  "id": "sspai-author-id",
+  "platform": "少数派",
+  "name": "作者",
+  "path": "/sspai/author/:id",
+  "example": "/sspai/author/796518",
+  "params": [
+   {
+    "key": "id",
+    "description": "作者 slug 或 id，slug 可在作者主页URL中找到，id 不易查找，仅作兼容",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "sspai.com/u/:id/posts"
+  ],
+  "site": "sspai.com"
+ },
+ {
+  "id": "sspai-tag-keyword",
+  "platform": "少数派",
+  "name": "标签",
+  "path": "/sspai/tag/:keyword",
+  "example": "/sspai/tag/apple",
+  "params": [
+   {
+    "key": "keyword",
+    "description": "关键词",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "sspai.com/tag/:keyword"
+  ],
+  "site": "sspai.com"
+ },
+ {
+  "id": "sspai-topics",
+  "platform": "少数派",
+  "name": "专题",
+  "path": "/sspai/topics",
+  "example": "/sspai/topics",
+  "params": [],
+  "sources": [
+   "sspai.com/topics"
+  ],
+  "site": "sspai.com/topics"
+ },
+ {
+  "id": "sspai-topic-id",
+  "platform": "少数派",
+  "name": "专题文章",
+  "path": "/sspai/topic/:id",
+  "example": "/sspai/topic/250",
+  "params": [
+   {
+    "key": "id",
+    "description": "专题 id，可在专题主页URL中找到",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "sspai.com/topic/:id"
+  ],
+  "site": "sspai.com"
+ },
+ {
+  "id": "juejin-category-category",
+  "platform": "掘金",
+  "name": "分类",
+  "path": "/juejin/category/:category",
+  "example": "/juejin/category/frontend",
+  "params": [
+   {
+    "key": "category",
+    "description": "分类名",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "juejin.cn/:category"
+  ],
+  "site": "juejin.cn"
+ },
+ {
+  "id": "juejin-posts-id",
+  "platform": "掘金",
+  "name": "用户文章",
+  "path": "/juejin/posts/:id",
+  "example": "/juejin/posts/3051900006845944",
+  "params": [
+   {
+    "key": "id",
+    "description": "用户 id, 可在用户页 URL 中找到",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "juejin.cn/user/:id",
+   "juejin.cn/user/:id/posts"
+  ],
+  "site": "juejin.cn"
+ },
+ {
+  "id": "juejin-trending-category-type",
+  "platform": "掘金",
+  "name": "热门",
+  "path": "/juejin/trending/:category/:type",
+  "example": "/juejin/trending/ios/monthly",
+  "params": [
+   {
+    "key": "category",
+    "description": "分类名",
+    "optional": false,
+    "options": [
+     {
+      "value": "android",
+      "label": "Android"
+     },
+     {
+      "value": "frontend",
+      "label": "前端"
+     },
+     {
+      "value": "ios",
+      "label": "iOS"
+     },
+     {
+      "value": "backend",
+      "label": "后端"
+     },
+     {
+      "value": "design",
+      "label": "设计"
+     },
+     {
+      "value": "product",
+      "label": "产品"
+     },
+     {
+      "value": "freebie",
+      "label": "工具资源"
+     },
+     {
+      "value": "article",
+      "label": "阅读"
+     },
+     {
+      "value": "ai",
+      "label": "人工智能"
+     },
+     {
+      "value": "devops",
+      "label": "运维"
+     },
+     {
+      "value": "all",
+      "label": "全部"
+     }
+    ],
+    "default": "all"
+   },
+   {
+    "key": "type",
+    "description": "类型",
+    "optional": false,
+    "options": [
+     {
+      "value": "weekly",
+      "label": "本周最热"
+     },
+     {
+      "value": "monthly",
+      "label": "本月最热"
+     },
+     {
+      "value": "historical",
+      "label": "历史最热"
+     }
+    ],
+    "default": "weekly"
+   }
+  ],
+  "sources": [],
+  "site": "juejin.cn"
+ },
+ {
+  "id": "douban-movie-playing",
+  "platform": "豆瓣",
+  "name": "正在上映",
+  "path": "/douban/movie/playing",
+  "example": "/douban/movie/playing",
+  "params": [],
+  "sources": [],
+  "site": "www.douban.com"
+ },
+ {
+  "id": "douban-movie-coming",
+  "platform": "豆瓣",
+  "name": "即将上映",
+  "path": "/douban/movie/coming",
+  "example": "/douban/movie/coming",
+  "params": [],
+  "sources": [
+   "movie.douban.com/coming"
+  ],
+  "site": "www.douban.com"
+ },
+ {
+  "id": "douban-movie-weekly-type",
+  "platform": "豆瓣",
+  "name": "一周口碑榜",
+  "path": "/douban/movie/weekly/:type?",
+  "example": "/douban/movie/weekly",
+  "params": [
+   {
+    "key": "type",
+    "description": "分类，可在榜单页 URL 中找到，默认为一周口碑电影榜",
+    "optional": true
+   }
+  ],
+  "sources": [],
+  "site": "www.douban.com"
+ },
+ {
+  "id": "douban-book-latest-type",
+  "platform": "豆瓣",
+  "name": "新书速递",
+  "path": "/douban/book/latest/:type?",
+  "example": "/douban/book/latest/fiction",
+  "params": [
+   {
+    "key": "type",
+    "description": "专题分类，可选，默认为 all",
+    "optional": true
+   }
+  ],
+  "sources": [],
+  "site": "www.douban.com"
+ },
+ {
+  "id": "douban-list-type-routeParams",
+  "platform": "豆瓣",
+  "name": "榜单与集合",
+  "path": "/douban/list/:type?/:routeParams?",
+  "example": "/douban/list/subject_real_time_hotest",
+  "params": [
+   {
+    "key": "type",
+    "description": "榜单类型，见下表。默认为实时热门书影音",
+    "optional": true
+   },
+   {
+    "key": "routeParams",
+    "description": "额外参数；请参阅以下说明和表格",
+    "optional": true,
+    "advanced": true
+   }
+  ],
+  "sources": [
+   "www.douban.com/subject_collection/:type"
+  ],
+  "site": "www.douban.com"
+ },
+ {
+  "id": "douban-group-groupid-type",
+  "platform": "豆瓣",
+  "name": "小组",
+  "path": "/douban/group/:groupid/:type?",
+  "example": "/douban/group/648102",
+  "params": [
+   {
+    "key": "groupid",
+    "description": "豆瓣小组的 id",
+    "optional": false
+   },
+   {
+    "key": "type",
+    "description": "类型",
+    "optional": true,
+    "options": [
+     {
+      "value": "latest",
+      "label": "最新"
+     },
+     {
+      "value": "essence",
+      "label": "最热"
+     },
+     {
+      "value": "elite",
+      "label": "精华"
+     }
+    ],
+    "default": "latest"
+   }
+  ],
+  "sources": [
+   "www.douban.com/group/:groupid"
+  ],
+  "site": "www.douban.com"
+ },
+ {
+  "id": "thepaper-featured",
+  "platform": "澎湃新闻",
+  "name": "首页头条",
+  "path": "/thepaper/featured",
+  "example": "/thepaper/featured",
+  "params": [],
+  "sources": [
+   "thepaper.cn/"
+  ],
+  "site": "thepaper.cn/"
+ },
+ {
+  "id": "thepaper-list-id",
+  "platform": "澎湃新闻",
+  "name": "栏目",
+  "path": "/thepaper/list/:id",
+  "example": "/thepaper/list/25457",
+  "params": [
+   {
+    "key": "id",
+    "description": "栏目 id，可在栏目页 URL 中找到",
+    "optional": false
+   }
+  ],
+  "sources": [],
+  "site": "thepaper.cn"
+ },
+ {
+  "id": "cls-depth-category",
+  "platform": "财联社",
+  "name": "深度",
+  "path": "/cls/depth/:category?",
+  "example": "/cls/depth/1000",
+  "params": [
+   {
+    "key": "category",
+    "description": "分类代码，可在首页导航栏的目标网址 URL 中找到",
+    "optional": true
+   }
+  ],
+  "sources": [],
+  "site": "cls.cn"
+ },
+ {
+  "id": "wallstreetcn-live-category-score",
+  "platform": "华尔街见闻",
+  "name": "实时快讯",
+  "path": "/wallstreetcn/live/:category?/:score?",
+  "example": "/wallstreetcn/live",
+  "params": [
+   {
+    "key": "category",
+    "description": "快讯分类，默认global，见下表",
+    "optional": true
+   },
+   {
+    "key": "score",
+    "description": "快讯重要度，默认1全部快讯，可设置为2只看重要的",
+    "optional": true
+   }
+  ],
+  "sources": [
+   "wallstreetcn.com/live/:category",
+   "wallstreetcn.com/"
+  ],
+  "site": "wallstreetcn.com"
+ },
+ {
+  "id": "wallstreetcn-news-category",
+  "platform": "华尔街见闻",
+  "name": "资讯",
+  "path": "/wallstreetcn/news/:category?",
+  "example": "/wallstreetcn/news",
+  "params": [
+   {
+    "key": "category",
+    "description": "",
+    "optional": true
+   }
+  ],
+  "sources": [
+   "wallstreetcn.com/news/:category",
+   "wallstreetcn.com/"
+  ],
+  "site": "wallstreetcn.com"
+ },
+ {
+  "id": "wallstreetcn-hot-period",
+  "platform": "华尔街见闻",
+  "name": "最热文章",
+  "path": "/wallstreetcn/hot/:period?",
+  "example": "/wallstreetcn/hot",
+  "params": [
+   {
+    "key": "period",
+    "description": "时期，可选 day 即 当日 或 week 即 当周，默认为当日",
+    "optional": true
+   }
+  ],
+  "sources": [
+   "wallstreetcn.com/"
+  ],
+  "site": "wallstreetcn.com/"
+ },
+ {
+  "id": "ifanr-digest",
+  "platform": "爱范儿",
+  "name": "快讯",
+  "path": "/ifanr/digest",
+  "example": "/ifanr/digest",
+  "params": [],
+  "sources": [
+   "www.ifanr.comdigest"
+  ],
+  "site": "www.ifanr.com"
+ },
+ {
+  "id": "zaobao-realtime-section",
+  "platform": "联合早报",
+  "name": "即时新闻",
+  "path": "/zaobao/realtime/:section?",
+  "example": "/zaobao/realtime/china",
+  "params": [
+   {
+    "key": "section",
+    "description": "分类，缺省为 china",
+    "optional": true
+   }
+  ],
+  "sources": [],
+  "site": "www.zaobao.com"
+ },
+ {
+  "id": "zaobao-znews-section",
+  "platform": "联合早报",
+  "name": "新闻",
+  "path": "/zaobao/znews/:section?",
+  "example": "/zaobao/znews/china",
+  "params": [
+   {
+    "key": "section",
+    "description": "分类，缺省为 china",
+    "optional": true
+   }
+  ],
+  "sources": [],
+  "site": "www.zaobao.com"
+ },
+ {
+  "id": "infzm-hot",
+  "platform": "南方周末",
+  "name": "热门文章",
+  "path": "/infzm/hot",
+  "example": "/infzm/hot",
+  "params": [],
+  "sources": [
+   "infzm.com/"
+  ],
+  "site": "www.infzm.com"
+ },
+ {
+  "id": "infzm-id",
+  "platform": "南方周末",
+  "name": "频道",
+  "path": "/infzm/:id",
+  "example": "/infzm/1",
+  "params": [
+   {
+    "key": "id",
+    "description": "南方周末频道 id, 可在该频道的 URL 中找到（即 https://www.infzm.com/contents?term_id=:id)",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "infzm.com/contents"
+  ],
+  "site": "www.infzm.com"
+ },
+ {
+  "id": "ithome-ranking-type",
+  "platform": "IT之家",
+  "name": "热榜",
+  "path": "/ithome/ranking/:type",
+  "example": "/ithome/ranking/24h",
+  "params": [
+   {
+    "key": "type",
+    "description": "类别",
+    "optional": false
+   }
+  ],
+  "sources": [],
+  "site": "ithome.com"
+ },
+ {
+  "id": "ithome-tag-name",
+  "platform": "IT之家",
+  "name": "标签",
+  "path": "/ithome/tag/:name",
+  "example": "/ithome/tag/win11",
+  "params": [
+   {
+    "key": "name",
+    "description": "标签名称，可从网址链接中获取",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "ithome.com/tag/:name"
+  ],
+  "site": "ithome.com"
+ },
+ {
+  "id": "github-issue-user-repo-state-labels",
+  "platform": "GitHub",
+  "name": "仓库 Issues",
+  "path": "/github/issue/:user/:repo/:state?/:labels?",
+  "example": "/github/issue/DIYgod/RSSHub/open",
+  "params": [
+   {
+    "key": "user",
+    "description": "GitHub username",
+    "optional": false
+   },
+   {
+    "key": "repo",
+    "description": "GitHub repo name",
+    "optional": false
+   },
+   {
+    "key": "state",
+    "description": "the state of the issues.",
+    "optional": true,
+    "options": [
+     {
+      "value": "open",
+      "label": "Open"
+     },
+     {
+      "value": "closed",
+      "label": "Closed"
+     },
+     {
+      "value": "all",
+      "label": "All"
+     }
+    ],
+    "default": "open"
+   },
+   {
+    "key": "labels",
+    "description": "a list of comma separated label names",
+    "optional": true
+   }
+  ],
+  "sources": [
+   "github.com/:user/:repo/issues",
+   "github.com/:user/:repo/issues/:id",
+   "github.com/:user/:repo"
+  ],
+  "site": "github.com"
+ },
+ {
+  "id": "github-topics-name-qs",
+  "platform": "GitHub",
+  "name": "主题下的仓库",
+  "path": "/github/topics/:name/:qs?",
+  "example": "/github/topics/framework",
+  "params": [
+   {
+    "key": "name",
+    "description": "Topic name, which can be found in the URL of the corresponding Topics Page",
+    "optional": false
+   },
+   {
+    "key": "qs",
+    "description": "Query string, like l=php&o=desc&s=stars. Details listed as follows:",
+    "optional": true,
+    "advanced": true
+   }
+  ],
+  "sources": [
+   "github.com/topics"
+  ],
+  "site": "github.com/topics"
+ },
+ {
+  "id": "xiaoyuzhou-podcast-id",
+  "platform": "小宇宙",
+  "name": "播客节目",
+  "path": "/xiaoyuzhou/podcast/:id",
+  "example": "/xiaoyuzhou/podcast/6021f949a789fca4eff4492c",
+  "params": [
+   {
+    "key": "id",
+    "description": "播客 id 或单集 id，可以在小宇宙播客的 URL 中找到",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "xiaoyuzhoufm.com/podcast/:id",
+   "xiaoyuzhoufm.com/episode/:id"
+  ],
+  "site": "xiaoyuzhoufm.com/"
+ },
+ {
+  "id": "jike-topic-id-showUid",
+  "platform": "即刻",
+  "name": "圈子",
+  "path": "/jike/topic/:id/:showUid?",
+  "example": "/jike/topic/556688fae4b00c57d9dd46ee",
+  "params": [
+   {
+    "key": "id",
+    "description": "圈子 id, 可在即刻 web 端圈子页或 APP 分享出来的圈子页 URL 中找到",
+    "optional": false
+   },
+   {
+    "key": "showUid",
+    "description": "是否在内容中显示用户信息，设置为 1 则开启",
+    "optional": true,
+    "options": [
+     {
+      "value": "1",
+      "label": "显示"
+     }
+    ],
+    "advanced": true
+   }
+  ],
+  "sources": [
+   "web.okjike.com/topic/:id",
+   "m.okjike.com/topics/:id"
+  ],
+  "site": "m.okjike.com"
+ },
+ {
+  "id": "jike-user-id",
+  "platform": "即刻",
+  "name": "用户动态",
+  "path": "/jike/user/:id",
+  "example": "/jike/user/3EE02BC9-C5B3-4209-8750-4ED1EE0F67BB",
+  "params": [
+   {
+    "key": "id",
+    "description": "用户 id, 可在即刻分享出来的单条动态页点击用户头像进入个人主页，然后在个人主页的 URL 中找到，或者在单条动态页使用 RSSHub Radar 插件",
+    "optional": false
+   }
+  ],
+  "sources": [
+   "web.okjike.com/u/:uid",
+   "m.okjike.com/users/:uid"
+  ],
+  "site": "m.okjike.com"
+ },
+ {
+  "id": "solidot-type",
+  "platform": "Solidot",
+  "name": "最新消息",
+  "path": "/solidot/:type?",
+  "example": "/solidot/linux",
+  "params": [
+   {
+    "key": "type",
+    "description": "消息类型，在网站上方选择后复制子域名或参见 https://www.solidot.org/index.rss 即可",
+    "optional": true,
+    "options": [
+     {
+      "value": "www",
+      "label": "全部"
+     },
+     {
+      "value": "startup",
+      "label": "创业"
+     },
+     {
+      "value": "linux",
+      "label": "Linux"
+     },
+     {
+      "value": "science",
+      "label": "科学"
+     },
+     {
+      "value": "technology",
+      "label": "科技"
+     },
+     {
+      "value": "mobile",
+      "label": "移动"
+     },
+     {
+      "value": "apple",
+      "label": "苹果"
+     },
+     {
+      "value": "hardware",
+      "label": "硬件"
+     },
+     {
+      "value": "software",
+      "label": "软件"
+     },
+     {
+      "value": "security",
+      "label": "安全"
+     },
+     {
+      "value": "games",
+      "label": "游戏"
+     },
+     {
+      "value": "books",
+      "label": "书籍"
+     },
+     {
+      "value": "ask",
+      "label": "ask"
+     },
+     {
+      "value": "idle",
+      "label": "idle"
+     },
+     {
+      "value": "blog",
+      "label": "博客"
+     },
+     {
+      "value": "cloud",
+      "label": "云计算"
+     },
+     {
+      "value": "story",
+      "label": "奇客故事"
+     }
+    ],
+    "default": "www"
+   }
+  ],
+  "sources": [],
+  "site": "www.solidot.org"
+ }
+]

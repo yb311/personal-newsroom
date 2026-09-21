@@ -65,8 +65,35 @@ export const redditAdapter: Adapter = async (source) => {
 };
 
 // ───────────────────────── GitHub ─────────────────────────
-/** `url` is "<user>" for public activity, or "<owner>/<repo>" for releases. */
+/**
+ * Rising repositories: created in the last week, most-starred first, from
+ * GitHub's public search API — a stable JSON endpoint that needs no key.
+ * This stands in for OSS Insight's trending ranking, which its maintainers
+ * marked unavailable in 2026 (their event capture fell to ~0.3% of baseline,
+ * so the API now returns an empty ranking by design).
+ */
+async function githubRising(source: SourceRecord, language: string): Promise<ParseResult> {
+  const since = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+  const q = `created:>${since}${language ? ` language:${language}` : ''}`;
+  const token = process.env['GITHUB_TOKEN'];
+  const data = await getJson<{ items?: any[] }>(
+    `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=30`, 20_000,
+    { accept: 'application/vnd.github+json', ...(token ? { authorization: `Bearer ${token}` } : {}) });
+  const items: DiscoveredItem[] = (data?.items ?? []).map((r) => ({
+    title: `${r.full_name}${r.description ? ` — ${String(r.description).slice(0, 100)}` : ''}`,
+    url: cleanUrl(String(r.html_url)), publishedAt: new Date(Date.parse(r.created_at)).toISOString(),
+    sourceId: source.id, sourceName: source.name, domain: 'github.com',
+    snippet: `★ ${r.stargazers_count}${r.language ? ` · ${r.language}` : ''}${r.description ? ` · ${r.description}` : ''}`.slice(0, 600),
+    lang: 'en'
+  }));
+  return build(items, (data?.items ?? []).length, {});
+}
+
+/** `url` is "<user>" for public activity, "<owner>/<repo>" for releases, or
+ *  "trending" / "trending:<language>" for rising repositories. */
 export const githubAdapter: Adapter = async (source) => {
+  const trending = source.url.match(/^trending(?::(.+))?$/i);
+  if (trending) return githubRising(source, trending[1]?.trim() ?? '');
   const path = source.url.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\/$/, '').trim();
   const isRepo = path.includes('/');
   const api = isRepo

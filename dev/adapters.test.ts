@@ -24,6 +24,8 @@ const cases: [string, SourceRecord][] = [
   ['Reddit',           src({ id:'t-rd',   kind:'reddit', name:'r/worldnews', url:'worldnews' })],
   ['GitHub 活动',       src({ id:'t-gh',   kind:'github', name:'torvalds',  url:'torvalds' })],
   ['GitHub release',   src({ id:'t-ghr',  kind:'github', name:'node',       url:'nodejs/node' })],
+  ['GitHub 新星仓库',     src({ id:'t-ght',  kind:'github', name:'rising',     url:'trending:rust' })],
+  ['X (无令牌)',          src({ id:'t-x',    kind:'apify_x', name:'X',         url:'nasa' })],
   ['Google News 英',    src({ id:'t-gn',   kind:'googlenews', name:'GN',     url:'Xi Jinping', lang:'en-US', country:'US' })],
   ['Google News 中',    src({ id:'t-gnz',  kind:'googlenews', name:'GN',     url:'习近平',      lang:'zh-CN', country:'CN' })],
   ['Bing News',        src({ id:'t-bn',   kind:'bingnews', name:'Bing',     url:'Xi Jinping when:1d' })],
@@ -52,11 +54,14 @@ for (const [label, s] of cases) {
     // result — the two mean very different things to the user.
     const expectedMiss = label.includes('无效') && Boolean(r.diagnostics.droppedByReason['route_not_found']);
     const notInstalled = Boolean(r.diagnostics.droppedByReason['rsshub_not_available']);
-    const ok = r.items.length > 0 || rateLimited || expectedMiss || notInstalled;
+    // Without a token the X source must say so, not come back silently empty.
+    const noToken = label.includes('无令牌') && Boolean(r.diagnostics.droppedByReason['apify_no_token']);
+    const ok = r.items.length > 0 || rateLimited || expectedMiss || notInstalled || noToken;
     const drops = Object.entries(r.diagnostics.droppedByReason).map(([k,v])=>`${k}:${v}`).join(' ');
     const suffix = rateLimited ? ' — 上游限流，降级正常'
       : expectedMiss ? ' — 正确识别为路由不存在'
-      : notInstalled ? ' — 未安装社交源包，优雅降级' : '';
+      : notInstalled ? ' — 未安装社交源包，优雅降级'
+      : noToken ? ' — 正确提示需要 Apify 令牌' : '';
     const sample = r.items.length ? r.items[0]!.title.slice(0, 34) : `(${drops || '0 条'}${suffix})`;
     // 校验契约不变量
     const bad = r.items.filter(i => !i.title || !/^https?:/.test(i.url) || !Number.isFinite(Date.parse(i.publishedAt)));

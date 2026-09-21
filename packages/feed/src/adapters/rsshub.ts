@@ -95,19 +95,46 @@ export const rssHubAvailable = async (): Promise<boolean> => (await rssHubMode()
  * that does not exist. Failures are reported through this adapter's diagnostics
  * instead, so the streams are muted rather than left to spew at a desktop user.
  */
+let muted = 0;
+let saved: { out: typeof process.stdout.write; err: typeof process.stderr.write;
+             error: typeof console.error; warn: typeof console.warn; log: typeof console.log; info: typeof console.info } | null = null;
+
 async function quietly<T>(fn: () => Promise<T>): Promise<T> {
-  const outWrite = process.stdout.write.bind(process.stdout);
-  const errWrite = process.stderr.write.bind(process.stderr);
-  const { error, warn, log: l, info } = console;
-  const mute = (): boolean => true;
-  process.stdout.write = mute as typeof process.stdout.write;
-  process.stderr.write = mute as typeof process.stderr.write;
-  console.error = () => {}; console.warn = () => {}; console.log = () => {}; console.info = () => {};
+  // Counted, because RSSHub sources are fetched concurrently: a second call
+  // must not save the first call's no-op functions as the "originals", or the
+  // streams would stay muted for the rest of the process.
+  if (muted++ === 0) {
+    saved = { out: process.stdout.write.bind(process.stdout), err: process.stderr.write.bind(process.stderr),
+              error: console.error, warn: console.warn, log: console.log, info: console.info };
+    const mute = (): boolean => true;
+    process.stdout.write = mute as typeof process.stdout.write;
+    process.stderr.write = mute as typeof process.stderr.write;
+    console.error = () => {}; console.warn = () => {}; console.log = () => {}; console.info = () => {};
+  }
   try { return await fn(); }
   finally {
-    process.stdout.write = outWrite; process.stderr.write = errWrite;
-    console.error = error; console.warn = warn; console.log = l; console.info = info;
+    if (--muted === 0 && saved) {
+      process.stdout.write = saved.out; process.stderr.write = saved.err;
+      console.error = saved.error; console.warn = saved.warn; console.log = saved.log; console.info = saved.info;
+      saved = null;
+    }
   }
+}
+
+/**
+ * Reason codes for RSSHub failures, from its error message:
+ * - route_not_found: the path matches no route (RSSHub gives an empty message)
+ * - needs_browser: the route fell back to a headless browser, which the pack
+ *   does not ship
+ * - upstream_blocked / upstream_error: the site itself refused or failed
+ */
+function classify(message: string): string {
+  if (!message.trim() || /does not exist|has been deleted|NotFoundError/i.test(message)) return 'route_not_found';
+  if (/browserType\.launch|Executable doesn't exist|playwright|puppeteer/i.test(message)) return 'needs_browser';
+  const status = Number(message.match(/:\s*(\d{3})\b/)?.[1]);
+  if (status === 403 || status === 401 || status === 412 || status === 429) return 'upstream_blocked';
+  if (status >= 400) return 'upstream_error';
+  return 'route_error';
 }
 
 const miss = (code: string): ParseResult =>
@@ -142,17 +169,18 @@ async function viaLibrary(path: string, source: SourceRecord): Promise<ParseResu
   const lib = await load();
   if (!lib) return miss('rsshub_not_available');
 
-  let data: { title?: string; item?: RssHubItem[] };
+  let data: { title?: string; item?: RssHubItem[]; error?: { message?: string } };
   try {
     data = await quietly(() => lib.request(path));
   } catch (e) {
-    const msg = String((e as Error)?.message ?? e);
-    // A route that does not exist and a route that returned nothing are very
-    // different problems for the user, so they are reported differently.
-    return miss(/does not exist|has been deleted|not found/i.test(msg) ? 'route_not_found' : 'route_error');
+    return miss(classify(String((e as Error)?.message ?? e)));
   }
+  // RSSHub reports failures in the result rather than by throwing. Which
+  // failure it is matters to the person: a mistyped route, a route that needs
+  // a browser, and a site refusing the request each call for different advice.
+  if (data.error) return miss(classify(data.error.message ?? ''));
   const raw = data.item ?? [];
-  if (raw.length === 0 && !data.title) return miss('route_not_found');
+  if (raw.length === 0) return miss('empty');
 
   const dropped: Record<string, number> = {};
   const items: DiscoveredItem[] = [];
@@ -193,16 +221,3 @@ export function normalizeRoute(input: string): string {
   const path = m?.[1] ?? s;
   return path.startsWith('/') ? path : `/${path}`;
 }
-
-/** The handful of routes worth offering out of the box. Telegram is implemented
- *  natively instead, so the core social sources do not depend on this package. */
-export const SUGGESTED_ROUTES: { label: string; route: string; note?: string }[] = [
-  { label: '微博用户', route: '/weibo/user/:uid', note: '需要 Playwright 浏览器' },
-  { label: 'B站热门', route: '/bilibili/popular/all' },
-  { label: 'B站UP主投稿', route: '/bilibili/user/video/:uid' },
-  { label: '知乎日报', route: '/zhihu/daily' },
-  { label: '36氪热榜', route: '/36kr/hot-list/renqi' },
-  { label: '小红书用户', route: '/xiaohongshu/user/:id/notes' },
-  { label: 'X/Twitter 用户', route: '/twitter/user/:id', note: '需要 TWITTER_COOKIE' },
-  { label: 'GitHub 仓库 release', route: '/github/release/:user/:repo' }
-];

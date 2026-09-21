@@ -1,9 +1,10 @@
 import { categoryLabel, countryLabel } from '@pnr/core/catalog-labels';
 import { Dialog } from './Dialog.tsx';
+import { RssHubPicker } from './RssHubPicker.tsx';
 import { useEffect, useState } from 'react';
 import type { CatalogueResult, SourceRow } from '../types.ts';
 
-type Tab = 'browse' | 'add';
+type Tab = 'browse' | 'social' | 'add';
 
 /** Why a new source produced nothing, by the reason code it failed with. */
 const SOURCE_FAILURE: Record<string, string> = {
@@ -16,7 +17,15 @@ const SOURCE_FAILURE: Record<string, string> = {
   timeout: '网络超时',
   network: '网络连接失败',
   route_not_found: '这个 RSSHub 路由不存在，或参数不对',
-  rsshub_not_available: '还没有安装社交平台扩展'
+  rsshub_not_available: '还没有安装社交平台扩展',
+  needs_browser: '这个路由需要浏览器环境，本应用暂不支持',
+  upstream_blocked: '对方网站拒绝了访问（可能是限流或需要登录），稍后再试',
+  upstream_error: '对方网站出错了，稍后再试',
+  route_error: 'RSSHub 处理这个路由时出错',
+  empty: '这个来源暂时没有内容',
+  apify_no_token: '还没有填 Apify 令牌（设置 → 扩展订阅）',
+  apify_bad_token: 'Apify 令牌无效，请检查',
+  apify_no_credit: 'Apify 账户余额不足'
 };
 const sourceFailure = (code?: string): string =>
   code ? SOURCE_FAILURE[code] ?? (code.startsWith('instance_') ? 'RSSHub 服务没有响应' : '暂时没抓到内容') : '暂时没抓到内容';
@@ -30,12 +39,13 @@ export function Catalogue({ onClose }: { onClose: () => void }) {
           <h2>订阅源</h2>
           <nav className="tabs small">
             <button className={tab === 'browse' ? 'active' : ''} onClick={() => setTab('browse')}>内置目录</button>
+            <button className={tab === 'social' ? 'active' : ''} onClick={() => setTab('social')}>社交平台</button>
             <button className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>添加链接</button>
           </nav>
           <span className="grow" />
           <button onClick={onClose}>完成</button>
         </header>
-        {tab === 'browse' ? <Browse /> : <AddSource />}
+        {tab === 'browse' ? <Browse /> : tab === 'social' ? <RssHubPicker describe={sourceFailure} /> : <AddSource />}
     </Dialog>
   );
 }
@@ -109,8 +119,9 @@ const KINDS: { id: string; label: string; hint: string; example: string }[] = [
   { id: 'telegram',   label: 'Telegram', hint: '公开频道，不需要登录',         example: 'durov 或 https://t.me/durov' },
   { id: 'reddit',     label: 'Reddit',   hint: '子版名',                       example: 'worldnews' },
   { id: 'hackernews', label: 'Hacker News', hint: '首页热门',                  example: 'front_page' },
-  { id: 'github',     label: 'GitHub',   hint: '用户动态，或 owner/repo 的发布', example: 'torvalds 或 nodejs/node' },
-  { id: 'rsshub',     label: 'RSSHub 路由', hint: '微博、B站、知乎、小红书等',   example: '/bilibili/popular/all' }
+  { id: 'github',     label: 'GitHub',   hint: '用户动态、owner/repo 的发布，或 trending（近一周新星仓库，可加语言，如 trending:rust）', example: 'torvalds、nodejs/node 或 trending' },
+  { id: 'apify_x',    label: 'X / Twitter', hint: '通过 Apify 抓取，需要在「设置 → 扩展订阅」里填 Apify 令牌；按条计费，每次约 0.02 美元', example: '@nasa 或 search:AI regulation' },
+  { id: 'rsshub',     label: 'RSSHub 路由', hint: '手动输入 RSSHub 路由（常用平台请用「社交平台」）', example: '/bilibili/popular/all' }
 ];
 
 function AddSource() {
@@ -119,13 +130,9 @@ function AddSource() {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
-  const [routes, setRoutes] = useState<{ label: string; route: string; note?: string }[]>([]);
   const [rssHub, setRssHub] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    void window.pnr.suggestedRoutes().then((r) => setRoutes(r as typeof routes));
-    void window.pnr.rssHubReady().then(setRssHub);
-  }, []);
+  useEffect(() => { void window.pnr.rssHubReady().then(setRssHub); }, []);
 
   const submit = async (): Promise<void> => {
     if (!value.trim() || busy) return;
@@ -163,23 +170,10 @@ function AddSource() {
       {result && <p role="status" className={result.ok ? 'muted ok' : 'muted warn'}>{result.text}</p>}
 
       {kind === 'rsshub' && (
-        <div className="routes">
-          {rssHub === false && (
-            <p className="muted warn">
-              这台机器上还没有 RSSHub，这类源暂时用不了。
-            </p>
-          )}
-          <p className="muted">常用路由，点一下填进去：</p>
-          <ul>
-            {routes.map((r) => (
-              <li key={r.route}>
-                <button className="chip" onClick={() => setValue(r.route)}>{r.label}</button>
-                <code>{r.route}</code>
-                {r.note && <span className="muted warn"> · {r.note}</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <p className="muted">
+          {rssHub === false && <span className="warn">这台机器上还没有 RSSHub 扩展，先到「社交平台」里下载。</span>}
+          常用平台已经在「社交平台」里整理好了，可以直接挑选、填表；这里用于手动输入其他路由。
+        </p>
       )}
 
       {kind === 'telegram' && (

@@ -33,6 +33,9 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   const [instanceSaving, setInstanceSaving] = useState(false);
   const [instanceMessage, setInstanceMessage] = useState('');
   const [progress, setProgress] = useState<string>('');
+  const [apify, setApify] = useState('');
+  const [hasApify, setHasApify] = useState(false);
+  const [apifyMessage, setApifyMessage] = useState('');
 
   useEffect(() => {
     void window.pnr.aiStatus().then((s) => {
@@ -40,6 +43,7 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
     });
     void window.pnr.scheduleState().then((s) => { setSched(s); setHour(s.dailyHour); });
     void window.pnr.readingLanguages().then(setLangs);
+    void window.pnr.hasApifyToken().then(setHasApify);
     void window.pnr.socialStatus().then((s) => { setSocial(s); setInstance(s.instanceUrl ?? ''); });
     return window.pnr.onSocialProgress((p) => {
       const x = p as { phase: string; received?: number; total?: number };
@@ -202,6 +206,21 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
               {progress && progress.startsWith('失败') && <p className="muted warn">{progress}</p>}
             </div>
           )}
+
+          <h3 className="sub">X / Twitter</h3>
+          <p className="muted">
+            X 没有免费接口，这里通过 Apify 的 Tweet Scraper 抓取：在 apify.com 注册后把 API 令牌填在这里。
+            按条计费，每次更新一个 X 源约 0.02 美元，由 Apify 收取。令牌只保存在本机。
+          </p>
+          <div className="save-row">
+            <input type="password" value={apify} placeholder={hasApify ? '已保存，留空则不改' : 'apify_api_…'} onChange={(e) => { setApify(e.target.value); setApifyMessage(''); }} />
+            <button disabled={!apify.trim()} onClick={async () => {
+              try { await window.pnr.setApifyToken(apify); setApify(''); setHasApify(true); setApifyMessage('已保存'); }
+              catch { setApifyMessage('保存失败，请重试。'); }
+            }}>保存令牌</button>
+            {hasApify && <button onClick={async () => { await window.pnr.setApifyToken(''); setHasApify(false); setApifyMessage('已移除'); }}>移除</button>}
+            <span role="status" className="muted">{apifyMessage}</span>
+          </div>
 
           </section><section hidden={section !== 'background'}>
           <h3 className="sub">后台更新</h3>

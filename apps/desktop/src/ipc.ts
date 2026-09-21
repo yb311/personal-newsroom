@@ -5,7 +5,7 @@ import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESE
 import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
 import { CATEGORIES, countryLabel } from '@pnr/core/catalog-labels';
-import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, SUGGESTED_ROUTES,
+import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, curatedRoutes, matchRouteFromUrl, adapterFor, normalizeItems, APIFY_TOKEN_KEY,
          packState, installPack, removePack, type PackManifest } from '@pnr/feed';
 
 /** Everything the renderer can ask for. The renderer never touches SQLite
@@ -411,7 +411,43 @@ export function createApi(db: Db, dataDir: string) {
       db.prepare('DELETE FROM sources WHERE id = ?').run(id);
     },
 
-    suggestedRoutes(): unknown[] { return SUGGESTED_ROUTES; },
+    /** Whether an Apify token is stored (the token itself never leaves the main process). */
+    hasApifyToken(): boolean {
+      return Boolean(db.prepare('SELECT 1 FROM settings WHERE key = ? AND value != \'\'').get(APIFY_TOKEN_KEY));
+    },
+    setApifyToken(token: string): void {
+      db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
+        .run(APIFY_TOKEN_KEY, token.trim(), Date.now());
+    },
+
+    /** The ready-made RSSHub routes, grouped by platform in the UI. */
+    rsshubRoutes(): unknown[] { return curatedRoutes(); },
+
+    /** Which ready-made route a pasted page address belongs to, if any. */
+    matchRoute(url: string): { routeId: string; path: string } | null {
+      const hit = matchRouteFromUrl(curatedRoutes(), url);
+      return hit ? { routeId: hit.route.id, path: hit.path } : null;
+    },
+
+    /**
+     * 试抓: fetches a route without saving anything, so the person sees what
+     * they would get (or why it fails) before adding it.
+     */
+    async previewRoute(path: string): Promise<{ ok: boolean; titles: string[]; reason?: string }> {
+      const adapter = adapterFor('rsshub');
+      if (!adapter) return { ok: false, titles: [], reason: 'rsshub_not_available' };
+      const source = { id: 'preview', kind: 'rsshub', name: '', domain: null, url: path, category: null, lang: null,
+                       country: null, trust: 0.5, enabled: 1, dateHydration: null, configJson: null } as const;
+      try {
+        const res = await adapter(source as never, { db });
+        if (res.items.length === 0) {
+          return { ok: false, titles: [], reason: Object.keys(res.diagnostics.droppedByReason)[0] ?? 'empty' };
+        }
+        const items = await normalizeItems(res.items.slice(0, 5));
+        return { ok: true, titles: items.map((i) => i.title) };
+      } catch { return { ok: false, titles: [], reason: 'route_error' }; }
+    },
 
     async rssHubReady(): Promise<boolean> { return (await rssHubMode()) !== 'off'; },
 

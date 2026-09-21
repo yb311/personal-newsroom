@@ -15,6 +15,8 @@ export interface SourceRow {
   unread: number; total: number; lastError: string | null;
   newest?: number | null;
 }
+export interface RouteParam { key: string; description: string; optional: boolean; options?: { value: string; label: string }[]; default?: string; advanced?: boolean }
+export interface CuratedRoute { id: string; platform: string; name: string; path: string; example: string; params: RouteParam[]; sources: string[]; site: string | null }
 export interface CatalogueResult {
   rows: SourceRow[]; total: number;
   categories: { key: string; count: number }[];
@@ -89,7 +91,11 @@ export interface ScheduleState {
 export interface Pnr {
   onCommand?(cb: (command: string) => void): () => void;
   addSource(input: { kind: string; value: string; name?: string; category?: string }): Promise<{ ok: boolean; id?: string; name?: string; items?: number; error?: string }>;
-  suggestedRoutes(): Promise<{ label: string; route: string; note?: string }[]>;
+  rsshubRoutes(): Promise<CuratedRoute[]>;
+  previewRoute(path: string): Promise<{ ok: boolean; titles: string[]; reason?: string }>;
+  matchRoute(url: string): Promise<{ routeId: string; path: string } | null>;
+  hasApifyToken(): Promise<boolean>;
+  setApifyToken(token: string): Promise<void>;
   rssHubReady(): Promise<boolean>;
   listSources(): Promise<SourceRow[]>;
   listItems(o: { sourceId?: string; filter?: 'all'|'unread'|'starred'; limit?: number; offset?: number }): Promise<ItemRow[]>;

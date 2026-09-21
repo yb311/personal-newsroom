@@ -311,9 +311,10 @@ personal-newsroom/
 │   ├── renderer/           React UI（今日 / 快讯 / 阅读 / 关注 四 tab + 设置）
 │   └── worker/             无界面 worker 入口，供 launchd 调起
 ├── packages/
-│   ├── feed/               ← 移植 lib/feed/*，src/adapters/ 下 11 种源适配器
+│   ├── feed/               ← 移植 lib/feed/*，src/adapters/ 下 12 种源适配器
 │   │                         （rss/sitemap/sitemapindex/telegram/hackernews/reddit/github/
-│   │                         googlenews/bingnews/gdelt/rsshub），OSS Insight 和 Apify-X 未实现
+│   │                         googlenews/bingnews/gdelt/rsshub/apify_x）。OSS Insight 的趋势接口
+│   │                         2026-03 起官方停用，改用 GitHub 搜索接口做「新星仓库」（github 源的 trending）
 │   │                         【已改】RSSHub 不是独立包/独立进程，是 feed 包里的一个适配器
 │   │                         （见 SPIKES §2：它是库不是服务器，`await request(path)` 直接拿数据，
 │   │                         没有端口/健康检查/崩溃重启这些东西，此处原计划已作废）

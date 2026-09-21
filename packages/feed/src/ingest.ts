@@ -91,6 +91,11 @@ function storeFeedBodies(db: Db, dataDir: string, fresh: { id: string; item: Dis
   return n;
 }
 
+/** Diagnostics that mean the source failed, not that items were filtered. */
+const FAILURE_REASONS = new Set(['rsshub_not_available', 'route_not_found', 'needs_browser', 'upstream_blocked',
+                                 'upstream_error', 'route_error', 'empty',
+                                 'apify_no_token', 'apify_bad_token', 'apify_no_credit']);
+
 export interface IngestOptions {
   /** Where bodies are written. Without it, full-text feeds are stored as teasers. */
   dataDir?: string;
@@ -113,9 +118,19 @@ export async function ingestSource(db: Db, source: SourceRecord, opts: IngestOpt
     const { inserted, fresh } = storeItems(db, await normalizeItems(recent));
     const bodies = opts.dataDir ? storeFeedBodies(db, opts.dataDir, fresh) : 0;
 
-    db.prepare(`UPDATE sources SET last_fetch_at=?, last_ok_at=?, last_error=NULL, consecutive_failures=0
-                ${res.cache ? ', etag=?, last_modified=?' : ''} WHERE id=?`)
-      .run(now, now, ...(res.cache ? [res.cache.etag, res.cache.lastModified] : []), source.id);
+    // Some adapters report failure as an empty result with a reason (RSSHub,
+    // GDELT) rather than by throwing; that is still a failure to show.
+    const failure = res.items.length === 0 && !res.notModified
+      ? Object.keys(res.diagnostics.droppedByReason).find((r) => FAILURE_REASONS.has(r) || r.startsWith('instance_'))
+      : undefined;
+    if (failure) {
+      db.prepare('UPDATE sources SET last_fetch_at=?, last_error=?, consecutive_failures=consecutive_failures+1 WHERE id=?')
+        .run(now, failure, source.id);
+    } else {
+      db.prepare(`UPDATE sources SET last_fetch_at=?, last_ok_at=?, last_error=NULL, consecutive_failures=0
+                  ${res.cache ? ', etag=?, last_modified=?' : ''} WHERE id=?`)
+        .run(now, now, ...(res.cache ? [res.cache.etag, res.cache.lastModified] : []), source.id);
+    }
     log({ event: 'feed.ingest', stage: 'fetch', phase: 'completed', entityId: source.id,
           attrs: { kept: res.diagnostics.kept, inserted, bodies, tooOld,
                    notModified: Boolean(res.notModified), dropped: res.diagnostics.droppedByReason } });

@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_MS } from '@pnr/store';
-import { ingestAll } from '@pnr/feed';
+import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, type Provider } from '@pnr/ai';
 import { runDaily, runFlashCheck, runWatch, generateDeepSummary, type RunOptions, type RunResult } from '@pnr/generate';
@@ -33,6 +33,8 @@ const api = createApi(db, DATA_DIR);
 
 seedCatalogue();
 applyRssHubConfig(db);
+const routes = bundled('rsshub-routes.json');
+if (routes) setCuratedRoutes(JSON.parse(readFileSync(routes, 'utf8')));
 
 let win: BrowserWindow | null = null;
 
@@ -140,13 +142,14 @@ function setDevDockIcon(): void {
  * (switched off) and refresh names and categories of catalogue sources, but
  * never change which sources the person has switched on or off.
  */
+/** Bundled data files: next to the build in a package, in catalogs/data in the repo. */
+function bundled(name: string): string | undefined {
+  return [join(__dirname, '../catalogs', name), join(dirname(__dirname), '../../catalogs/data', name)].find(existsSync);
+}
+
 function seedCatalogue(): void {
   const fresh = (db.prepare('SELECT COUNT(*) c FROM sources').get() as { c: number }).c === 0;
-  const candidates = [
-    join(__dirname, '../catalogs/feeds.json'),
-    join(dirname(__dirname), '../../catalogs/data/feeds.json')
-  ];
-  const path = candidates.find(existsSync);
+  const path = bundled('feeds.json');
   if (!path) return;
   const feeds = JSON.parse(readFileSync(path, 'utf8')) as any[];
   const upsert = db.prepare(

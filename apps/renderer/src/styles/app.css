@@ -556,3 +556,23 @@ button, summary { cursor: default; }
 .preset-chips .chip.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .preset-chips .chip:disabled { opacity: .45; }
 .background-prompt p { line-height: 1.7; }
+
+/* 社交平台 (RSSHub) picker */
+.rsshub-picker { display: flex; flex-direction: column; gap: 12px; padding: 4px 18px 16px; min-height: 0; }
+.pack-banner { padding: 12px 14px; border-radius: 10px; background: var(--bg2); display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pack-banner p { margin: 0; flex: 1 1 260px; font-size: 13px; }
+.paste-row { display: flex; gap: 8px; }
+.paste-row input { flex: 1; }
+.picker-body { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; min-height: 320px; }
+.platforms { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.platforms button { text-align: left; font-size: 13px; padding: 6px 10px; border: 0; background: none; border-radius: 6px; }
+.platforms button.active { background: color-mix(in srgb, var(--fg) 7%, transparent); font-weight: 600; }
+.routes-pane { min-width: 0; overflow-y: auto; }
+.route-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.route-list button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; }
+.route-list button.active { border-color: var(--accent); }
+.route-list small { color: var(--secondary); font-size: 11px; }
+.route-form { border-top: 1px solid var(--border); padding-top: 10px; }
+.route-form h4 { margin: 0 0 4px; }
+.preview-titles { margin: 8px 0 0; padding-left: 1.2em; font-size: 13px; }
+@media (max-width: 760px) { .picker-body { grid-template-columns: 1fr; } .platforms { flex-direction: row; flex-wrap: wrap; } }

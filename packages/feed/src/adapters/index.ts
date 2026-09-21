@@ -7,6 +7,7 @@ import { hackerNewsAdapter, redditAdapter, githubAdapter } from './api.ts';
 import { googleNewsAdapter, bingNewsAdapter } from './search.ts';
 import { gdeltAdapter } from './gdelt.ts';
 import { rssHubAdapter } from './rsshub.ts';
+import { apifyXAdapter } from './apify.ts';
 
 const rssAdapter: Adapter = (source) => fetchFeed(source, { conditional: true });
 
@@ -26,12 +27,14 @@ export const adapters: AdapterRegistry = {
   googlenews: googleNewsAdapter,
   bingnews: bingNewsAdapter,
   gdelt: gdeltAdapter,
-  rsshub: rssHubAdapter
+  rsshub: rssHubAdapter,
+  apify_x: apifyXAdapter
 };
 
 export const adapterFor = (kind: SourceKind): Adapter | undefined => adapters[kind];
 export { siteProbeQuery } from './search.ts';
 export { channelOf } from './telegram.ts';
-export { rssHubAvailable, rssHubMode, configureRssHub, normalizeRoute, SUGGESTED_ROUTES,
+export { rssHubAvailable, rssHubMode, configureRssHub, normalizeRoute,
          type RssHubMode, type RssHubConfig } from './rsshub.ts';
+export { APIFY_TOKEN_KEY } from './apify.ts';
 export type { Adapter, AdapterCtx, AdapterRegistry } from './types.ts';

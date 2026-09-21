@@ -1,6 +1,8 @@
 export { fetchFeed, type FetchFeedOptions } from './parse.ts';
 export { adapters, adapterFor, siteProbeQuery, channelOf, rssHubAvailable, rssHubMode,
-         configureRssHub, normalizeRoute, SUGGESTED_ROUTES } from './adapters/index.ts';
+         configureRssHub, normalizeRoute, APIFY_TOKEN_KEY } from './adapters/index.ts';
+export { fillRoute, matchRouteFromUrl, setCuratedRoutes, curatedRoutes,
+         type CuratedRoute, type RouteParam } from './rsshub-routes.ts';
 export type { RssHubMode, RssHubConfig } from './adapters/index.ts';
 export type { Adapter, AdapterCtx, AdapterRegistry } from './adapters/types.ts';
 export { ingestSource, ingestAll, storeItems, normalizeItems, MAX_ITEM_AGE_DAYS, FEED_BODY_MIN_WORDS,
