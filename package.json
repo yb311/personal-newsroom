@@ -43,6 +43,9 @@
     "package:mac": "npm run package:prepare && PNR_RELEASE_SIGN=1 CSC_NAME='Yue Jing (PR3596G4YB)' electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dmg zip --arm64"
   },
   "devDependencies": {
-    "electron-builder": "^26.15.3"
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "26.6.2",
+    "electron-builder": "^26.15.3",
+    "typescript": "7.0.2"
   }
 }

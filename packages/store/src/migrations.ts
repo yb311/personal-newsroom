@@ -329,10 +329,35 @@ ALTER TABLE watches ADD COLUMN keywords_json TEXT;
 ALTER TABLE watches ADD COLUMN sensitivity TEXT NOT NULL DEFAULT 'balanced';
 `;
 
+const M006_AI_RUNTIME = `-- Vendor-neutral AI runtime and vector identity.
+CREATE TABLE ai_runtime (
+  id INTEGER PRIMARY KEY CHECK (id = 1), vector_profile TEXT,
+  vector_generation INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL
+);
+INSERT INTO ai_runtime (id, vector_generation, updated_at) VALUES (1, 0, 0);
+CREATE TABLE embedding_cache_meta (
+  item_id TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+  vector_profile TEXT NOT NULL, vector_generation INTEGER NOT NULL, created_at INTEGER NOT NULL
+);
+CREATE TABLE watch_vector_meta (
+  watch_id TEXT PRIMARY KEY REFERENCES watches(id) ON DELETE CASCADE,
+  vector_profile TEXT NOT NULL, vector_generation INTEGER NOT NULL, created_at INTEGER NOT NULL
+);
+CREATE TABLE ai_requests (
+  id TEXT PRIMARY KEY, run_id TEXT REFERENCES runs(id) ON DELETE SET NULL,
+  provider TEXT NOT NULL, model TEXT NOT NULL, operation TEXT NOT NULL,
+  input_tokens INTEGER, output_tokens INTEGER, cache_read_tokens INTEGER,
+  cache_write_tokens INTEGER, search_calls INTEGER, cost_usd REAL,
+  cost_known INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL
+);
+CREATE INDEX ai_requests_run ON ai_requests(run_id, created_at);
+`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_init', sql: M001_INIT },
   { name: '002_vectors', sql: M002_VECTORS },
   { name: '003_estimated_dates', sql: M003_ESTIMATED_DATES },
   { name: '004_feed_cache', sql: M004_FEED_CACHE },
-  { name: '005_watch_outputs', sql: M005_WATCH_OUTPUTS }
+  { name: '005_watch_outputs', sql: M005_WATCH_OUTPUTS },
+  { name: '006_ai_runtime', sql: M006_AI_RUNTIME }
 ];

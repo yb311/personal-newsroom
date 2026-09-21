@@ -4,7 +4,7 @@ import { log } from '@pnr/core';
 import { ingestAll } from '@pnr/feed';
 import { enrichItem, enrichPending } from '@pnr/reader';
 import { listWatches, getWatch, prepareWatch, type Watch } from '@pnr/watch';
-import { recallForWatch, judgeAll, gateWatch, matchKeywords } from '@pnr/recall';
+import { recallForWatch, aiPrescreenWatches, judgeAll, gateWatch, matchKeywords } from '@pnr/recall';
 import { generateDigest, type Digest } from './digest.ts';
 import { generateProgress } from './progress.ts';
 import { generateFlashes, FLASH_WINDOW_HOURS } from './flashes.ts';
@@ -51,17 +51,47 @@ async function enrichMatched(db: Db, dataDir: string, watchIds: string[], sinceM
 
 /** Recall, judge and gate one watch. Keyword matching instead when AI is off. */
 async function matchWatch(db: Db, provider: Provider | null, w: Watch,
-                          recall: { windowHours: number; useSearch: boolean; maxJudged: number }): Promise<Watch> {
+                          recall: { windowHours: number; useSearch: boolean; maxJudged: number;
+                            aiMatches?: Set<string>; aiDegraded?: Set<string> }, prepared = false): Promise<Watch> {
   if (!provider) { matchKeywords(db, w, recall.windowHours); }
   else {
-    const prepared = await prepareWatch(db, provider, w);
-    const candidates = await recallForWatch(db, provider, prepared, recall);
-    await judgeAll(db, provider, prepared, candidates);
-    gateWatch(db, prepared);
-    w = prepared;
+    const ready = prepared ? w : await prepareWatch(db, provider, w);
+    const candidates = await recallForWatch(db, provider, ready, recall);
+    await judgeAll(db, provider, ready, candidates);
+    gateWatch(db, ready);
+    w = ready;
   }
   db.prepare('UPDATE watches SET last_run_at = ? WHERE id = ?').run(Date.now(), w.id);
   return w;
+}
+
+async function matchAll(
+  db: Db, provider: Provider | null, watches: Watch[],
+  recall: { windowHours: number; useSearch: boolean; maxJudged: number },
+  onProgress?: RunOptions['onProgress']
+): Promise<{ ready: Watch[]; failed: number }> {
+  const prepared: Watch[] = []; let failed = 0;
+  if (provider) {
+    for (const watch of watches) {
+      onProgress?.({ phase: 'watch', label: watch.label });
+      try { prepared.push(await prepareWatch(db, provider, watch)); }
+      catch (error) { failed++; log({ event: 'run.watch.prepare', phase: 'failed', entityId: watch.id, reasonDetail: String(error).slice(0, 160) }); }
+    }
+  } else prepared.push(...watches);
+  const prescreen = provider && !provider.capabilities.embedding
+    ? await aiPrescreenWatches(db, provider, prepared, recall.windowHours) : null;
+  const ready: Watch[] = [];
+  for (const watch of prepared) {
+    onProgress?.({ phase: 'watch', label: watch.label });
+    try {
+      ready.push(await matchWatch(db, provider, watch, {
+        ...recall, ...(prescreen ? { aiMatches: prescreen.matches.get(watch.id)!, aiDegraded: prescreen.degraded.get(watch.id)! } : {})
+      }, Boolean(provider)));
+    } catch (error) {
+      failed++; log({ event: 'run.watch', phase: 'failed', entityId: watch.id, reasonDetail: String(error).slice(0, 160) });
+    }
+  }
+  return { ready, failed };
 }
 
 /**
@@ -80,16 +110,8 @@ export async function runDaily(db: Db, provider: Provider | null, opts: RunOptio
   await enrichPending(db, opts.dataDir, 40, 5);
 
   const watches = listWatches(db, true);
-  const ready: Watch[] = [];
-  let failed = 0;
-  for (const w of watches) {
-    opts.onProgress?.({ phase: 'watch', label: w.label });
-    try { ready.push(await matchWatch(db, provider, w, { windowHours: 72, useSearch: true, maxJudged: 40 })); }
-    catch (e) {
-      failed++;
-      log({ event: 'run.watch', phase: 'failed', entityId: w.id, reasonDetail: String(e).slice(0, 160) });
-    }
-  }
+  const matched = await matchAll(db, provider, watches, { windowHours: 72, useSearch: true, maxJudged: 40 }, opts.onProgress);
+  const ready = matched.ready; let failed = matched.failed;
   const base: RunResult = { fetched: ing.inserted, watches: ready.length, failed, mode: provider ? 'ai' : 'keywords' };
   if (!provider || ready.length === 0) return base;
 
@@ -120,16 +142,8 @@ export async function runFlashCheck(db: Db, provider: Provider | null, opts: Run
   opts.onProgress?.({ phase: 'fetch' });
   const ing = await ingestAll(db, 8, { dataDir: opts.dataDir });
   const watches = listWatches(db, true);
-  const ready: Watch[] = [];
-  let failed = 0;
-  for (const w of watches) {
-    opts.onProgress?.({ phase: 'watch', label: w.label });
-    try { ready.push(await matchWatch(db, provider, w, { windowHours: FLASH_WINDOW_HOURS, useSearch: false, maxJudged: 30 })); }
-    catch (e) {
-      failed++;
-      log({ event: 'run.watch', phase: 'failed', entityId: w.id, reasonDetail: String(e).slice(0, 160) });
-    }
-  }
+  const matched = await matchAll(db, provider, watches, { windowHours: FLASH_WINDOW_HOURS, useSearch: false, maxJudged: 30 }, opts.onProgress);
+  const ready = matched.ready; let failed = matched.failed;
   const base: RunResult = { fetched: ing.inserted, watches: ready.length, failed, mode: provider ? 'ai' : 'keywords' };
   if (!provider || ready.length === 0) return base;
 
@@ -156,7 +170,9 @@ export async function runWatch(db: Db, provider: Provider | null, watchId: strin
   if (!w) return { fetched: 0, watches: 0, failed: 1, mode: provider ? 'ai' : 'keywords' };
   const startedAt = Date.now();
   opts.onProgress?.({ phase: 'watch', label: w.label });
-  const ready = await matchWatch(db, provider, w, { windowHours: 72, useSearch: true, maxJudged: 40 });
+  const matched = await matchAll(db, provider, [w], { windowHours: 72, useSearch: true, maxJudged: 40 }, opts.onProgress);
+  const ready = matched.ready[0];
+  if (!ready) return { fetched: 0, watches: 0, failed: matched.failed || 1, mode: provider ? 'ai' : 'keywords' };
   const base: RunResult = { fetched: 0, watches: 1, failed: 0, mode: provider ? 'ai' : 'keywords' };
   if (!provider) return base;
   await enrichMatched(db, opts.dataDir, [w.id], Date.now() - 72 * 3600_000, 15);

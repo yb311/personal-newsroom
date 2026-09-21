@@ -1,48 +1,101 @@
-/**
- * Provider abstraction. Everything above this layer asks `isAvailable()` once
- * and degrades gracefully — the app is fully usable as an RSS reader with no
- * key at all, so AI absence is a normal state, never an error.
- */
-export type ProviderId = 'gemini' | 'openai-compatible' | 'ollama';
+/** Stable application-facing AI contract. Provider SDK objects stay private. */
+export type ProviderId = 'gemini' | 'openai' | 'anthropic' | 'openai-compatible' | 'ollama';
+
+export type AiMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+export interface ModelLimits { maxInputTokens: number; maxOutputTokens: number }
+export interface ProviderCapabilities {
+  embedding: boolean;
+  search: boolean;
+  stream: boolean;
+  structured: 'schema' | 'json';
+}
 
 export interface GenerateOptions {
-  /** JSON Schema the model must conform to. All calls are structured. */
+  /** Sent to the provider and independently validated by AI SDK. */
   schema: Record<string, unknown>;
+  /** Multi-turn input. When present, the positional prompt must be empty. */
+  messages?: AiMessage[];
   temperature?: number;
   maxOutputTokens?: number;
-  /** Detail-filling only: lets the model search when the article body could not
-   *  be fetched. Never a discovery path — see AGENTS.md. */
+  /** Detail filling only: search evidence first, then normal structured output. */
   allowSearch?: boolean;
   timeoutMs?: number;
+  signal?: AbortSignal;
+  operation?: string;
+}
+
+export interface StandardUsage {
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  searchCalls?: number;
 }
 
 export interface GenerateResult<T> {
   data: T;
+  provider: ProviderId;
   model: string;
   usedSearch: boolean;
-  usage?: { input: number; output: number };
+  finishReason?: string;
+  usage?: StandardUsage | undefined;
 }
 
-/** Why a provider cannot be used right now, in terms the settings screen can
- *  turn into a sentence. A wrong key and a dropped network need different advice. */
-export type ProviderProblem = 'no_key' | 'invalid_key' | 'network' | 'unreachable' | 'model_missing';
+export type StreamEvent<T> =
+  | { type: 'partial'; value: Partial<T>; sequence: number }
+  | { type: 'final'; result: GenerateResult<T>; sequence: number }
+  | { type: 'error'; error: ProviderError; sequence: number };
 
-export interface ProviderCheck { ok: boolean; problem?: ProviderProblem }
+export interface SearchSource { url: string; title?: string | undefined; providerRef?: string | undefined }
+export interface SearchResult {
+  provider: ProviderId;
+  model: string;
+  text: string;
+  executed: boolean;
+  sources: SearchSource[];
+  usage?: StandardUsage | undefined;
+}
+
+export type ProviderProblem =
+  | 'no_key' | 'invalid_key' | 'network' | 'unreachable' | 'model_missing'
+  | 'rate_limited' | 'quota_exhausted' | 'context_exceeded' | 'unsupported';
+
+export interface ProviderCheck {
+  ok: boolean;
+  problem?: ProviderProblem;
+  generation?: boolean;
+  embedding?: boolean;
+}
+
+export interface VectorProfile {
+  provider: ProviderId;
+  endpoint: string;
+  model: string;
+  dimensions: number;
+  taskConfig: string;
+  inputVersion: number;
+}
 
 export interface Provider {
   readonly id: ProviderId;
   readonly name: string;
+  readonly capabilities: ProviderCapabilities;
+  readonly fastModel: string;
+  readonly writeModel: string;
+  readonly limits: { fast: ModelLimits; write: ModelLimits };
+  readonly embeddingDims: number;
+  readonly vectorProfile: VectorProfile | undefined;
   isAvailable(): Promise<boolean>;
   check(): Promise<ProviderCheck>;
-  /** Cheap model, for high-volume relevance judging. */
-  readonly fastModel: string;
-  /** Capable model, for writing. */
-  readonly writeModel: string;
-  readonly embeddingDims: number;
   generate<T>(prompt: string, opts: GenerateOptions & { model?: string }): Promise<GenerateResult<T>>;
-  embed(texts: string[], kind: EmbedKind): Promise<Float32Array[]>;
-  /** Per-million-token prices, so a run can report what it cost. */
-  readonly pricing?: { inputPerM: number; outputPerM: number; embedPerM: number };
+  stream<T>(prompt: string, opts: GenerateOptions & { model?: string }): AsyncIterable<StreamEvent<T>>;
+  search(prompt: string, opts?: { model?: string; signal?: AbortSignal; timeoutMs?: number }): Promise<SearchResult>;
+  embed(texts: string[], kind: EmbedKind, signal?: AbortSignal): Promise<Float32Array[]>;
+  /** Missing prices are unknown, never silently counted as zero. */
+  readonly pricing: {
+    inputPerM?: number; outputPerM?: number; cachedInputPerM?: number;
+    embedPerM?: number; searchPerCall?: number;
+  } | undefined;
 }
 
 export type EmbedKind = 'document' | 'query' | 'clustering';
@@ -52,21 +105,28 @@ export class NoProviderError extends Error {
   constructor() { super('no AI provider configured'); }
 }
 
+export class ProviderError extends Error {
+  override readonly name = 'ProviderError';
+  readonly code: ProviderProblem;
+  readonly status: number | undefined;
+  constructor(code: ProviderProblem, message: string, status?: number) {
+    super(message); this.code = code; this.status = status;
+  }
+}
+
 const CTRL = new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(8) +
   String.fromCharCode(11) + String.fromCharCode(12) +
   String.fromCharCode(14) + '-' + String.fromCharCode(31) + ']', 'g');
 
-/** Salvages nearly-valid JSON: prose around it, trailing commas, stray control
- *  characters. Models occasionally emit these even under a response schema. */
+/** Syntax repair only. Schema validation is a separate, mandatory step. */
 export function parseLoose<T>(text: string): T {
   const t = text.trim();
   const starts = [t.indexOf('{'), t.indexOf('[')].filter((n) => n >= 0);
   const start = starts.length ? Math.min(...starts) : -1;
   const end = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
   const slice = start >= 0 && end > start ? t.slice(start, end + 1) : t;
-  try {
-    return JSON.parse(slice) as T;
-  } catch {
+  try { return JSON.parse(slice) as T; }
+  catch {
     const repaired = slice.replace(/,(\s*[}\]])/g, '$1').replace(CTRL, '');
     return JSON.parse(repaired) as T;
   }

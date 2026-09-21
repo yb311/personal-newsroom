@@ -69,11 +69,17 @@ export interface RunResult {
   mode?: 'ai' | 'keywords'; digest?: boolean; milestones?: number; flashes?: number;
 }
 export interface AiConnection {
-  mode: 'gemini' | 'ollama' | 'none';
+  mode: 'gemini' | 'openai' | 'anthropic' | 'openai-compatible' | 'ollama' | 'none';
   connected: boolean;
-  problem?: 'no_key' | 'invalid_key' | 'network' | 'unreachable' | 'model_missing';
+  embedding?: boolean;
+  problem?: 'no_key' | 'invalid_key' | 'network' | 'unreachable' | 'model_missing' | 'rate_limited' | 'quota_exhausted' | 'context_exceeded' | 'unsupported';
 }
-export interface AiStatus { available: boolean; provider: string; outputLang: string }
+export interface AiStatus {
+  available: boolean; provider: string; outputLang: string;
+  hasGeminiKey: boolean; hasOpenAiKey: boolean; hasAnthropicKey: boolean; hasCompatibleKey: boolean;
+  compatibleEndpoint: string; writeModel: string; fastModel: string; embedModel: string; contextTokens: string;
+  ollamaHost: string; ollamaWriteModel: string; ollamaFastModel: string; ollamaEmbedModel: string;
+}
 export interface SocialStatus {
   mode: 'off' | 'http' | 'library';
   instanceUrl: string | null;

@@ -10,7 +10,7 @@ const db = openDb(`${DIR}/newsroom.db`);
 writeSetting(db,'ai.provider','gemini'); writeSetting(db,'ai.geminiApiKey',key); invalidateProvider();
 const p = (await resolveProvider(db))!;
 let cost = 0;
-const og = p.generate.bind(p); (p as any).generate = async (a:any,b:any)=>{const r=await og(a,b);cost+=geminiCost(r.model,r.usage?.input??0,r.usage?.output??0);return r;};
+const og = p.generate.bind(p); (p as any).generate = async (a:any,b:any)=>{const r=await og(a,b);cost+=geminiCost(r.model,r.usage?.input??0,r.usage?.output??0)??0;return r;};
 
 console.log('━━ 快讯 ━━');
 for (const w of listWatches(db, true)) {

@@ -21,8 +21,14 @@ let sink: Sink = (e) => {
   const bits = [e.event, e.stage, e.phase, e.outcome, e.reasonCode].filter(Boolean).join(' ');
   console.log(`[${new Date().toISOString()}] ${bits}${e.attrs ? ' ' + JSON.stringify(e.attrs) : ''}`);
 };
+const runContext = new AsyncLocalStorage<{ runId: string }>();
 export const setSink = (s: Sink): void => { sink = s; };
-export const log = (e: LogEvent): void => sink(e);
+export const currentRunId = (): string | undefined => runContext.getStore()?.runId;
+export const withRunContext = <T>(runId: string, fn: () => T): T => runContext.run({ runId }, fn);
+export const log = (e: LogEvent): void => {
+  const runId = currentRunId();
+  sink(e.runId || !runId ? e : { ...e, runId });
+};
 
 export function phase(event: string, stage: string, attrs?: Record<string, unknown>) {
   const t0 = Date.now();
@@ -35,3 +41,4 @@ export function phase(event: string, stage: string, attrs?: Record<string, unkno
       log({ event, stage, phase: 'failed', reasonCode, ...(reasonDetail ? { reasonDetail } : {}), elapsedMs: Date.now() - t0 })
   };
 }
+import { AsyncLocalStorage } from 'node:async_hooks';

@@ -42,7 +42,7 @@ let genCost = 0;
 (p as any).generate = async (pr: string, o: any) => {
   const r = await origGen(pr,o);
   tokIn += r.usage?.input ?? 0; tokOut += r.usage?.output ?? 0;
-  genCost += geminiCost(r.model, r.usage?.input ?? 0, r.usage?.output ?? 0);
+  genCost += geminiCost(r.model, r.usage?.input ?? 0, r.usage?.output ?? 0) ?? 0;
   return r;
 };
 

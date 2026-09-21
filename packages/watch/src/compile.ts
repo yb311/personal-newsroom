@@ -1,6 +1,6 @@
 import type { Db } from '@pnr/store';
 import type { Provider } from '@pnr/ai';
-import { upsertWatchVector, getWatchVector } from '@pnr/ai';
+import { upsertWatchVector, getWatchVector, ensureVectorProfile } from '@pnr/ai';
 import { log } from '@pnr/core';
 import type { RecallAids, Watch } from './watch.ts';
 import { saveRecallAids, getWatch } from './watch.ts';
@@ -14,6 +14,7 @@ import { saveRecallAids, getWatch } from './watch.ts';
  * user never learns they missed it.
  */
 export async function refreshIntentVector(db: Db, provider: Provider, watch: Watch): Promise<Float32Array> {
+  ensureVectorProfile(db, provider);
   const [v] = await provider.embed([watch.intent], 'query');
   if (!v) throw new Error('embed_failed');
   upsertWatchVector(db, watch.id, v);
@@ -100,7 +101,7 @@ const dedupe = (xs: unknown): string[] => {
  * sees `recallAids: null` and would silently skip the alias recall arm.
  */
 export async function prepareWatch(db: Db, provider: Provider, watch: Watch): Promise<Watch> {
-  await ensureIntentVector(db, provider, watch);
+  if (provider.capabilities.embedding) await ensureIntentVector(db, provider, watch);
   if (!watch.recallAids) await generateRecallAids(db, provider, watch);
   return getWatch(db, watch.id) ?? watch;
 }

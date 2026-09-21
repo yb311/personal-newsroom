@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import { setSink } from '@pnr/core';
+import { setSink, withRunContext } from '@pnr/core';
 import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_MS } from '@pnr/store';
 import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
@@ -36,7 +36,6 @@ const db = openDb(join(DATA_DIR, 'newsroom.db'));
 // Structured events go to the database as the worker's do, so run history and
 // the recall audit's cost figures include what was run from the window.
 // A month is kept; the console still gets everything during development.
-let currentRun: string | null = null;
 db.prepare('DELETE FROM events WHERE at < ?').run(Date.now() - 30 * 864e5);
 const insEvent = db.prepare(
   `INSERT INTO events (run_id, at, event, stage, phase, entity_type, entity_id, outcome, reason_code, reason_detail, elapsed_ms, attrs_json)
@@ -44,7 +43,7 @@ const insEvent = db.prepare(
 setSink((e) => {
   if (!app.isPackaged) console.log(`[${new Date().toISOString()}] ${e.event} ${e.phase ?? ''} ${e.attrs ? JSON.stringify(e.attrs) : ''}`);
   try {
-    insEvent.run(currentRun, Date.now(), e.event, e.stage ?? null, e.phase ?? null, e.entityType ?? null, e.entityId ?? null,
+    insEvent.run(e.runId ?? null, Date.now(), e.event, e.stage ?? null, e.phase ?? null, e.entityType ?? null, e.entityId ?? null,
                  e.outcome ?? null, e.reasonCode ?? null, e.reasonDetail ?? null, e.elapsedMs ?? null, e.attrs ? JSON.stringify(e.attrs) : null);
   } catch { /* logging must never break a run */ }
 });
@@ -253,14 +252,13 @@ async function run(kind: 'daily' | 'flashes', lock: string, task: (provider: Pro
   const beat = setInterval(() => renewLock(db, lock), HEARTBEAT_MS);
   const runId = `${kind}-${Date.now()}`;
   db.prepare('INSERT INTO runs (id, kind, started_at) VALUES (?, ?, ?)').run(runId, kind, Date.now());
-  currentRun = runId;
   try {
     const provider = await resolveProvider(db);
-    const result = await task(provider, {
+    const result = await withRunContext(runId, () => task(provider, {
       dataDir: DATA_DIR,
       lang: readSettings(db).outputLang ?? 'zh-CN',
       onProgress: (p) => win?.webContents.send('app:progress', p)
-    });
+    }));
     db.prepare('UPDATE runs SET finished_at = ?, outcome = ?, stats_json = ? WHERE id = ?')
       .run(Date.now(), result.failed ? 'partial' : 'ok', JSON.stringify(result), runId);
     return { busy: false, ...result };
@@ -268,7 +266,7 @@ async function run(kind: 'daily' | 'flashes', lock: string, task: (provider: Pro
     db.prepare("UPDATE runs SET finished_at = ?, outcome = 'failed', stats_json = ? WHERE id = ?")
       .run(Date.now(), JSON.stringify({ error: String(err) }), runId);
     return { busy: false, error: String(err).slice(0, 160) };
-  } finally { currentRun = null; clearInterval(beat); releaseLock(db, lock); }
+  } finally { clearInterval(beat); releaseLock(db, lock); }
 }
 
 // Lock names match the worker's, so the app and a scheduled run never do the same job at once.

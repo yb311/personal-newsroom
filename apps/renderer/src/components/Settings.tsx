@@ -9,8 +9,8 @@ type UiChoice = 'system' | 'zh-CN' | 'en';
 /** Which message the settings screen shows after saving AI settings. */
 const connectionKey = (c: AiConnection): string =>
   c.mode === 'none' ? 'none'
-    : c.connected ? c.mode
-    : c.problem === 'no_key' || c.problem === 'invalid_key' || c.problem === 'network' || c.problem === 'model_missing' ? c.problem
+    : c.connected ? 'connected'
+    : c.problem ? c.problem
     : 'ollama_down';
 
 /** Keys live on this machine only. The app is deliberately usable without one. */
@@ -24,6 +24,12 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   const [key, setKey] = useState('');
   const [provider, setProvider] = useState('gemini');
   const [lang, setLang] = useState('zh-CN');
+  const [endpoint, setEndpoint] = useState('');
+  const [writeModel, setWriteModel] = useState('');
+  const [fastModel, setFastModel] = useState('');
+  const [embedModel, setEmbedModel] = useState('');
+  const [contextTokens, setContextTokens] = useState('');
+  const [ollamaHost, setOllamaHost] = useState('http://127.0.0.1:11434');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [sched, setSched] = useState<ScheduleState | null>(null);
@@ -40,6 +46,8 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   useEffect(() => {
     void window.pnr.aiStatus().then((s) => {
       setStatus(s); setProvider(s.provider); setLang(s.outputLang);
+      setEndpoint(s.compatibleEndpoint); setWriteModel(s.writeModel); setFastModel(s.fastModel);
+      setEmbedModel(s.embedModel); setContextTokens(s.contextTokens); setOllamaHost(s.ollamaHost);
     });
     void window.pnr.scheduleState().then((s) => { setSched(s); setHour(s.dailyHour); });
     void window.pnr.readingLanguages().then(setLangs);
@@ -99,7 +107,15 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   const save = async (): Promise<void> => {
     setSaving(true); setMsg(t('common.checking'));
     const patch: Record<string, string> = { provider, outputLang: lang };
-    if (key.trim()) patch['geminiApiKey'] = key.trim();
+    const keyField = provider === 'gemini' ? 'geminiApiKey' : provider === 'openai' ? 'openaiApiKey'
+      : provider === 'anthropic' ? 'anthropicApiKey' : 'compatibleApiKey';
+    if (key.trim() && provider !== 'ollama' && provider !== 'none') patch[keyField] = key.trim();
+    if (['gemini','openai','anthropic','openai-compatible'].includes(provider)) {
+      patch['writeModel'] = writeModel.trim(); patch['fastModel'] = fastModel.trim(); patch['embedModel'] = embedModel.trim();
+    }
+    if (provider === 'openai-compatible') patch['compatibleEndpoint'] = endpoint.trim();
+    if (provider === 'openai-compatible' || provider === 'ollama') patch['contextTokens'] = contextTokens.trim();
+    if (provider === 'ollama') patch['ollamaHost'] = ollamaHost.trim();
     try {
       const result = await window.pnr.saveAiSettings(patch);
       setMsg(t(`settings.connection.${connectionKey(result)}`));
@@ -143,23 +159,40 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
             <span>{t('settings.provider')}</span>
             <select value={provider} onChange={(e) => setProvider(e.target.value)}>
               <option value="gemini">{t('settings.providerGemini')}</option>
+              <option value="openai">{t('settings.providerOpenAI')}</option>
+              <option value="anthropic">{t('settings.providerAnthropic')}</option>
+              <option value="openai-compatible">{t('settings.providerCompatible')}</option>
               <option value="ollama">{t('settings.providerOllama')}</option>
               <option value="none">{t('settings.providerNone')}</option>
             </select>
           </label>
 
-          {provider === 'gemini' && (
+          {['gemini','openai','anthropic','openai-compatible'].includes(provider) && (
             <label className="field">
-              <span>Gemini API Key</span>
-              <input type="password" value={key} placeholder={status?.available ? t('settings.keySaved') : 'AIza…'}
+              <span>{t('settings.apiKey')}</span>
+              <input type="password" value={key} placeholder={status?.available ? t('settings.keySaved') : t('settings.apiKeyPlaceholder')}
                      onChange={(e) => setKey(e.target.value)} />
               <small className="muted">{t('settings.keyHint')}</small>
             </label>
           )}
 
+          {provider === 'openai-compatible' && <label className="field"><span>{t('settings.endpoint')}</span>
+            <input value={endpoint} placeholder="https://api.example.com/v1" onChange={(e) => setEndpoint(e.target.value)} /></label>}
+
+          {['gemini','openai','anthropic','openai-compatible'].includes(provider) && <>
+            <label className="field"><span>{t('settings.writeModel')}</span><input value={writeModel} onChange={(e) => setWriteModel(e.target.value)} placeholder={t('settings.defaultModel')} /></label>
+            <label className="field"><span>{t('settings.fastModel')}</span><input value={fastModel} onChange={(e) => setFastModel(e.target.value)} placeholder={t('settings.fastModelHint')} /></label>
+            {provider !== 'anthropic' && <label className="field"><span>{t('settings.embedModel')}</span><input value={embedModel} onChange={(e) => setEmbedModel(e.target.value)} placeholder={t('settings.noVectorHint')} /></label>}
+          </>}
+
           {provider === 'ollama' && (
-            <p className="muted">{t('settings.ollamaHint')}</p>
+            <><p className="muted">{t('settings.ollamaHint')}</p>
+              <label className="field"><span>{t('settings.ollamaHost')}</span><input value={ollamaHost} onChange={(e) => setOllamaHost(e.target.value)} /></label>
+            </>
           )}
+
+          {(provider === 'ollama' || provider === 'openai-compatible') && <label className="field"><span>{t('settings.contextTokens')}</span>
+            <input inputMode="numeric" value={contextTokens} onChange={(e) => setContextTokens(e.target.value.replace(/\D/g, ''))} placeholder="8192" /></label>}
 
           <label className="field">
             <span>{t('settings.outputLanguage')}</span>

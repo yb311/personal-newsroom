@@ -1,30 +1,48 @@
+import { createHash } from 'node:crypto';
 import type { Db } from '@pnr/store';
-import type { Provider, ProviderProblem } from './provider.ts';
-import { GeminiProvider } from './gemini.ts';
-import { OllamaProvider } from './ollama.ts';
+import type { Provider, ProviderId, ProviderProblem } from './provider.ts';
+import { GeminiProvider, GEMINI_MODELS } from './gemini.ts';
+import { AnthropicProvider, ANTHROPIC_MODELS, CompatibleProvider, OllamaProvider, OpenAiProvider, OPENAI_MODELS } from './vendors.ts';
 import { withReplay } from './replay.ts';
+import { withAudit } from './audit.ts';
+import { disableVectorProfile, ensureVectorProfile } from './embeddings.ts';
 
-/**
- * The single gate every caller uses. Above this line nothing knows which
- * provider is configured, or whether one is configured at all — an app with no
- * key is a normal, fully-working RSS reader, so `null` is an expected answer
- * rather than an error state.
- */
 export interface AiSettings {
-  provider?: 'gemini' | 'ollama' | 'none';
-  geminiApiKey?: string;
-  ollamaHost?: string;
-  ollamaWriteModel?: string;
-  ollamaFastModel?: string;
+  provider?: ProviderId | 'none';
+  geminiApiKey?: string; openaiApiKey?: string; anthropicApiKey?: string;
+  compatibleApiKey?: string; compatibleEndpoint?: string;
+  writeModel?: string; fastModel?: string; embedModel?: string; contextTokens?: string;
+  compatibleSupportsSchema?: string;
+  ollamaHost?: string; ollamaWriteModel?: string; ollamaFastModel?: string; ollamaEmbedModel?: string;
   outputLang?: string;
+}
+
+export interface PublicAiSettings {
+  provider: ProviderId | 'none'; outputLang: string;
+  hasGeminiKey: boolean; hasOpenAiKey: boolean; hasAnthropicKey: boolean; hasCompatibleKey: boolean;
+  compatibleEndpoint: string; writeModel: string; fastModel: string; embedModel: string; contextTokens: string;
+  ollamaHost: string; ollamaWriteModel: string; ollamaFastModel: string; ollamaEmbedModel: string;
 }
 
 export function readSettings(db: Db): AiSettings {
   const rows = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'ai.%' OR key = 'outputLang'")
     .all() as { key: string; value: string }[];
-  const s: Record<string, string> = {};
-  for (const r of rows) s[r.key.replace(/^ai\./, '')] = r.value;
-  return s as AiSettings;
+  const settings: Record<string, string> = {};
+  for (const row of rows) settings[row.key.replace(/^ai\./, '')] = row.value;
+  return settings as AiSettings;
+}
+
+export function publicSettings(db: Db): PublicAiSettings {
+  const s = readSettings(db);
+  return {
+    provider: s.provider ?? 'gemini', outputLang: s.outputLang ?? 'zh-CN',
+    hasGeminiKey: Boolean(keyFor(s, 'gemini')), hasOpenAiKey: Boolean(keyFor(s, 'openai')),
+    hasAnthropicKey: Boolean(keyFor(s, 'anthropic')), hasCompatibleKey: Boolean(s.compatibleApiKey),
+    compatibleEndpoint: s.compatibleEndpoint ?? '', writeModel: s.writeModel ?? '', fastModel: s.fastModel ?? '',
+    embedModel: s.embedModel ?? '', contextTokens: s.contextTokens ?? '',
+    ollamaHost: s.ollamaHost ?? 'http://127.0.0.1:11434', ollamaWriteModel: s.ollamaWriteModel ?? 'qwen3:8b',
+    ollamaFastModel: s.ollamaFastModel ?? '', ollamaEmbedModel: s.ollamaEmbedModel ?? 'nomic-embed-text'
+  };
 }
 
 export function writeSetting(db: Db, key: string, value: string): void {
@@ -33,61 +51,81 @@ export function writeSetting(db: Db, key: string, value: string): void {
     .run(key, value, Date.now());
 }
 
-// The environment variable is a developer convenience only; a shipped app has
-// no such variable, so an unconfigured install has no key.
-const geminiKey = (s: AiSettings): string =>
-  s.geminiApiKey ?? (process.env['PNR_IGNORE_ENV_KEY'] ? '' : process.env['GEMINI_API_KEY']) ?? '';
+const envAllowed = (): boolean => !process.env['PNR_IGNORE_ENV_KEY'];
+const keyFor = (s: AiSettings, provider: ProviderId): string => {
+  if (provider === 'gemini') return s.geminiApiKey ?? (envAllowed() ? process.env['GEMINI_API_KEY'] ?? '' : '');
+  if (provider === 'openai') return s.openaiApiKey ?? (envAllowed() ? process.env['OPENAI_API_KEY'] ?? '' : '');
+  if (provider === 'anthropic') return s.anthropicApiKey ?? (envAllowed() ? process.env['ANTHROPIC_API_KEY'] ?? '' : '');
+  if (provider === 'openai-compatible') return s.compatibleApiKey ?? '';
+  return '';
+};
+const positiveInt = (value?: string): number | undefined => {
+  const n = Number(value); return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+};
 
-let cached: { provider: Provider | null; at: number } | null = null;
-const CACHE_MS = 30_000;
-
-/** Returns the configured provider, or null when AI is simply not set up. */
-export async function resolveProvider(db: Db, force = false): Promise<Provider | null> {
-  if (!force && cached && Date.now() - cached.at < CACHE_MS) return cached.provider;
-  const s = readSettings(db);
-  let provider: Provider | null = null;
-
-  if (s.provider === 'ollama') {
-    const p = new OllamaProvider(s.ollamaHost, s.ollamaWriteModel, s.ollamaFastModel);
-    provider = (await p.isAvailable()) ? p : null;
-  } else if (s.provider !== 'none') {
-    const key = geminiKey(s);
-    if (key) {
-      const p = new GeminiProvider(key);
-      provider = (await p.isAvailable()) ? p : null;
-    }
+function makeProvider(s: AiSettings): Provider | null {
+  const id = s.provider ?? 'gemini';
+  if (id === 'none') return null;
+  if (id === 'gemini') {
+    const key = keyFor(s, id); if (!key) return null;
+    return new GeminiProvider(key, { write: s.writeModel || GEMINI_MODELS.write, fast: s.fastModel || GEMINI_MODELS.fast, embed: s.embedModel || GEMINI_MODELS.embed });
   }
-  // Development record/replay (PNR_REPLAY); an explicit "no AI" still means none.
-  if (s.provider !== 'none') provider = withReplay(provider);
-  cached = { provider, at: Date.now() };
+  if (id === 'openai') {
+    const key = keyFor(s, id); if (!key) return null;
+    return new OpenAiProvider(key, { write: s.writeModel || OPENAI_MODELS.write, fast: s.fastModel || OPENAI_MODELS.fast, embed: s.embedModel || OPENAI_MODELS.embed });
+  }
+  if (id === 'anthropic') {
+    const key = keyFor(s, id); if (!key) return null;
+    return new AnthropicProvider(key, { write: s.writeModel || ANTHROPIC_MODELS.write, fast: s.fastModel || ANTHROPIC_MODELS.fast });
+  }
+  if (id === 'openai-compatible') {
+    if (!s.compatibleEndpoint || !s.writeModel) return null;
+    const contextTokens = positiveInt(s.contextTokens);
+    return new CompatibleProvider({
+      endpoint: s.compatibleEndpoint, apiKey: keyFor(s, id), writeModel: s.writeModel,
+      ...(s.fastModel ? { fastModel: s.fastModel } : {}), ...(s.embedModel ? { embedModel: s.embedModel } : {}),
+      ...(contextTokens ? { contextTokens } : {}),
+      supportsSchema: s.compatibleSupportsSchema === '1'
+    });
+  }
+  const contextTokens = positiveInt(s.contextTokens);
+  return new OllamaProvider({
+    ...(s.ollamaHost ? { host: s.ollamaHost } : {}), ...(s.ollamaWriteModel ? { writeModel: s.ollamaWriteModel } : {}),
+    ...(s.ollamaFastModel ? { fastModel: s.ollamaFastModel } : {}), ...(s.ollamaEmbedModel ? { embedModel: s.ollamaEmbedModel } : {}),
+    ...(contextTokens ? { contextTokens } : {})
+  });
+}
+
+type CacheEntry = { fingerprint: string; provider: Provider | null };
+let caches = new WeakMap<Db, CacheEntry>();
+const fingerprint = (s: AiSettings): string => createHash('sha256').update(JSON.stringify(s)).digest('hex');
+
+/** Resolving is local and free. Network checks happen only when settings are saved. */
+export async function resolveProvider(db: Db, force = false): Promise<Provider | null> {
+  const settings = readSettings(db); const fp = fingerprint(settings); const cached = caches.get(db);
+  if (!force && cached?.fingerprint === fp) return cached.provider;
+  const raw = makeProvider(settings);
+  const provider = settings.provider !== 'none' ? withReplay(raw ? withAudit(db, raw) : null) : null;
+  caches.set(db, { fingerprint: fp, provider });
   return provider;
 }
 
-export const invalidateProvider = (): void => { cached = null; };
-
-/** Cheap check for the UI: should the AI surfaces be live or show the
- *  "add a key to turn this on" state? */
-export async function aiAvailable(db: Db): Promise<boolean> {
-  return (await resolveProvider(db)) !== null;
-}
+export const invalidateProvider = (db?: Db): void => { if (db) caches.delete(db); else caches = new WeakMap(); };
+export async function aiAvailable(db: Db): Promise<boolean> { return (await resolveProvider(db)) !== null; }
 
 export interface AiConnection {
-  mode: 'gemini' | 'ollama' | 'none';
-  connected: boolean;
-  problem?: ProviderProblem;
+  mode: ProviderId | 'none'; connected: boolean; problem?: ProviderProblem; embedding?: boolean;
 }
 
-/**
- * What the settings screen reports after saving. Choosing "no AI" is a
- * complete, valid answer — nothing is checked, so there is nothing to fail.
- */
 export async function checkConnection(db: Db): Promise<AiConnection> {
-  invalidateProvider();
-  const s = readSettings(db);
-  if (s.provider === 'none') return { mode: 'none', connected: false };
-  const p = s.provider === 'ollama'
-    ? new OllamaProvider(s.ollamaHost, s.ollamaWriteModel, s.ollamaFastModel)
-    : new GeminiProvider(geminiKey(s));
-  const r = await p.check();
-  return { mode: s.provider === 'ollama' ? 'ollama' : 'gemini', connected: r.ok, ...(r.problem ? { problem: r.problem } : {}) };
+  invalidateProvider(db); const s = readSettings(db); const mode = s.provider ?? 'gemini';
+  if (mode === 'none') return { mode, connected: false };
+  const provider = makeProvider(s);
+  if (!provider) return { mode, connected: false, problem: 'no_key' };
+  const result = await provider.check();
+  if (!result.ok) return { mode, connected: false, ...(result.problem ? { problem: result.problem } : {}) };
+  caches.set(db, { fingerprint: fingerprint(s), provider: withReplay(withAudit(db, provider)) });
+  if (provider.capabilities.embedding && result.embedding !== false) ensureVectorProfile(db, provider);
+  else disableVectorProfile(db);
+  return { mode, connected: true, ...(result.embedding != null ? { embedding: result.embedding } : {}) };
 }

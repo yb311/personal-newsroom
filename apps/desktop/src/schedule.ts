@@ -110,7 +110,7 @@ export async function enableSchedule(db: Db, dataDir: string, dailyHour = 7): Pr
 }
 
 export async function disableSchedule(db: Db): Promise<ScheduleState> {
-  for (const [label, service] of [[LABEL_DAILY, SERVICE_DAILY], [LABEL_FLASHES, SERVICE_FLASHES]]) {
+  for (const [label, service] of [[LABEL_DAILY, SERVICE_DAILY], [LABEL_FLASHES, SERVICE_FLASHES]] as const) {
     if (app.isPackaged) {
       try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: service }); }
       catch { /* ignore */ }

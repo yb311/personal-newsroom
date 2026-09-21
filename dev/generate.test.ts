@@ -18,7 +18,7 @@ writeSetting(db,'ai.provider','gemini'); writeSetting(db,'ai.geminiApiKey',key);
 const p = (await resolveProvider(db))!;
 let cost = 0;
 const og = p.generate.bind(p);
-(p as any).generate = async (pr: string, o: any) => { const r = await og(pr,o); cost += geminiCost(r.model, r.usage?.input??0, r.usage?.output??0); return r; };
+(p as any).generate = async (pr: string, o: any) => { const r = await og(pr,o); cost += geminiCost(r.model, r.usage?.input??0, r.usage?.output??0) ?? 0; return r; };
 const oe = p.embed.bind(p);
 (p as any).embed = async (t: string[], k: any) => { cost += t.reduce((a,s)=>a+Math.ceil(s.length/4),0)/1e6*0.15; return oe(t,k); };
 

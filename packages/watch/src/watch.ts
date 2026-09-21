@@ -120,6 +120,7 @@ export function updateWatch(
       // the generated recall aids and every verdict judged against it. They
       // are rebuilt on the next run, which re-judges what is still recent.
       db.prepare('DELETE FROM watch_vectors WHERE watch_id = ?').run(id);
+      db.prepare('DELETE FROM watch_vector_meta WHERE watch_id = ?').run(id);
       db.prepare('UPDATE watches SET recall_aids_json = NULL WHERE id = ?').run(id);
       db.prepare('UPDATE matches SET judged_at = NULL, passed_gate = 0 WHERE watch_id = ?').run(id);
     }

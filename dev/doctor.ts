@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { describeFlags } from '../packages/core/src/index.ts';
 import { defaultDataDir } from '../packages/store/src/index.ts';
 import { locateBinary, plainText } from '../packages/reader-core/src/index.ts';
-import { GEMINI_MODELS, GeminiProvider, OllamaProvider } from '../packages/ai/src/index.ts';
+import { GEMINI_MODELS, GeminiProvider, OllamaProvider, OpenAiProvider, AnthropicProvider, CompatibleProvider } from '../packages/ai/src/index.ts';
 import { configureRssHub, rssHubMode, MAX_ITEM_AGE_DAYS, FEED_BODY_MIN_WORDS } from '../packages/feed/src/index.ts';
 import { MIN_WORDS } from '../packages/reader/src/index.ts';
 import { THRESHOLDS, BATCH_SIZE } from '../packages/recall/src/index.ts';
@@ -59,8 +59,23 @@ console.log('\nAI');
 const provider = settings['ai.provider'] ?? 'gemini';
 if (provider === 'none') line(true, '阅读模式（未启用 AI）');
 else if (provider === 'ollama') {
-  const r = await new OllamaProvider(settings['ai.ollamaHost']).check();
+  const r = await new OllamaProvider({ host: settings['ai.ollamaHost'], writeModel: settings['ai.ollamaWriteModel'], fastModel: settings['ai.ollamaFastModel'], embedModel: settings['ai.ollamaEmbedModel'] }).check();
   line(r.ok, 'Ollama', r.problem ?? '');
+} else if (provider === 'openai') {
+  const r = await new OpenAiProvider(settings['ai.openaiApiKey'] ?? process.env['OPENAI_API_KEY'] ?? '', {
+    ...(settings['ai.writeModel'] ? { write: settings['ai.writeModel'] } : {}), ...(settings['ai.fastModel'] ? { fast: settings['ai.fastModel'] } : {})
+  }).check();
+  line(r.ok, 'OpenAI', r.problem ?? '');
+} else if (provider === 'anthropic') {
+  const r = await new AnthropicProvider(settings['ai.anthropicApiKey'] ?? process.env['ANTHROPIC_API_KEY'] ?? '', {
+    ...(settings['ai.writeModel'] ? { write: settings['ai.writeModel'] } : {}), ...(settings['ai.fastModel'] ? { fast: settings['ai.fastModel'] } : {})
+  }).check();
+  line(r.ok, 'Anthropic Claude', r.problem ?? '');
+} else if (provider === 'openai-compatible') {
+  const r = await new CompatibleProvider({ endpoint: settings['ai.compatibleEndpoint'] ?? '', apiKey: settings['ai.compatibleApiKey'] ?? '',
+    writeModel: settings['ai.writeModel'] ?? '', ...(settings['ai.fastModel'] ? { fastModel: settings['ai.fastModel'] } : {}),
+    ...(settings['ai.embedModel'] ? { embedModel: settings['ai.embedModel'] } : {}) }).check();
+  line(r.ok, 'OpenAI Compatible', r.problem ?? '');
 } else {
   const key = settings['ai.geminiApiKey'] ?? process.env['GEMINI_API_KEY'] ?? '';
   const r = await new GeminiProvider(key).check();

@@ -35,8 +35,10 @@ function migrate(db: Db): void {
   const record = db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)');
   for (const m of MIGRATIONS) {
     if (done.has(m.name)) continue;
-    db.exec(m.sql);
-    record.run(m.name, Date.now());
+    db.transaction(() => {
+      db.exec(m.sql);
+      record.run(m.name, Date.now());
+    })();
   }
 }
 

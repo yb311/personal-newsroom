@@ -1,6 +1,6 @@
 import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
-import { aiAvailable, checkConnection, readSettings, writeSetting, invalidateProvider, type AiConnection } from '@pnr/ai';
+import { aiAvailable, checkConnection, publicSettings, writeSetting, invalidateProvider, type AiConnection } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection } from '@pnr/watch';
 import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
@@ -225,20 +225,21 @@ export function createApi(db: Db, dataDir: string) {
     // ── AI surfaces ────────────────────────────────────────────────────────
     // Every one of these works with AI switched off; they return empty shapes
     // rather than throwing, so the UI can show its "add a key" state.
-    async aiStatus(): Promise<{ available: boolean; provider: string; outputLang: string }> {
-      const s = readSettings(db);
-      return {
-        available: await aiAvailable(db),
-        provider: s.provider ?? 'gemini',
-        outputLang: s.outputLang ?? 'zh-CN'
-      };
+    async aiStatus(): Promise<Record<string, unknown>> {
+      return { ...publicSettings(db), available: await aiAvailable(db) };
     },
 
     async saveAiSettings(patch: Record<string, string>): Promise<AiConnection> {
+      const allowed = new Set([
+        'provider','geminiApiKey','openaiApiKey','anthropicApiKey','compatibleApiKey','compatibleEndpoint',
+        'writeModel','fastModel','embedModel','contextTokens','compatibleSupportsSchema',
+        'ollamaHost','ollamaWriteModel','ollamaFastModel','ollamaEmbedModel','outputLang'
+      ]);
       for (const [k, v] of Object.entries(patch)) {
+        if (!allowed.has(k)) continue;
         writeSetting(db, k === 'outputLang' ? 'outputLang' : `ai.${k}`, v);
       }
-      invalidateProvider();
+      invalidateProvider(db);
       return checkConnection(db);
     },
 

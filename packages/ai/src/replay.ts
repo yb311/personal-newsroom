@@ -2,63 +2,69 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { flags, log } from '@pnr/core';
-import type { EmbedKind, GenerateOptions, GenerateResult, Provider, ProviderCheck } from './provider.ts';
+import type { EmbedKind, GenerateOptions, GenerateResult, Provider, SearchResult, StreamEvent } from './provider.ts';
 
-/**
- * PNR_REPLAY — daily-brief's "reuse local snapshot" semantics.
- *
- *   PNR_REPLAY=record  call the model and save every response
- *   PNR_REPLAY=replay  answer from saved responses; call (and save) only on a miss
- *
- * Responses are keyed by a hash of schema and prompt (or of the texts,
- * for embeddings), so a prompt change naturally misses. With replay and no
- * key at all, a saved run can still be re-run offline; a miss then fails
- * loudly rather than quietly changing results. PNR_SNAPSHOT_DIR overrides the
- * default dev/snapshots.
- */
 const dir = (): string => process.env['PNR_SNAPSHOT_DIR'] ?? join(process.cwd(), 'dev', 'snapshots');
 const keyOf = (parts: unknown[]): string => createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 32);
-
 function load<T>(key: string): T | undefined {
-  const p = join(dir(), `${key}.json`);
-  return existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as T) : undefined;
+  const path = join(dir(), `${key}.json`); return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T : undefined;
 }
 function save(key: string, value: unknown): void {
-  mkdirSync(dir(), { recursive: true });
-  writeFileSync(join(dir(), `${key}.json`), JSON.stringify(value));
+  mkdirSync(dir(), { recursive: true }); writeFileSync(join(dir(), `${key}.json`), JSON.stringify(value));
 }
+const miss = (key: string): never => { throw new Error(`replay_miss:${key}`); };
 
+/** Record/replay wraps the complete contract. Replay mode is strictly offline. */
 export function withReplay(inner: Provider | null): Provider | null {
-  const mode = flags.replay;
-  if (!mode) return inner;
-  const base = inner ?? {
-    id: 'gemini' as const, name: 'replay only', fastModel: 'replay', writeModel: 'replay', embeddingDims: 768,
-    async isAvailable() { return true; },
-    async check(): Promise<ProviderCheck> { return { ok: true }; },
-    async generate(): Promise<never> { throw new Error('replay_miss: no snapshot for this prompt and no AI key to record one'); },
-    async embed(): Promise<never> { throw new Error('replay_miss: no snapshot for these texts and no AI key to record one'); }
+  const mode = flags.replay; if (!mode) return inner;
+  const identity = inner ? {
+    provider: inner.id, fastModel: inner.fastModel, writeModel: inner.writeModel,
+    vectorProfile: inner.vectorProfile ?? null
+  } : { provider: 'unconfigured', fastModel: '', writeModel: '', vectorProfile: null };
+  if (!inner && mode === 'record') return null;
+  const base = inner;
+  const common = base ?? {
+    id: 'gemini' as const, name: 'Replay only', fastModel: 'replay', writeModel: 'replay',
+    embeddingDims: 768, limits: { fast: { maxInputTokens: 1_000_000, maxOutputTokens: 32_000 }, write: { maxInputTokens: 1_000_000, maxOutputTokens: 32_000 } },
+    capabilities: { embedding: true, search: true, stream: true, structured: 'schema' as const },
+    async isAvailable() { return true; }, async check() { return { ok: true as const }; }
   };
   return {
-    ...base,
-    id: base.id, name: `${base.name} (${mode})`, fastModel: base.fastModel, writeModel: base.writeModel,
-    embeddingDims: base.embeddingDims, isAvailable: () => base.isAvailable(), check: () => base.check(),
+    ...common, id: common.id, name: `${common.name} (${mode})`, fastModel: common.fastModel, writeModel: common.writeModel,
+    limits: common.limits, capabilities: common.capabilities, embeddingDims: common.embeddingDims,
+    vectorProfile: base?.vectorProfile, pricing: base?.pricing,
+    isAvailable: () => common.isAvailable(), check: () => common.check(),
     async generate<T>(prompt: string, opts: GenerateOptions & { model?: string }): Promise<GenerateResult<T>> {
-      // Keyed by schema and prompt only: the same prompt never goes to two
-      // models, and a replay without a key cannot know the model names.
-      const key = keyOf(['generate', opts.schema, prompt]);
-      const hit = mode === 'replay' ? load<GenerateResult<T>>(key) : undefined;
-      if (hit) { log({ event: 'ai.replay', phase: 'completed', attrs: { key, hit: true } }); return hit; }
-      const res = await base.generate<T>(prompt, opts);
-      save(key, res);
-      return res;
+      const key = keyOf(['generate', identity, opts.model ?? common.writeModel, prompt, opts.messages ?? null,
+        opts.schema, opts.temperature ?? null, opts.maxOutputTokens ?? null, opts.allowSearch ?? false]);
+      const hit = load<GenerateResult<T>>(key);
+      if (mode === 'replay') {
+        if (!hit) return miss(key);
+        log({ event: 'ai.replay', phase: 'completed', attrs: { key, hit: true } }); return hit;
+      }
+      const result = await base!.generate<T>(prompt, opts); save(key, result); return result;
     },
-    async embed(texts: string[], kind: EmbedKind): Promise<Float32Array[]> {
-      const key = keyOf(['embed', base.embeddingDims, kind, texts]);
-      const hit = mode === 'replay' ? load<number[][]>(key) : undefined;
-      if (hit) return hit.map((v) => Float32Array.from(v));
-      const res = await base.embed(texts, kind);
-      save(key, res.map((v) => Array.from(v)));
-      return res;
+    async *stream<T>(prompt: string, opts: GenerateOptions & { model?: string }): AsyncIterable<StreamEvent<T>> {
+      const key = keyOf(['stream', identity, opts.model ?? common.writeModel, prompt, opts.messages ?? null,
+        opts.schema, opts.temperature ?? null, opts.maxOutputTokens ?? null, opts.allowSearch ?? false]);
+      if (mode === 'replay') {
+        const events = load<StreamEvent<T>[]>(key); if (!events) return miss(key);
+        for (const event of events) yield event; return;
+      }
+      const events: StreamEvent<T>[] = [];
+      for await (const event of base!.stream<T>(prompt, opts)) { events.push(event); yield event; }
+      save(key, events);
+    },
+    async search(prompt: string, opts = {}): Promise<SearchResult> {
+      const key = keyOf(['search', identity, opts.model ?? common.writeModel, prompt]);
+      const hit = load<SearchResult>(key);
+      if (mode === 'replay') return hit ?? miss(key);
+      const result = await base!.search(prompt, opts); save(key, result); return result;
+    },
+    async embed(texts: string[], kind: EmbedKind, signal?: AbortSignal): Promise<Float32Array[]> {
+      const key = keyOf(['embed', identity, kind, texts]); const hit = load<number[][]>(key);
+      if (mode === 'replay') return hit?.map((v) => Float32Array.from(v)) ?? miss(key);
+      const result = await base!.embed(texts, kind, signal); save(key, result.map((v) => Array.from(v))); return result;
     }
   };
 }

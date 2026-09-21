@@ -13,7 +13,7 @@ import { ingestAll } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, pruneVectors } from '@pnr/ai';
 import { runDaily, runFlashCheck } from '@pnr/generate';
-import { setSink, log } from '@pnr/core';
+import { setSink, log, withRunContext } from '@pnr/core';
 
 type Mode = 'daily' | 'flashes' | 'fetch';
 
@@ -56,7 +56,7 @@ const insEvent = db.prepare(
    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
 );
 setSink((e) => {
-  insEvent.run(runId, Date.now(), e.event, e.stage ?? null, e.phase ?? null,
+  insEvent.run(e.runId ?? runId, Date.now(), e.event, e.stage ?? null, e.phase ?? null,
     e.entityType ?? null, e.entityId ?? null, e.outcome ?? null, e.reasonCode ?? null,
     e.reasonDetail ?? null, e.elapsedMs ?? null, e.attrs ? JSON.stringify(e.attrs) : null);
 });
@@ -107,7 +107,7 @@ async function main(): Promise<void> {
 
 // Not top-level await: this bundles to CommonJS so launchd can run it with a
 // plain `node worker.cjs`, and CJS has no top-level await.
-void main().catch((e) => {
+void withRunContext(runId, main).catch((e) => {
   log({ event: 'worker.crashed', reasonDetail: String(e).slice(0, 200) });
   finish('failed', { mode, error: String(e).slice(0, 200) });
   process.exitCode = 1;

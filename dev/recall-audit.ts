@@ -21,7 +21,6 @@ import Database from 'better-sqlite3';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultDataDir } from '../packages/store/src/index.ts';
-import { EMBED_PER_M, geminiCost } from '../packages/ai/src/index.ts';
 import { keywordMatcher } from '../packages/recall/src/index.ts';
 
 const dataDir = process.env['PNR_DATA_DIR'] ?? defaultDataDir();
@@ -96,28 +95,20 @@ if (total.rel) {
 
 // ── cost from logged runs ───────────────────────────────────────────────────
 console.log(`\n最近 ${days} 天的 AI 用量`);
-const events = db.prepare(`SELECT event, attrs_json FROM events WHERE at >= ? AND attrs_json IS NOT NULL
-  AND event IN ('judge.batch','digest.generated','progress.generated','flashes.generated','watch.aids','ai.embed','deep.generated')`)
-  .all(Date.now() - days * 864e5) as { event: string; attrs_json: string }[];
-const byStage = new Map<string, { calls: number; tin: number; tout: number; cost: number }>();
-for (const e of events) {
-  const a = JSON.parse(e.attrs_json) as { tokensIn?: number; tokensOut?: number; model?: string; chars?: number };
-  const s = byStage.get(e.event) ?? { calls: 0, tin: 0, tout: 0, cost: 0 };
-  s.calls++;
-  if (e.event === 'ai.embed') {
-    const est = Math.round((a.chars ?? 0) / 3);
-    s.tin += est; s.cost += (est / 1e6) * EMBED_PER_M;
-  } else {
-    s.tin += a.tokensIn ?? 0; s.tout += a.tokensOut ?? 0;
-    s.cost += a.model ? geminiCost(a.model, a.tokensIn ?? 0, a.tokensOut ?? 0) : 0;
-  }
-  byStage.set(e.event, s);
+const requests = db.prepare(`SELECT operation,input_tokens,output_tokens,cost_usd,cost_known FROM ai_requests WHERE created_at>=?`)
+  .all(Date.now() - days * 864e5) as { operation: string; input_tokens: number | null; output_tokens: number | null; cost_usd: number | null; cost_known: number }[];
+const byStage = new Map<string, { calls: number; tin: number; tout: number; cost: number; unknown: number }>();
+for (const request of requests) {
+  const s = byStage.get(request.operation) ?? { calls: 0, tin: 0, tout: 0, cost: 0, unknown: 0 };
+  s.calls++; s.tin += request.input_tokens ?? 0; s.tout += request.output_tokens ?? 0;
+  if (request.cost_known) s.cost += request.cost_usd ?? 0; else s.unknown++;
+  byStage.set(request.operation, s);
 }
 if (byStage.size === 0) console.log('  （这段时间没有记录到 AI 调用。）');
 let sum = 0;
 for (const [stage, s] of [...byStage.entries()].sort((a, b) => b[1].cost - a[1].cost)) {
   sum += s.cost;
-  console.log(`  ${stage.padEnd(20)} ${String(s.calls).padStart(4)} 次  输入 ${String(s.tin).padStart(8)}  输出 ${String(s.tout).padStart(7)}  $${s.cost.toFixed(4)}`);
+  console.log(`  ${stage.padEnd(20)} ${String(s.calls).padStart(4)} 次  输入 ${String(s.tin).padStart(8)}  输出 ${String(s.tout).padStart(7)}  $${s.cost.toFixed(4)}${s.unknown ? ` · ${s.unknown} 次费用未知` : ''}`);
 }
-if (byStage.size) console.log(`  ${'合计'.padEnd(20)} $${sum.toFixed(4)}（约 $${(sum / days).toFixed(4)} / 天；向量按字符数估算）`);
+if (byStage.size) console.log(`  ${'合计'.padEnd(20)} $${sum.toFixed(4)}（约 $${(sum / days).toFixed(4)} / 天；未知价格未冒充为零）`);
 db.close();

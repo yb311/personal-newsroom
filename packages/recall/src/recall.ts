@@ -7,7 +7,7 @@ import { adapterFor, storeItems } from '@pnr/feed';
 import type { SourceRecord } from '@pnr/core';
 import { log, flags } from '@pnr/core';
 
-export type RecallArm = 'r1_vector' | 'r2_alias' | 'r3_search';
+export type RecallArm = 'r1_vector' | 'r1_ai' | 'r2_alias' | 'r3_search';
 
 export interface Candidate {
   itemId: string;
@@ -17,6 +17,7 @@ export interface Candidate {
   publishedAt: number;
   arms: Set<RecallArm>;
   vectorScore?: number;
+  degraded?: boolean;
 }
 
 export interface RecallOptions {
@@ -28,6 +29,9 @@ export interface RecallOptions {
   /** Hard cap on what reaches the judge — the single biggest cost lever.
    *  Ranking below is free, judging is not. */
   maxJudged?: number;
+  /** Prepared once for all watches when the provider has no usable vectors. */
+  aiMatches?: Set<string>;
+  aiDegraded?: Set<string>;
 }
 
 /**
@@ -59,7 +63,6 @@ export async function recallForWatch(
   };
 
   // ── R1: the user's sentence, embedded, against every recent item ─────────
-  const intentVec = await ensureIntentVector(db, provider, watch);
   const recent = db.prepare(
     `SELECT i.id, i.title, i.snippet, i.published_at, s.name AS sourceName
      FROM items i JOIN sources s ON s.id = i.source_id
@@ -67,21 +70,23 @@ export async function recallForWatch(
   ).all(since) as any[];
   const byId = new Map(recent.map((r) => [r.id, r]));
 
-  const vectors = await embedItems(db, provider, recent.map((r) => ({
-    id: r.id, text: `${r.title}\n${(r.snippet ?? '').slice(0, 500)}`
-  })));
-
-  // Nearest items within the window only. A global nearest-neighbour search
-  // followed by a date filter lets old items crowd out new ones as the store
-  // grows; comparing against the window's few thousand vectors directly is
-  // both correct and fast.
-  const nearest = [...vectors.entries()]
-    .map(([id, v]) => ({ id, distance: 1 - cosine(intentVec, v) }))
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, opts.vectorTopN ?? 80);
-  for (const n of nearest) {
-    const row = byId.get(n.id);
-    if (row) add(row, 'r1_vector', n.distance);
+  if (provider.capabilities.embedding) {
+    const intentVec = await ensureIntentVector(db, provider, watch);
+    const vectors = await embedItems(db, provider, recent.map((r) => ({
+      id: r.id, text: `${r.title}\n${(r.snippet ?? '').slice(0, 500)}`
+    })));
+    const nearest = [...vectors.entries()]
+      .map(([id, v]) => ({ id, distance: 1 - cosine(intentVec, v) }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, opts.vectorTopN ?? 80);
+    for (const n of nearest) {
+      const row = byId.get(n.id); if (row) add(row, 'r1_vector', n.distance);
+    }
+  } else {
+    const matches = opts.aiMatches ?? (await aiPrescreenWatches(db, provider, [watch], opts.windowHours ?? 48)).matches.get(watch.id) ?? new Set();
+    for (const id of matches) {
+      const row = byId.get(id); if (row) { add(row, 'r1_ai'); const c = found.get(id); if (c && opts.aiDegraded?.has(id)) c.degraded = true; }
+    }
   }
 
   // ── R2: alias hits. Widens only; never removes anything ──────────────────
@@ -126,10 +131,62 @@ export async function recallForWatch(
   log({ event: 'recall.completed', entityId: watch.id, attrs: {
     recalled: all.length, judging: out.length,
     r1: all.filter((c) => c.arms.has('r1_vector')).length,
+    r1Ai: all.filter((c) => c.arms.has('r1_ai')).length,
     r2: all.filter((c) => c.arms.has('r2_alias')).length,
     r3: all.filter((c) => c.arms.has('r3_search')).length
   }});
   return out;
+}
+
+const PRESCREEN_SCHEMA = {
+  type: 'object', properties: { results: { type: 'array', items: {
+    type: 'object', properties: { articleId: { type: 'string' }, watchIds: { type: 'array', items: { type: 'string' } } },
+    required: ['articleId', 'watchIds'], additionalProperties: false
+  } } }, required: ['results'], additionalProperties: false
+} as const;
+
+/** One preparation pass for every watch. Failed batches widen, never subtract. */
+export async function aiPrescreenWatches(
+  db: Db, provider: Provider, watches: Watch[], windowHours: number
+): Promise<{ matches: Map<string, Set<string>>; degraded: Map<string, Set<string>> }> {
+  const matches = new Map(watches.map((w) => [w.id, new Set<string>()]));
+  const degraded = new Map(watches.map((w) => [w.id, new Set<string>()]));
+  if (watches.length === 0) return { matches, degraded };
+  const items = db.prepare(`SELECT id,title,snippet,published_at AS publishedAt FROM items
+    WHERE published_at>=? ORDER BY published_at DESC`).all(Date.now() - windowHours * 3600_000) as any[];
+  const watchText = watches.map((w) => {
+    const corrections = db.prepare(`SELECT verdict,user_note AS note,i.title FROM corrections c
+      LEFT JOIN items i ON i.id=c.item_id WHERE watch_id=? ORDER BY c.created_at DESC LIMIT 12`).all(w.id) as any[];
+    return `${w.id}: ${w.intent}\n纠偏原话: ${corrections.map((c) => `${c.verdict}:${c.title ?? ''}:${c.note ?? ''}`).join(' | ') || '无'}`;
+  }).join('\n');
+  const budgetChars = Math.max(12_000, provider.limits.fast.maxInputTokens * 2);
+  for (let offset = 0; offset < items.length;) {
+    const batch: any[] = []; let chars = watchText.length + 800;
+    while (offset < items.length && batch.length < 300) {
+      const item = items[offset]!; const line = `${item.id}: ${item.title}\n${String(item.snippet ?? '').slice(0, 700)}`;
+      if (batch.length && chars + line.length > budgetChars) break;
+      batch.push(item); chars += line.length; offset++;
+    }
+    try {
+      const result = await provider.generate<{ results: { articleId: string; watchIds: string[] }[] }>([
+        '你只做宽松召回初筛。可能相关就保留；不要因为不确定而排除。',
+        '下面是所有关注的用户原话和用户纠偏原话，不得改写成关键词判据。', 'WATCHES', watchText,
+        'ARTICLES', ...batch.map((i) => `${i.id}: ${i.title}\n${String(i.snippet ?? '').slice(0, 700)}`),
+        '返回每篇可能相关报道及所有可能相关 watchId。完全无关的文章可省略。'
+      ].join('\n\n'), { schema: PRESCREEN_SCHEMA as unknown as Record<string, unknown>, model: provider.fastModel,
+        temperature: 0, operation: 'recall_prescreen' });
+      const validItems = new Set(batch.map((i) => i.id)); const validWatches = new Set(watches.map((w) => w.id));
+      for (const row of result.data.results ?? []) if (validItems.has(row.articleId)) {
+        for (const watchId of row.watchIds ?? []) if (validWatches.has(watchId)) matches.get(watchId)!.add(row.articleId);
+      }
+    } catch (error) {
+      for (const watch of watches) for (const item of batch) {
+        matches.get(watch.id)!.add(item.id); degraded.get(watch.id)!.add(item.id);
+      }
+      log({ event: 'recall.prescreen', phase: 'failed', reasonDetail: String(error).slice(0, 160), attrs: { batch: batch.length } });
+    }
+  }
+  return { matches, degraded };
 }
 
 /**
@@ -205,7 +262,7 @@ export function rankAndCap(candidates: Candidate[], cap: number): Candidate[] {
   const now = Date.now();
   const score = (c: Candidate): number => {
     const agreement = (c.arms.size - 1) * 0.35;
-    const vector = c.vectorScore !== undefined ? Math.max(0, 1 - c.vectorScore) : 0.35;
+    const vector = c.arms.has('r1_ai') ? 0.6 : c.vectorScore !== undefined ? Math.max(0, 1 - c.vectorScore) : 0.35;
     const ageHours = Math.max(0, (now - c.publishedAt) / 3600_000);
     const fresh = Math.max(0, 1 - ageHours / 72) * 0.2;
     return agreement + vector + fresh;
