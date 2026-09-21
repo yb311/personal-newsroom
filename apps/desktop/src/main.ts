@@ -31,7 +31,7 @@ const DATA_DIR = process.env['PNR_DATA_DIR'] ?? defaultDataDir();
 const db = openDb(join(DATA_DIR, 'newsroom.db'));
 const api = createApi(db, DATA_DIR);
 
-seedCatalogueOnFirstRun();
+seedCatalogue();
 applyRssHubConfig(db);
 
 let win: BrowserWindow | null = null;
@@ -133,11 +133,15 @@ function setDevDockIcon(): void {
   if (existsSync(icon)) app.dock?.setIcon(icon);
 }
 
-/** Loads the bundled catalogue the first time the app runs. Sources marked
- *  `featured` start enabled so there is something to read immediately. */
-function seedCatalogueOnFirstRun(): void {
-  const already = (db.prepare('SELECT COUNT(*) c FROM sources').get() as { c: number }).c;
-  if (already > 0) return;
+/**
+ * Merges the bundled catalogue into the database on every launch. A fresh
+ * install gets every source, with `featured` ones switched on so there is
+ * something to read immediately. Later versions add their new sources
+ * (switched off) and refresh names and categories of catalogue sources, but
+ * never change which sources the person has switched on or off.
+ */
+function seedCatalogue(): void {
+  const fresh = (db.prepare('SELECT COUNT(*) c FROM sources').get() as { c: number }).c === 0;
   const candidates = [
     join(__dirname, '../catalogs/feeds.json'),
     join(dirname(__dirname), '../../catalogs/data/feeds.json')
@@ -145,14 +149,16 @@ function seedCatalogueOnFirstRun(): void {
   const path = candidates.find(existsSync);
   if (!path) return;
   const feeds = JSON.parse(readFileSync(path, 'utf8')) as any[];
-  const ins = db.prepare(
+  const upsert = db.prepare(
     `INSERT INTO sources (id,kind,name,domain,url,category,lang,country,trust,enabled,date_hydration,added_by,created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,'catalog',?) ON CONFLICT(id) DO NOTHING`);
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,'catalog',?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, domain = excluded.domain, category = excluded.category,
+       country = excluded.country WHERE sources.added_by = 'catalog'`);
   const now = Date.now();
   db.transaction(() => {
     for (const f of feeds)
-      ins.run(f.id, f.kind, f.name, f.domain ?? null, f.url, f.category ?? null, f.lang ?? null,
-              f.country ?? null, f.trust, f.featured ? 1 : 0, f.dateHydration ?? null, now);
+      upsert.run(f.id, f.kind, f.name, f.domain ?? null, f.url, f.category ?? null, f.lang ?? null,
+                 f.country ?? null, f.trust, fresh && f.featured ? 1 : 0, f.dateHydration ?? null, now);
   })();
 }
 

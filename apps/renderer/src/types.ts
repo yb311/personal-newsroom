@@ -15,6 +15,11 @@ export interface SourceRow {
   unread: number; total: number; lastError: string | null;
   newest?: number | null;
 }
+export interface CatalogueResult {
+  rows: SourceRow[]; total: number;
+  categories: { key: string; count: number }[];
+  countries: { key: string; count: number }[];
+}
 export type Block =
   | { type: 'paragraph'; text: string; sourceRefIds?: string[] }
   | { type: 'heading'; level: 2 | 3; text: string }
@@ -90,7 +95,7 @@ export interface Pnr {
   markRead(id: string, read: boolean): Promise<void>;
   toggleStar(id: string): Promise<boolean>;
   setSourceEnabled(id: string, enabled: boolean): Promise<void>;
-  catalogue(q: string, limit?: number): Promise<SourceRow[]>;
+  catalogue(o: { q?: string; category?: string | null; country?: string | null; limit?: number }): Promise<CatalogueResult>;
   stats(): Promise<{ items: number; sources: number; unread: number; lastRun: number | null }>;
   refresh(): Promise<{ busy: boolean; sources?: number; inserted?: number; enriched?: Record<string, number>; error?: string }>;
   enrichOne(id: string): Promise<{ state: string; words: number; reason?: string } | null>;

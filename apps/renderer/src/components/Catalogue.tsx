@@ -1,7 +1,7 @@
-import { categoryLabel, categorySearchTerm } from '../categories.ts';
+import { categoryLabel, countryLabel } from '@pnr/core/catalog-labels';
 import { Dialog } from './Dialog.tsx';
 import { useEffect, useState } from 'react';
-import type { SourceRow } from '../types.ts';
+import type { CatalogueResult, SourceRow } from '../types.ts';
 
 type Tab = 'browse' | 'add';
 
@@ -42,26 +42,49 @@ export function Catalogue({ onClose }: { onClose: () => void }) {
 
 function Browse() {
   const [q, setQ] = useState('');
-  const [rows, setRows] = useState<SourceRow[]>([]);
+  const [category, setCategory] = useState<string | null>(null);
+  const [country, setCountry] = useState<string | null>(null);
+  const [result, setResult] = useState<CatalogueResult | null>(null);
+  const rows = result?.rows ?? [];
 
   useEffect(() => {
     let live = true;
-    const t = setTimeout(() => { void window.pnr.catalogue(categorySearchTerm(q), 300).then(rows => { if (live) setRows(rows); }); }, 180);
+    const t = setTimeout(() => {
+      void window.pnr.catalogue({ q, category, country, limit: 300 }).then((r) => { if (live) setResult(r); });
+    }, 150);
     return () => { live = false; clearTimeout(t); };
-  }, [q]);
+  }, [q, category, country]);
 
   const toggle = async (s: SourceRow): Promise<void> => {
     const next = !s.enabled;
     await window.pnr.setSourceEnabled(s.id, next);
-    setRows((prev) => prev.map((r) => (r.id === s.id ? { ...r, enabled: next ? 1 : 0 } : r)));
+    setResult((prev) => prev && { ...prev, rows: prev.rows.map((r) => (r.id === s.id ? { ...r, enabled: next ? 1 : 0 } : r)) });
   };
 
   return (
     <>
       <div className="modal-search">
-        <input autoFocus aria-label="搜索订阅源" placeholder="搜索媒体、分类或域名…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input autoFocus aria-label="搜索订阅源" placeholder="搜索媒体、分类、国家或域名，例如：国际新闻、美国、bbc" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      <p className="modal-note">显示 {rows.length} 个，其中已订阅 {rows.filter((r) => r.enabled).length} 个。</p>
+      <div className="facets" aria-label="按分类筛选">
+        <button className={category === null ? 'chip active' : 'chip'} onClick={() => setCategory(null)}>全部分类</button>
+        {result?.categories.slice(0, 16).map((c) => (
+          <button key={c.key} className={category === c.key ? 'chip active' : 'chip'} onClick={() => setCategory(category === c.key ? null : c.key)}>
+            {categoryLabel(c.key)} <small>{c.count}</small>
+          </button>
+        ))}
+      </div>
+      {(result?.countries.length ?? 0) > 0 && (
+        <div className="facets" aria-label="按国家筛选">
+          <button className={country === null ? 'chip active' : 'chip'} onClick={() => setCountry(null)}>全部国家</button>
+          {result!.countries.map((c) => (
+            <button key={c.key} className={country === c.key ? 'chip active' : 'chip'} onClick={() => setCountry(country === c.key ? null : c.key)}>
+              {countryLabel(c.key)} <small>{c.count}</small>
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="modal-note">找到 {rows.length} 个，其中已订阅 {rows.filter((r) => r.enabled).length} 个。</p>
       <ul className="catalogue">
         {rows.length === 0 && <li className="empty-block">没有找到订阅源，试试其他关键词。</li>}
         {rows.map((s) => (
@@ -70,7 +93,7 @@ function Browse() {
               <input type="checkbox" checked={Boolean(s.enabled)} onChange={() => void toggle(s)} />
               <span className="name">{s.name}</span>
               <span className="tag">{categoryLabel(s.category)}</span>
-              {s.country && <span className="tag country">{s.country}</span>}
+              {s.country && <span className="tag country">{countryLabel(s.country)}</span>}
               <span className="domain">{s.domain}</span>
             </label>
           </li>

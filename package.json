@@ -28,6 +28,7 @@
     "test:pipeline": "node --experimental-strip-types dev/pipeline.test.ts",
     "test:generate": "node --experimental-strip-types dev/generate.test.ts",
     "test:today": "node --experimental-strip-types dev/today.test.ts",
+    "test:catalogue": "node --experimental-strip-types dev/catalogue.test.ts",
     "test:flash-deep": "node --experimental-strip-types dev/flash-deep.test.ts",
     "preview": "dev/preview.sh",
     "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",

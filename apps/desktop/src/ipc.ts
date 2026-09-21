@@ -4,6 +4,7 @@ import { aiAvailable, checkConnection, readSettings, writeSetting, invalidatePro
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, addCorrection } from '@pnr/watch';
 import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
+import { CATEGORIES, countryLabel } from '@pnr/core/catalog-labels';
 import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, SUGGESTED_ROUTES,
          packState, installPack, removePack, type PackManifest } from '@pnr/feed';
 
@@ -39,6 +40,46 @@ const ITEM_COLS = `
 const READING_LANGS_KEY = 'reader.languages';
 
 export interface ItemBody { html: string; words: number; source: 'feed' | 'page' }
+
+export interface CatalogueResult {
+  rows: SourceRow[];
+  /** Matches before the category/country filters. */
+  total: number;
+  categories: { key: string; count: number }[];
+  countries: { key: string; count: number }[];
+}
+
+/**
+ * How well one source matches the search words; 0 when any word matches
+ * nothing. A word matches a category when it is part of the category's label
+ * or a synonym: "新闻" matches both 综合新闻 and 国际新闻, "国际新闻" only the
+ * latter. Latin words match whole words in names, so "ai" does not match "Daily".
+ */
+function scoreSource(s: SourceRow, words: string[]): number {
+  if (words.length === 0) return 1;
+  const cat = s.category ? [s.category, ...(CATEGORIES[s.category] ?? [])].map((x) => x.toLowerCase()) : [];
+  const country = [s.country, countryLabel(s.country)].filter(Boolean).map((x) => x!.toLowerCase());
+  const name = s.name.toLowerCase();
+  const domain = (s.domain ?? '').toLowerCase();
+  let total = 0;
+  for (const w of words) {
+    const latin = /^[a-z0-9.-]+$/.test(w);
+    const word = new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`);
+    const has = (text: string): boolean => (latin ? word.test(text) : text.includes(w));
+    const inName = has(name);
+    const score =
+      cat.some((c) => c === w) ? 100
+      : cat.some((c) => c.includes(w) && (!latin || w.length >= 3)) ? 70
+      : name.startsWith(w) && inName ? 60
+      : inName ? 40
+      : (w.length >= 4 ? domain.includes(w) : domain.split(/[.-]/).includes(w)) ? 30
+      : country.some(has) ? 20
+      : 0;
+    if (score === 0) return 0;
+    total += score;
+  }
+  return total;
+}
 
 /** What a citation needs to be shown and opened. */
 export interface ItemRef { id: string; title: string; url: string; publishedAt: number; sourceName: string | null }
@@ -154,12 +195,31 @@ export function createApi(db: Db, dataDir: string) {
       db.prepare('UPDATE sources SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
     },
 
-    catalogue(q: string, limit = 200): SourceRow[] {
-      const like = `%${q}%`;
-      return db.prepare(`
-        SELECT id, name, kind, category, country, domain, enabled, last_error AS lastError, 0 AS unread, 0 AS total, NULL AS newest
-        FROM sources WHERE (? = '' OR name LIKE ? OR domain LIKE ? OR category LIKE ?)
-        ORDER BY enabled DESC, name LIMIT ?`).all(q, like, like, like, limit) as SourceRow[];
+    /**
+     * Searches the catalogue. Every word has to match something about a
+     * source — its name, domain, category (by key, Chinese label or a common
+     * synonym) or country (in English or Chinese) — and results are ranked by
+     * how they matched. Category and country filters narrow the result; the
+     * counts for both are computed before those filters so the chips stay useful.
+     */
+    catalogue(opts: { q?: string; category?: string | null; country?: string | null; limit?: number } = {}): CatalogueResult {
+      const all = db.prepare(`
+        SELECT id, name, kind, category, country, domain, enabled, last_error AS lastError,
+               0 AS unread, 0 AS total, NULL AS newest
+        FROM sources WHERE added_by != 'search'`).all() as SourceRow[];
+      const words = (opts.q ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+      const scored = all.map((s) => ({ s, score: scoreSource(s, words) })).filter((x) => x.score > 0);
+      const count = (key: (s: SourceRow) => string | null) => {
+        const m = new Map<string, number>();
+        for (const { s } of scored) { const k = key(s); if (k) m.set(k, (m.get(k) ?? 0) + 1); }
+        return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, count: n }));
+      };
+      const rows = scored
+        .filter(({ s }) => (!opts.category || s.category === opts.category) && (!opts.country || s.country === opts.country))
+        .sort((a, b) => b.score - a.score || b.s.enabled - a.s.enabled || a.s.name.localeCompare(b.s.name))
+        .slice(0, opts.limit ?? 300)
+        .map((x) => x.s);
+      return { rows, total: scored.length, categories: count((s) => s.category), countries: count((s) => s.country) };
     },
 
     // ── AI surfaces ────────────────────────────────────────────────────────

@@ -102,16 +102,6 @@
   "featured": false
  },
  {
-  "id": "alistapart-com-a-list-apart-the-full-feed",
-  "kind": "rss",
-  "name": "A List Apart: The Full Feed",
-  "domain": "alistapart.com",
-  "url": "https://alistapart.com/main/feed/",
-  "category": "web-development",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "aljazeera",
   "kind": "rss",
   "name": "半岛电视台",
@@ -124,21 +114,11 @@
  {
   "id": "amarujala-com-latest-and-breaking-hindi-news-headlines-news-in-hindi-amar-",
   "kind": "rss",
-  "name": "Latest And Breaking Hindi News Headlines, News In Hindi | अमर उजाला हिंदी न्यूज़ | - Amar Ujala",
+  "name": "Amar Ujala",
   "domain": "amarujala.com",
   "url": "https://www.amarujala.com/rss/breaking-news.xml",
   "category": "news",
   "country": "India",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "anchor-fm-stephan-livera-podcast",
-  "kind": "rss",
-  "name": "Stephan Livera Podcast",
-  "domain": "anchor.fm",
-  "url": "https://anchor.fm/s/7d083a4/podcast/rss",
-  "category": "cryptocurrency",
   "trust": 0.75,
   "featured": false
  },
@@ -149,6 +129,16 @@
   "domain": "anchor.fm",
   "url": "https://anchor.fm/s/4495abac/podcast/rss",
   "category": "android",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "anchor-fm-stephan-livera-podcast",
+  "kind": "rss",
+  "name": "Stephan Livera Podcast",
+  "domain": "anchor.fm",
+  "url": "https://anchor.fm/s/7d083a4/podcast/rss",
+  "category": "cryptocurrency",
   "trust": 0.75,
   "featured": false
  },
@@ -165,7 +155,7 @@
  {
   "id": "ansa-it-rss-di-ansa-it",
   "kind": "rss",
-  "name": "RSS di   - ANSA.it",
+  "name": "RSS di - ANSA.it",
   "domain": "ansa.it",
   "url": "https://www.ansa.it/sito/ansait_rss.xml",
   "category": "news",
@@ -238,7 +228,7 @@
  {
   "id": "atlasobscura-com-atlas-obscura-latest-articles-and-places",
   "kind": "rss",
-  "name": "Atlas Obscura - Latest Articles and Places",
+  "name": "Atlas Obscura",
   "domain": "atlasobscura.com",
   "url": "https://www.atlasobscura.com/feeds/latest",
   "category": "travel",
@@ -450,7 +440,7 @@
  {
   "id": "bringatrailer-com-the-best-vintage-and-classic-cars-for-sale-online-bring-a-tr",
   "kind": "rss",
-  "name": "The best vintage and classic cars for sale online | Bring a Trailer",
+  "name": "Bring a Trailer",
   "domain": "bringatrailer.com",
   "url": "https://bringatrailer.com/feed/",
   "category": "cars",
@@ -508,17 +498,6 @@
   "url": "https://www.businessnews.com.au/rssfeed/latest.rss",
   "category": "news",
   "country": "Australia",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "bworldonline-com-businessworld",
-  "kind": "rss",
-  "name": "BusinessWorld",
-  "domain": "bworldonline.com",
-  "url": "https://www.bworldonline.com/feed/",
-  "category": "news",
-  "country": "Philippines",
   "trust": 0.75,
   "featured": false
  },
@@ -608,16 +587,6 @@
   "featured": false
  },
  {
-  "id": "cnbc-com-international-top-news-and-analysis",
-  "kind": "rss",
-  "name": "International: Top News And Analysis",
-  "domain": "cnbc.com",
-  "url": "https://www.cnbc.com/id/100727362/device/rss/rss.html",
-  "category": "news",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "cnbc",
   "kind": "rss",
   "name": "CNBC",
@@ -628,32 +597,22 @@
   "featured": true
  },
  {
+  "id": "cnbc-com-international-top-news-and-analysis",
+  "kind": "rss",
+  "name": "International",
+  "domain": "cnbc.com",
+  "url": "https://www.cnbc.com/id/100727362/device/rss/rss.html",
+  "category": "news",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
   "id": "cnet-com-cnet",
   "kind": "rss",
   "name": "CNET",
   "domain": "cnet.com",
   "url": "https://www.cnet.com/rss/news/",
   "category": "tech",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "codeascraft-com-etsy-engineering-code-as-craft",
-  "kind": "rss",
-  "name": "Etsy Engineering | Code as Craft",
-  "domain": "codeascraft.com",
-  "url": "https://codeascraft.com/feed/atom/",
-  "category": "programming",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "codewall-co-uk-code-wall",
-  "kind": "rss",
-  "name": "Code Wall",
-  "domain": "codewall.co.uk",
-  "url": "https://www.codewall.co.uk/feed/",
-  "category": "web-development",
   "trust": 0.75,
   "featured": false
  },
@@ -670,7 +629,7 @@
  {
   "id": "comingsoon-net-comingsoon-net-movie-trailers-tv-streaming-news-and-more",
   "kind": "rss",
-  "name": "ComingSoon.net – Movie Trailers, TV & Streaming News, and More",
+  "name": "ComingSoon.net",
   "domain": "comingsoon.net",
   "url": "https://www.comingsoon.net/feed",
   "category": "movies",
@@ -846,7 +805,7 @@
  {
   "id": "deccanchronicle-com-deccan-chronicle-latest-india-news-breaking-news-hyderabad-n",
   "kind": "rss",
-  "name": "Deccan Chronicle - Latest India news | Breaking news | Hyderabad News | World news | Business news | Politics | Technology news",
+  "name": "Deccan Chronicle",
   "domain": "deccanchronicle.com",
   "url": "https://www.deccanchronicle.com/rss_feed/",
   "category": "news",
@@ -857,7 +816,7 @@
  {
   "id": "design-milk-com-design-milkarchitecture-architectural-designs-and-house-desi",
   "kind": "rss",
-  "name": "Design MilkArchitecture, Architectural Designs, and House Designs | Design Milk",
+  "name": "Design MilkArchitecture",
   "domain": "design-milk.com",
   "url": "https://design-milk.com/category/architecture/feed/",
   "category": "architecture",
@@ -867,7 +826,7 @@
  {
   "id": "design-milk-com-design-milkinterior-design-ideas-for-your-modern-home-design",
   "kind": "rss",
-  "name": "Design MilkInterior Design Ideas for Your Modern Home | Design Milk",
+  "name": "Design MilkInterior Design Ideas for Yo…",
   "domain": "design-milk.com",
   "url": "https://design-milk.com/category/interior-design/feed/",
   "category": "interior-design",
@@ -877,7 +836,7 @@
  {
   "id": "designboom-com-architecture-archives-designboom-architecture-design-magazin",
   "kind": "rss",
-  "name": "architecture archives | designboom | architecture & design magazine",
+  "name": "designboom · architecture archives",
   "domain": "designboom.com",
   "url": "https://www.designboom.com/architecture/feed/",
   "category": "architecture",
@@ -887,7 +846,7 @@
  {
   "id": "designboom-com-design-archives-designboom-architecture-design-magazine",
   "kind": "rss",
-  "name": "design archives | designboom | architecture & design magazine",
+  "name": "designboom · design archives",
   "domain": "designboom.com",
   "url": "https://www.designboom.com/design/feed",
   "category": "interior-design",
@@ -915,22 +874,22 @@
   "featured": false
  },
  {
-  "id": "dezeen-com-architecture-news-and-projects-dezeen",
-  "kind": "rss",
-  "name": "Architecture news and projects | Dezeen",
-  "domain": "dezeen.com",
-  "url": "https://www.dezeen.com/architecture/feed/",
-  "category": "architecture",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "dezeen-com-interior-design-dezeen",
   "kind": "rss",
   "name": "Interior design | Dezeen",
   "domain": "dezeen.com",
   "url": "https://www.dezeen.com/interiors/feed/",
   "category": "interior-design",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "dezeen-com-architecture-news-and-projects-dezeen",
+  "kind": "rss",
+  "name": "Dezeen",
+  "domain": "dezeen.com",
+  "url": "https://www.dezeen.com/architecture/feed/",
+  "category": "architecture",
   "trust": 0.75,
   "featured": false
  },
@@ -959,7 +918,7 @@
  {
   "id": "droid-life-com-droid-life-opinionated-android-news",
   "kind": "rss",
-  "name": "Droid Life – Opinionated Android news.",
+  "name": "Droid Life",
   "domain": "droid-life.com",
   "url": "https://www.droid-life.com/feed",
   "category": "android",
@@ -1041,22 +1000,22 @@
   "featured": false
  },
  {
-  "id": "elle-com-beauty-elle",
-  "kind": "rss",
-  "name": "Beauty - ELLE",
-  "domain": "elle.com",
-  "url": "https://www.elle.com/rss/beauty.xml/",
-  "category": "beauty",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "elle-com-fashion-elle",
   "kind": "rss",
   "name": "Fashion - ELLE",
   "domain": "elle.com",
   "url": "https://www.elle.com/rss/fashion.xml/",
   "category": "fashion",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "elle-com-beauty-elle",
+  "kind": "rss",
+  "name": "Beauty - ELLE",
+  "domain": "elle.com",
+  "url": "https://www.elle.com/rss/beauty.xml/",
+  "category": "beauty",
   "trust": 0.75,
   "featured": false
  },
@@ -1095,7 +1054,7 @@
  {
   "id": "engadget-com-engadget-technology-news-expert-reviews",
   "kind": "rss",
-  "name": "Engadget - Technology News & Expert Reviews",
+  "name": "Engadget",
   "domain": "engadget.com",
   "url": "https://www.engadget.com/rss.xml",
   "category": "tech",
@@ -1123,22 +1082,22 @@
   "featured": false
  },
  {
-  "id": "espn-com-www-espn-com-top",
-  "kind": "rss",
-  "name": "www.espn.com - TOP",
-  "domain": "espn.com",
-  "url": "https://www.espn.com/espn/rss/news",
-  "category": "sports",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "espn-com-www-espn-com-tennis",
   "kind": "rss",
   "name": "www.espn.com - TENNIS",
   "domain": "espn.com",
   "url": "https://www.espn.com/espn/rss/tennis/news",
   "category": "tennis",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "espn-com-www-espn-com-top",
+  "kind": "rss",
+  "name": "www.espn.com - TOP",
+  "domain": "espn.com",
+  "url": "https://www.espn.com/espn/rss/news",
+  "category": "sports",
   "trust": 0.75,
   "featured": false
  },
@@ -1155,7 +1114,7 @@
  {
   "id": "espreso-tv-",
   "kind": "rss",
-  "name": "Еспресо - український погляд на світ!",
+  "name": "Еспресо",
   "domain": "espreso.tv",
   "url": "https://espreso.tv/rss",
   "category": "news",
@@ -1207,7 +1166,7 @@
   "featured": false
  },
  {
-  "id": "fashionista-com-fashionista-full",
+  "id": "fashionista-com-fashionista-full-rss-excerpt-beauty",
   "kind": "rss",
   "name": "Fashionista Full",
   "domain": "fashionista.com",
@@ -1244,17 +1203,6 @@
   "domain": "feed.infoq.com",
   "url": "https://feed.infoq.com",
   "category": "programming",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feed-livehindustan-com-live-hindustan-rss-feed",
-  "kind": "rss",
-  "name": "Live Hindustan Rss feed",
-  "domain": "feed.livehindustan.com",
-  "url": "https://feed.livehindustan.com/rss/3127",
-  "category": "news",
-  "country": "India",
   "trust": 0.75,
   "featured": false
  },
@@ -1310,7 +1258,17 @@
   "featured": false
  },
  {
-  "id": "feeds-bbci-co-uk-bbc-sport",
+  "id": "feeds-bbci-co-uk-bbc-news",
+  "kind": "rss",
+  "name": "BBC News",
+  "domain": "feeds.bbci.co.uk",
+  "url": "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+  "category": "science",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-bbci-co-uk-bbc-sport-sport-football-rss-xml",
   "kind": "rss",
   "name": "BBC Sport",
   "domain": "feeds.bbci.co.uk",
@@ -1331,22 +1289,22 @@
   "featured": false
  },
  {
-  "id": "feeds-bbci-co-uk-bbc-news",
-  "kind": "rss",
-  "name": "BBC News",
-  "domain": "feeds.bbci.co.uk",
-  "url": "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
-  "category": "science",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-bbci-co-uk-bbc-sport",
+  "id": "feeds-bbci-co-uk-bbc-sport-sport-rss-xml",
   "kind": "rss",
   "name": "BBC Sport",
   "domain": "feeds.bbci.co.uk",
   "url": "http://feeds.bbci.co.uk/sport/rss.xml",
   "category": "sports",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-bbci-co-uk-bbc-sport-sport-tennis-rss-xml",
+  "kind": "rss",
+  "name": "BBC Sport",
+  "domain": "feeds.bbci.co.uk",
+  "url": "http://feeds.bbci.co.uk/sport/tennis/rss.xml",
+  "category": "tennis",
   "trust": 0.75,
   "featured": false
  },
@@ -1357,16 +1315,6 @@
   "domain": "feeds.bbci.co.uk",
   "url": "http://feeds.bbci.co.uk/sport/cricket/rss.xml",
   "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-bbci-co-uk-bbc-sport",
-  "kind": "rss",
-  "name": "BBC Sport",
-  "domain": "feeds.bbci.co.uk",
-  "url": "http://feeds.bbci.co.uk/sport/tennis/rss.xml",
-  "category": "tennis",
   "trust": 0.75,
   "featured": false
  },
@@ -1403,137 +1351,6 @@
   "featured": false
  },
  {
-  "id": "feeds-feedburner-com-independent-australia",
-  "kind": "rss",
-  "name": "Independent Australia",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/IndependentAustralia",
-  "category": "news",
-  "country": "Australia",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-crikey",
-  "kind": "rss",
-  "name": "Crikey",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/com/rCTl",
-  "category": "news",
-  "country": "Australia",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-techgenyz",
-  "kind": "rss",
-  "name": "TechGenyz",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/techgenyz",
-  "category": "news",
-  "country": "India",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-scroll-in",
-  "kind": "rss",
-  "name": "Scroll.in",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/ScrollinArticles.rss",
-  "category": "news",
-  "country": "India",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-irishexaminer-com",
-  "kind": "rss",
-  "name": "IrishExaminer.com",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/ietopstories",
-  "category": "news",
-  "country": "Ireland",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-irishcentral-com-top-stories",
-  "kind": "rss",
-  "name": "IrishCentral.com - Top Stories",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/IrishCentral",
-  "category": "news",
-  "country": "Ireland",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-ndtv-news-topstories",
-  "kind": "rss",
-  "name": "NDTV News -   Topstories",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/ndtvnews-top-stories",
-  "category": "news",
-  "country": "India",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-daily-express-news-feed",
-  "kind": "rss",
-  "name": "Daily Express :: News Feed",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/daily-express-news-showbiz",
-  "category": "news",
-  "country": "United Kingdom",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-opindia",
-  "kind": "rss",
-  "name": "OpIndia",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/opindia",
-  "category": "news",
-  "country": "India",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-bridge",
-  "kind": "rss",
-  "name": "BRIDGE（ブリッジ）テクノロジー＆スタートアップ情報",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/SdJapan",
-  "category": "news",
-  "country": "Japan",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-nigerian-news-latest-nigeria-news-your-online-nigerian-news",
-  "kind": "rss",
-  "name": "Nigerian News. Latest Nigeria News. Your online Nigerian Newspaper.",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/Nigerianeye",
-  "category": "news",
-  "country": "Nigeria",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-os-x-daily",
-  "kind": "rss",
-  "name": "OS X Daily",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/osxdaily",
-  "category": "apple",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "feeds-feedburner-com-talkandroid",
   "kind": "rss",
   "name": "TalkAndroid",
@@ -1554,202 +1371,12 @@
   "featured": false
  },
  {
-  "id": "feeds-feedburner-com-android-developers-blog",
-  "kind": "rss",
-  "name": "Android Developers Blog",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/blogspot/hsDu",
-  "category": "android-development",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-from-head-to-toe",
-  "kind": "rss",
-  "name": "From Head To Toe",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/frmheadtotoe",
-  "category": "beauty",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-startup-stories-mixergy",
-  "kind": "rss",
-  "name": "Startup Stories - Mixergy",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/Mixergy-main-podcast",
-  "category": "business-economy",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-bmwblog",
-  "kind": "rss",
-  "name": "BMWBLOG",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/BmwBlog",
-  "category": "cars",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-ndtv-news-search-records-found-1000",
-  "kind": "rss",
-  "name": "NDTV News Search Records Found 1000",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/ndtvsports-cricket",
-  "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-a-weekly-dose-of-architecture-books",
-  "kind": "rss",
-  "name": "A Weekly Dose of Architecture Books",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/archidose",
-  "category": "architecture",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-smitten-kitchen",
-  "kind": "rss",
-  "name": "smitten kitchen",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/smittenkitchen",
-  "category": "food",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-the-oatmeal-comics-by-matthew-inman",
-  "kind": "rss",
-  "name": "The Oatmeal - Comics by Matthew Inman",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/oatmealfeed",
-  "category": "funny",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-fail-blog",
-  "kind": "rss",
-  "name": "FAIL Blog",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/failblog",
-  "category": "funny",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-i-can-has-cheezburger",
-  "kind": "rss",
-  "name": "I Can Has Cheezburger?",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/icanhascheezburger",
-  "category": "funny",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-rock-paper-shotgun",
-  "kind": "rss",
-  "name": "Rock, Paper, Shotgun",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/RockPaperShotgun",
-  "category": "gaming",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-playstation-blog",
-  "kind": "rss",
-  "name": "PlayStation.Blog",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/psblog",
-  "category": "gaming",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-the-ancient-gaming-noob",
-  "kind": "rss",
-  "name": "The Ancient Gaming Noob",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/TheAncientGamingNoob",
-  "category": "gaming",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "feeds-feedburner-com-core77",
   "kind": "rss",
   "name": "Core77",
   "domain": "feeds.feedburner.com",
   "url": "http://feeds.feedburner.com/core77/blog",
   "category": "interior-design",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-yanko-design",
-  "kind": "rss",
-  "name": "Yanko Design",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/yankodesign",
-  "category": "interior-design",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-thrifty-decor-chick-thrifty-diy-decor-and-organizing",
-  "kind": "rss",
-  "name": "Thrifty Decor Chick | Thrifty DIY, Decor and Organizing",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/blogspot/ZBcZ",
-  "category": "interior-design",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-darknet-hacking-tools-hacker-news-cyber-security",
-  "kind": "rss",
-  "name": "Darknet – Hacking Tools, Hacker News & Cyber Security",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/darknethackers",
-  "category": "cyber-security",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-ndtv-news-search-records-found-1000",
-  "kind": "rss",
-  "name": "NDTV News Search Records Found 1000",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/ndtvnews-world-news",
-  "category": "news",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-afford-anything",
-  "kind": "rss",
-  "name": "Afford Anything®",
-  "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/AffordAnythingFeed",
-  "category": "personal-finance",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-moneyning",
-  "kind": "rss",
-  "name": "MoneyNing",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/MoneyNing",
-  "category": "personal-finance",
   "trust": 0.75,
   "featured": false
  },
@@ -1764,22 +1391,13 @@
   "featured": false
  },
  {
-  "id": "feeds-feedburner-com-digital-photography-school",
+  "id": "feeds-feedburner-com-daily-express-news-feed",
   "kind": "rss",
-  "name": "Digital Photography School",
+  "name": "Daily Express :: News Feed",
   "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/DigitalPhotographySchool",
-  "category": "photography",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-feedburner-com-google-developers-blog",
-  "kind": "rss",
-  "name": "Google Developers Blog",
-  "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/GDBcode",
-  "category": "programming",
+  "url": "http://feeds.feedburner.com/daily-express-news-showbiz",
+  "category": "news",
+  "country": "United Kingdom",
   "trust": 0.75,
   "featured": false
  },
@@ -1794,12 +1412,207 @@
   "featured": false
  },
  {
-  "id": "feeds-feedburner-com-venturebeat",
+  "id": "feeds-feedburner-com-thrifty-decor-chick-thrifty-diy-decor-and-organizing",
   "kind": "rss",
-  "name": "VentureBeat",
+  "name": "Thrifty Decor Chick",
   "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/venturebeat/SZYF",
-  "category": "startups",
+  "url": "http://feeds.feedburner.com/blogspot/ZBcZ",
+  "category": "interior-design",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-android-developers-blog",
+  "kind": "rss",
+  "name": "Android Developers Blog",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/blogspot/hsDu",
+  "category": "android-development",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-fail-blog",
+  "kind": "rss",
+  "name": "FAIL Blog",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/failblog",
+  "category": "funny",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-google-developers-blog",
+  "kind": "rss",
+  "name": "Google Developers Blog",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/GDBcode",
+  "category": "programming",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-i-can-has-cheezburger",
+  "kind": "rss",
+  "name": "I Can Has Cheezburger?",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/icanhascheezburger",
+  "category": "funny",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-independent-australia",
+  "kind": "rss",
+  "name": "Independent Australia",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/IndependentAustralia",
+  "category": "news",
+  "country": "Australia",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-ndtv-news-search-records-found-1000",
+  "kind": "rss",
+  "name": "NDTV News Search Records Found 1000",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/ndtvnews-world-news",
+  "category": "news",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-ndtv-news-search-records-found-1000-ndtvsports-cricket",
+  "kind": "rss",
+  "name": "NDTV News Search Records Found 1000",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/ndtvsports-cricket",
+  "category": "cricket",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-moneyning",
+  "kind": "rss",
+  "name": "MoneyNing",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/MoneyNing",
+  "category": "personal-finance",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-the-oatmeal-comics-by-matthew-inman",
+  "kind": "rss",
+  "name": "The Oatmeal",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/oatmealfeed",
+  "category": "funny",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-os-x-daily",
+  "kind": "rss",
+  "name": "OS X Daily",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/osxdaily",
+  "category": "apple",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-nigerian-news-latest-nigeria-news-your-online-nigerian-news",
+  "kind": "rss",
+  "name": "Nigerian News",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/Nigerianeye",
+  "category": "news",
+  "country": "Nigeria",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-playstation-blog",
+  "kind": "rss",
+  "name": "PlayStation.Blog",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/psblog",
+  "category": "gaming",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-bridge",
+  "kind": "rss",
+  "name": "BRIDGE（ブリッジ）テクノロジー＆スタートアップ情報",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/SdJapan",
+  "category": "news",
+  "country": "Japan",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-smitten-kitchen",
+  "kind": "rss",
+  "name": "smitten kitchen",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/smittenkitchen",
+  "category": "food",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-scroll-in",
+  "kind": "rss",
+  "name": "Scroll.in",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/ScrollinArticles.rss",
+  "category": "news",
+  "country": "India",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-rock-paper-shotgun",
+  "kind": "rss",
+  "name": "Rock, Paper, Shotgun",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/RockPaperShotgun",
+  "category": "gaming",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-darknet-hacking-tools-hacker-news-cyber-security",
+  "kind": "rss",
+  "name": "Darknet",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/darknethackers",
+  "category": "cyber-security",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-techgenyz",
+  "kind": "rss",
+  "name": "TechGenyz",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/techgenyz",
+  "category": "news",
+  "country": "India",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-the-ancient-gaming-noob",
+  "kind": "rss",
+  "name": "The Ancient Gaming Noob",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/TheAncientGamingNoob",
+  "category": "gaming",
   "trust": 0.75,
   "featured": false
  },
@@ -1814,11 +1627,11 @@
   "featured": false
  },
  {
-  "id": "feeds-feedburner-com-coding-horror",
+  "id": "feeds-feedburner-com-programming-throwdown",
   "kind": "rss",
-  "name": "Coding Horror",
+  "name": "Programming Throwdown",
   "domain": "feeds.feedburner.com",
-  "url": "https://feeds.feedburner.com/codinghorror",
+  "url": "http://feeds.feedburner.com/ProgrammingThrowdown",
   "category": "programming",
   "trust": 0.75,
   "featured": false
@@ -1826,10 +1639,31 @@
  {
   "id": "feeds-feedburner-com-software-engineering-radio-the-podcast-for-professional-sof",
   "kind": "rss",
-  "name": "Software Engineering Radio - The Podcast for Professional Software Developers",
+  "name": "Software Engineering Radio",
   "domain": "feeds.feedburner.com",
   "url": "http://feeds.feedburner.com/se-radio",
   "category": "programming",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-techpinas-philippines-technology-news-tips-and-reviews-blog",
+  "kind": "rss",
+  "name": "TechPinas",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/Techpinas",
+  "category": "news",
+  "country": "Philippines",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-yanko-design",
+  "kind": "rss",
+  "name": "Yanko Design",
+  "domain": "feeds.feedburner.com",
+  "url": "http://feeds.feedburner.com/yankodesign",
+  "category": "interior-design",
   "trust": 0.75,
   "featured": false
  },
@@ -1844,12 +1678,97 @@
   "featured": false
  },
  {
-  "id": "feeds-feedburner-com-programming-throwdown",
+  "id": "feeds-feedburner-com-afford-anything",
   "kind": "rss",
-  "name": "Programming Throwdown",
+  "name": "Afford Anything®",
   "domain": "feeds.feedburner.com",
-  "url": "http://feeds.feedburner.com/ProgrammingThrowdown",
-  "category": "programming",
+  "url": "https://feeds.feedburner.com/AffordAnythingFeed",
+  "category": "personal-finance",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-crikey",
+  "kind": "rss",
+  "name": "Crikey",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/com/rCTl",
+  "category": "news",
+  "country": "Australia",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-irishcentral-com-top-stories",
+  "kind": "rss",
+  "name": "IrishCentral.com - Top Stories",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/IrishCentral",
+  "category": "news",
+  "country": "Ireland",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-bmwblog",
+  "kind": "rss",
+  "name": "BMWBLOG",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/BmwBlog",
+  "category": "cars",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-irishexaminer-com",
+  "kind": "rss",
+  "name": "IrishExaminer.com",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/ietopstories",
+  "category": "news",
+  "country": "Ireland",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-digital-photography-school",
+  "kind": "rss",
+  "name": "Digital Photography School",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/DigitalPhotographySchool",
+  "category": "photography",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-ndtv-news-topstories",
+  "kind": "rss",
+  "name": "NDTV News - Topstories",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/ndtvnews-top-stories",
+  "category": "news",
+  "country": "India",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-opindia",
+  "kind": "rss",
+  "name": "OpIndia",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/opindia",
+  "category": "news",
+  "country": "India",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-venturebeat",
+  "kind": "rss",
+  "name": "VentureBeat",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/venturebeat/SZYF",
+  "category": "startups",
   "trust": 0.75,
   "featured": false
  },
@@ -1860,6 +1779,16 @@
   "domain": "feeds.feedburner.com",
   "url": "https://feeds.feedburner.com/JustCreativeDesignBlog",
   "category": "ui-ux",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-feedburner-com-coding-horror",
+  "kind": "rss",
+  "name": "Coding Horror",
+  "domain": "feeds.feedburner.com",
+  "url": "https://feeds.feedburner.com/codinghorror",
+  "category": "programming",
   "trust": 0.75,
   "featured": false
  },
@@ -1876,7 +1805,7 @@
  {
   "id": "feeds-folha-uol-com-br-folha-de-s-paulo-em-cima-da-hora-principal",
   "kind": "rss",
-  "name": "Folha de S.Paulo - Em cima da hora - Principal",
+  "name": "Folha de S.Paulo",
   "domain": "feeds.folha.uol.com.br",
   "url": "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml",
   "category": "news",
@@ -1957,6 +1886,36 @@
   "featured": false
  },
  {
+  "id": "feeds-megaphone-fm-perpetual-chess-podcast",
+  "kind": "rss",
+  "name": "Perpetual Chess Podcast",
+  "domain": "feeds.megaphone.fm",
+  "url": "https://feeds.megaphone.fm/BLU4811105299",
+  "category": "chess",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-megaphone-fm-hacking-humans",
+  "kind": "rss",
+  "name": "Hacking Humans",
+  "domain": "feeds.megaphone.fm",
+  "url": "https://feeds.megaphone.fm/hacking-humans",
+  "category": "cyber-security",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-megaphone-fm-the-clark-howard-podcast",
+  "kind": "rss",
+  "name": "The Clark Howard Podcast",
+  "domain": "feeds.megaphone.fm",
+  "url": "https://feeds.megaphone.fm/clarkhoward",
+  "category": "personal-finance",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
   "id": "feeds-megaphone-fm-darknet-diaries",
   "kind": "rss",
   "name": "Darknet Diaries",
@@ -1977,26 +1936,6 @@
   "featured": false
  },
  {
-  "id": "feeds-megaphone-fm-hacking-humans",
-  "kind": "rss",
-  "name": "Hacking Humans",
-  "domain": "feeds.megaphone.fm",
-  "url": "https://feeds.megaphone.fm/hacking-humans",
-  "category": "cyber-security",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-megaphone-fm-perpetual-chess-podcast",
-  "kind": "rss",
-  "name": "Perpetual Chess Podcast",
-  "domain": "feeds.megaphone.fm",
-  "url": "https://feeds.megaphone.fm/BLU4811105299",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "feeds-megaphone-fm-the-vergecast",
   "kind": "rss",
   "name": "The Vergecast",
@@ -2007,12 +1946,22 @@
   "featured": false
  },
  {
-  "id": "feeds-megaphone-fm-the-clark-howard-podcast",
+  "id": "feeds-megaphone-fm-cyberwire-daily",
   "kind": "rss",
-  "name": "The Clark Howard Podcast",
+  "name": "CyberWire Daily",
   "domain": "feeds.megaphone.fm",
-  "url": "https://feeds.megaphone.fm/clarkhoward",
-  "category": "personal-finance",
+  "url": "https://feeds.megaphone.fm/cyberwire-daily-podcast",
+  "category": "cyber-security",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-megaphone-fm-you-must-remember-this",
+  "kind": "rss",
+  "name": "You Must Remember This",
+  "domain": "feeds.megaphone.fm",
+  "url": "https://feeds.megaphone.fm/YMRT7068253588",
+  "category": "history",
   "trust": 0.75,
   "featured": false
  },
@@ -2023,16 +1972,6 @@
   "domain": "feeds.megaphone.fm",
   "url": "https://feeds.megaphone.fm/somoney",
   "category": "personal-finance",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-megaphone-fm-cyberwire-daily",
-  "kind": "rss",
-  "name": "CyberWire Daily",
-  "domain": "feeds.megaphone.fm",
-  "url": "https://feeds.megaphone.fm/cyberwire-daily-podcast",
-  "category": "cyber-security",
   "trust": 0.75,
   "featured": false
  },
@@ -2067,16 +2006,6 @@
   "featured": false
  },
  {
-  "id": "feeds-npr-org-npr-topics-environment",
-  "kind": "rss",
-  "name": "NPR Topics: Environment",
-  "domain": "feeds.npr.org",
-  "url": "https://feeds.npr.org/1025/rss.xml",
-  "category": "environment",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "feeds-npr-org-throughline",
   "kind": "rss",
   "name": "Throughline",
@@ -2087,12 +2016,12 @@
   "featured": false
  },
  {
-  "id": "feeds-npr-org-how-i-built-this-with-guy-raz",
+  "id": "feeds-npr-org-npr-topics-environment",
   "kind": "rss",
-  "name": "How I Built This with Guy Raz",
+  "name": "NPR Topics: Environment",
   "domain": "feeds.npr.org",
-  "url": "https://feeds.npr.org/510313/podcast.xml",
-  "category": "business-economy",
+  "url": "https://feeds.npr.org/1025/rss.xml",
+  "category": "environment",
   "trust": 0.75,
   "featured": false
  },
@@ -2107,21 +2036,11 @@
   "featured": false
  },
  {
-  "id": "feeds-simplecast-com-fragmented-ai-developer-podcast",
+  "id": "feeds-npr-org-how-i-built-this-with-guy-raz",
   "kind": "rss",
-  "name": "Fragmented - AI Developer Podcast",
-  "domain": "feeds.simplecast.com",
-  "url": "https://feeds.simplecast.com/LpAGSLnY",
-  "category": "android-development",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-simplecast-com-econtalk",
-  "kind": "rss",
-  "name": "EconTalk",
-  "domain": "feeds.simplecast.com",
-  "url": "https://feeds.simplecast.com/wgl4xEgL",
+  "name": "How I Built This with Guy Raz",
+  "domain": "feeds.npr.org",
+  "url": "https://feeds.npr.org/510313/podcast.xml",
   "category": "business-economy",
   "trust": 0.75,
   "featured": false
@@ -2149,10 +2068,30 @@
  {
   "id": "feeds-simplecast-com-sawbones-a-marital-tour-of-misguided-medicine",
   "kind": "rss",
-  "name": "Sawbones: A Marital Tour of Misguided Medicine",
+  "name": "Sawbones",
   "domain": "feeds.simplecast.com",
   "url": "https://feeds.simplecast.com/y1LF_sn2",
   "category": "science",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-simplecast-com-fragmented-ai-developer-podcast",
+  "kind": "rss",
+  "name": "Fragmented",
+  "domain": "feeds.simplecast.com",
+  "url": "https://feeds.simplecast.com/LpAGSLnY",
+  "category": "android-development",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "feeds-simplecast-com-econtalk",
+  "kind": "rss",
+  "name": "EconTalk",
+  "domain": "feeds.simplecast.com",
+  "url": "https://feeds.simplecast.com/wgl4xEgL",
+  "category": "business-economy",
   "trust": 0.75,
   "featured": false
  },
@@ -2169,7 +2108,7 @@
  {
   "id": "feeds-skynews-com-sports-news-latest-sports-and-football-news-sky-news",
   "kind": "rss",
-  "name": "Sports News - Latest Sports and Football News | Sky News",
+  "name": "Sky News · Sports News",
   "domain": "feeds.skynews.com",
   "url": "http://feeds.skynews.com/feeds/rss/sports.xml",
   "category": "sports",
@@ -2181,20 +2120,20 @@
   "kind": "rss",
   "name": "The Local",
   "domain": "feeds.thelocal.com",
-  "url": "https://feeds.thelocal.com/rss/it",
+  "url": "https://feeds.thelocal.com/rss/es",
   "category": "news",
-  "country": "Italy",
+  "country": "Spain",
   "trust": 0.75,
   "featured": false
  },
  {
-  "id": "feeds-thelocal-com-the-local",
+  "id": "feeds-thelocal-com-the-local-rss-it",
   "kind": "rss",
   "name": "The Local",
   "domain": "feeds.thelocal.com",
-  "url": "https://feeds.thelocal.com/rss/es",
+  "url": "https://feeds.thelocal.com/rss/it",
   "category": "news",
-  "country": "Spain",
+  "country": "Italy",
   "trust": 0.75,
   "featured": false
  },
@@ -2215,26 +2154,6 @@
   "domain": "feeds.twit.tv",
   "url": "https://feeds.twit.tv/twit.xml",
   "category": "tech",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-twit-tv-floss-weekly-audio",
-  "kind": "rss",
-  "name": "FLOSS Weekly (Audio)",
-  "domain": "feeds.twit.tv",
-  "url": "https://feeds.twit.tv/floss.xml",
-  "category": "programming",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds-twit-tv-all-about-android-audio",
-  "kind": "rss",
-  "name": "All About Android (Audio)",
-  "domain": "feeds.twit.tv",
-  "url": "https://feeds.twit.tv/aaa.xml",
-  "category": "android",
   "trust": 0.75,
   "featured": false
  },
@@ -2260,6 +2179,16 @@
   "featured": false
  },
  {
+  "id": "feeds2-feedburner-com-everything-everywhere",
+  "kind": "rss",
+  "name": "Everything Everywhere",
+  "domain": "feeds2.feedburner.com",
+  "url": "http://feeds2.feedburner.com/EverythingEverywhere/",
+  "category": "travel",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
   "id": "feeds2-feedburner-com-film",
   "kind": "rss",
   "name": "/Film",
@@ -2276,16 +2205,6 @@
   "domain": "feeds2.feedburner.com",
   "url": "https://feeds2.feedburner.com/budgetsaresexy",
   "category": "personal-finance",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "feeds2-feedburner-com-everything-everywhere",
-  "kind": "rss",
-  "name": "Everything Everywhere",
-  "domain": "feeds2.feedburner.com",
-  "url": "http://feeds2.feedburner.com/EverythingEverywhere/",
-  "category": "travel",
   "trust": 0.75,
   "featured": false
  },
@@ -2322,7 +2241,7 @@
  {
   "id": "financemagnates-com-cryptocurrency-finance-magnates-financial-and-business-news",
   "kind": "rss",
-  "name": "CryptoCurrency – Finance Magnates | Financial and business news",
+  "name": "Finance Magnates · CryptoCurrency",
   "domain": "financemagnates.com",
   "url": "https://www.financemagnates.com/cryptocurrency/feed/",
   "category": "cryptocurrency",
@@ -2356,16 +2275,6 @@
   "domain": "flowingdata.com",
   "url": "https://flowingdata.com/feed",
   "category": "science",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "focusingonwildlife-com-focusing-on-wildlife",
-  "kind": "rss",
-  "name": "Focusing on Wildlife",
-  "domain": "focusingonwildlife.com",
-  "url": "https://focusingonwildlife.com/news/feed/",
-  "category": "animal-wildlife",
   "trust": 0.75,
   "featured": false
  },
@@ -2484,19 +2393,9 @@
   "featured": false
  },
  {
-  "id": "googleonlinesecurity-blogspot-com-google-online-security-blog",
-  "kind": "rss",
-  "name": "Google Online Security Blog",
-  "domain": "googleonlinesecurity.blogspot.com",
-  "url": "http://googleonlinesecurity.blogspot.com/atom.xml",
-  "category": "cyber-security",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "gordonua-com-",
   "kind": "rss",
-  "name": "Гордон - Самые популярные материалы",
+  "name": "Гордон",
   "domain": "gordonua.com",
   "url": "https://gordonua.com/xml/rss_category/top.html",
   "category": "news",
@@ -2610,7 +2509,7 @@
  {
   "id": "huffpost-com-world-news-breaking-news-top-stories",
   "kind": "rss",
-  "name": "World News - Breaking News, Top Stories",
+  "name": "World News",
   "domain": "huffpost.com",
   "url": "https://www.huffpost.com/section/world-news/feed",
   "category": "news",
@@ -2681,22 +2580,22 @@
   "featured": false
  },
  {
-  "id": "indianexpress-com-cricket-the-indian-express",
-  "kind": "rss",
-  "name": "Cricket | The Indian Express",
-  "domain": "indianexpress.com",
-  "url": "https://indianexpress.com/section/sports/cricket/feed/",
-  "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "indianexpress-com-sports-the-indian-express",
   "kind": "rss",
   "name": "Sports | The Indian Express",
   "domain": "indianexpress.com",
   "url": "https://indianexpress.com/section/sports/feed/",
   "category": "sports",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "indianexpress-com-cricket-the-indian-express",
+  "kind": "rss",
+  "name": "Cricket | The Indian Express",
+  "domain": "indianexpress.com",
+  "url": "https://indianexpress.com/section/sports/cricket/feed/",
+  "category": "cricket",
   "trust": 0.75,
   "featured": false
  },
@@ -2754,7 +2653,7 @@
  {
   "id": "informador-mx-el-informador-noticias-de-jalisco-m-xico-deportes-entretenim",
   "kind": "rss",
-  "name": "El Informador :: Noticias de Jalisco, México, Deportes & Entretenimiento",
+  "name": "El Informador",
   "domain": "informador.mx",
   "url": "https://www.informador.mx/rss/ultimas-noticias.xml",
   "category": "news",
@@ -2816,16 +2715,6 @@
   "featured": false
  },
  {
-  "id": "interiordesign-net-interior-design",
-  "kind": "rss",
-  "name": "Interior Design",
-  "domain": "interiordesign.net",
-  "url": "https://www.interiordesign.net/rss/",
-  "category": "interior-design",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "internazionale-it-internazionale",
   "kind": "rss",
   "name": "Internazionale",
@@ -2849,7 +2738,7 @@
  {
   "id": "investlikethebest-libsyn-com-invest-like-the-best-with-patrick-o-shaughnessy",
   "kind": "rss",
-  "name": "Invest Like the Best with Patrick O'Shaughnessy",
+  "name": "Invest Like the Best with Patrick O'Sha…",
   "domain": "investlikethebest.libsyn.com",
   "url": "http://investlikethebest.libsyn.com/rss",
   "category": "personal-finance",
@@ -2870,7 +2759,7 @@
  {
   "id": "isna-ir-isna-news-agency",
   "kind": "rss",
-  "name": "خبرگزاری ایسنا | صفحه اصلی |  ISNA News Agency",
+  "name": "ISNA News Agency · خبرگزاری ایسنا",
   "domain": "isna.ir",
   "url": "https://www.isna.ir/rss",
   "category": "news",
@@ -2901,7 +2790,7 @@
  {
   "id": "jalopnik-com-jalopnik-obsessed-with-the-culture-of-cars",
   "kind": "rss",
-  "name": "Jalopnik - Obsessed with the culture of cars",
+  "name": "Jalopnik",
   "domain": "jalopnik.com",
   "url": "https://jalopnik.com/rss",
   "category": "cars",
@@ -2916,17 +2805,6 @@
   "url": "https://jang.com.pk/rss/1/1",
   "category": "news",
   "country": "Pakistan",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "japantimes-co-jp-japan-times-latest-articles",
-  "kind": "rss",
-  "name": "Japan Times latest articles",
-  "domain": "japantimes.co.jp",
-  "url": "https://www.japantimes.co.jp/feed/topstories/",
-  "category": "news",
-  "country": "Japan",
   "trust": 0.75,
   "featured": false
  },
@@ -2963,9 +2841,20 @@
   "featured": false
  },
  {
+  "id": "k-img-com-ua-korrespondent-net",
+  "kind": "rss",
+  "name": "Последние новости на сайте korrespondent",
+  "domain": "k.img.com.ua",
+  "url": "http://k.img.com.ua/rss/ru/all_news2.0.xml",
+  "category": "news",
+  "country": "Ukraine",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
   "id": "khabaronline-ir-khabaronline",
   "kind": "rss",
-  "name": "خبرگزاری خبرآنلاین - آخرین اخبار ایران و جهان | Khabaronline",
+  "name": "Khabaronline · خبرگزاری خبرآنلاین",
   "domain": "khabaronline.ir",
   "url": "https://www.khabaronline.ir/rss",
   "category": "news",
@@ -2996,7 +2885,7 @@
  {
   "id": "kommersant-ru-",
   "kind": "rss",
-  "name": "Газета ",
+  "name": "Газета",
   "domain": "kommersant.ru",
   "url": "https://www.kommersant.ru/RSS/main.xml",
   "category": "news",
@@ -3027,7 +2916,7 @@
  {
   "id": "ladepeche-fr-la-d-p-che-du-midi-actualit-s-et-info-en-direct-de-la-r-gion",
   "kind": "rss",
-  "name": "La Dépêche du Midi : actualités et info en direct de la région Occitanie et des environs - ladepeche.fr",
+  "name": "La Dépêche du Midi",
   "domain": "ladepeche.fr",
   "url": "https://www.ladepeche.fr/rss.xml",
   "category": "news",
@@ -3071,7 +2960,7 @@
  {
   "id": "lemonde-fr-le-monde-fr-actualit-s-et-infos-en-france-et-dans-le-monde",
   "kind": "rss",
-  "name": "Le Monde.fr - Actualités et Infos en France et dans le monde",
+  "name": "Le Monde.fr",
   "domain": "lemonde.fr",
   "url": "https://www.lemonde.fr/rss/une.xml",
   "category": "news",
@@ -3202,16 +3091,6 @@
   "featured": false
  },
  {
-  "id": "malicious-life-malicious-life",
-  "kind": "rss",
-  "name": "Malicious Life",
-  "domain": "malicious.life",
-  "url": "https://malicious.life/feed/podcast/",
-  "category": "cyber-security",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "marco-org-marco-org",
   "kind": "rss",
   "name": "Marco.org",
@@ -3276,7 +3155,7 @@
  {
   "id": "mehrnews-com-mehr-news-agency",
   "kind": "rss",
-  "name": "خبرگزاری مهر | اخبار ایران و جهان | Mehr News Agency",
+  "name": "Mehr News Agency · خبرگزاری مهر",
   "domain": "mehrnews.com",
   "url": "https://www.mehrnews.com/rss",
   "category": "news",
@@ -3319,7 +3198,7 @@
  {
   "id": "mk-ru-",
   "kind": "rss",
-  "name": "Все материалы - Московский Комсомолец",
+  "name": "Все материалы",
   "domain": "mk.ru",
   "url": "https://www.mk.ru/rss/index.xml",
   "category": "news",
@@ -3525,7 +3404,7 @@
  {
   "id": "newsfeed-zeit-de-zeit-online-nachrichten-hintergr-nde-und-debatten",
   "kind": "rss",
-  "name": "ZEIT ONLINE | Nachrichten, Hintergründe und Debatten",
+  "name": "ZEIT ONLINE",
   "domain": "newsfeed.zeit.de",
   "url": "http://newsfeed.zeit.de/index",
   "category": "news",
@@ -3642,7 +3521,7 @@
  {
   "id": "overreacted-io-overreacted-a-blog-by-dan-abramov",
   "kind": "rss",
-  "name": "overreacted — A blog by Dan Abramov",
+  "name": "overreacted",
   "domain": "overreacted.io",
   "url": "https://overreacted.io/rss.xml",
   "category": "programming",
@@ -3746,7 +3625,7 @@
  {
   "id": "phys-org-phys-org-latest-science-and-technology-news-stories",
   "kind": "rss",
-  "name": "Phys.org - latest science and technology news stories",
+  "name": "Phys.org",
   "domain": "phys.org",
   "url": "https://phys.org/rss-feed/",
   "category": "science",
@@ -3824,22 +3703,22 @@
   "featured": false
  },
  {
-  "id": "popsugar-com-popsugar-beauty",
-  "kind": "rss",
-  "name": "POPSUGAR Beauty",
-  "domain": "popsugar.com",
-  "url": "https://www.popsugar.com/beauty/feed",
-  "category": "beauty",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "popsugar-com-popsugar-fashion",
   "kind": "rss",
   "name": "POPSUGAR Fashion",
   "domain": "popsugar.com",
   "url": "https://www.popsugar.com/fashion/feed",
   "category": "fashion",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "popsugar-com-popsugar-beauty",
+  "kind": "rss",
+  "name": "POPSUGAR Beauty",
+  "domain": "popsugar.com",
+  "url": "https://www.popsugar.com/beauty/feed",
+  "category": "beauty",
   "trust": 0.75,
   "featured": false
  },
@@ -3886,17 +3765,6 @@
   "featured": false
  },
  {
-  "id": "premiumtimesng-com-premium-times-nigeria",
-  "kind": "rss",
-  "name": "Premium Times Nigeria",
-  "domain": "premiumtimesng.com",
-  "url": "https://www.premiumtimesng.com/feed",
-  "category": "news",
-  "country": "Nigeria",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "proandroiddev-com-proandroiddev-medium",
   "kind": "rss",
   "name": "ProAndroidDev - Medium",
@@ -3930,7 +3798,7 @@
  {
   "id": "producthunt-com-product-hunt-the-best-new-products-every-day",
   "kind": "rss",
-  "name": "Product Hunt — The best new products, every day",
+  "name": "Product Hunt",
   "domain": "producthunt.com",
   "url": "https://www.producthunt.com/feed",
   "category": "startups",
@@ -3969,32 +3837,42 @@
   "featured": false
  },
  {
-  "id": "reddit-com-android",
+  "id": "reddit-com-movie-news-and-discussion",
   "kind": "rss",
-  "name": "Android",
+  "name": "Movie News and Discussion",
   "domain": "reddit.com",
-  "url": "https://www.reddit.com/r/android/.rss",
-  "category": "android",
+  "url": "https://reddit.com/r/movies/.rss",
+  "category": "movies",
   "trust": 0.75,
   "featured": false
  },
  {
-  "id": "reddit-com-developing-android-apps",
+  "id": "reddit-com-so-many-books-so-little-time",
   "kind": "rss",
-  "name": "Developing Android Apps",
+  "name": "So many books, so little time",
   "domain": "reddit.com",
-  "url": "https://reddit.com/r/androiddev.rss",
-  "category": "android-development",
+  "url": "https://reddit.com/r/books/.rss",
+  "category": "books",
   "trust": 0.75,
   "featured": false
  },
  {
-  "id": "reddit-com-internet-for-the-spirit",
+  "id": "reddit-com-football-the-people-s-sport",
   "kind": "rss",
-  "name": "Internet for the Spirit",
+  "name": "Football - The People's Sport",
   "domain": "reddit.com",
-  "url": "https://www.reddit.com/r/wholesomememes/.rss",
-  "category": "memes",
+  "url": "https://www.reddit.com/r/football/.rss?format=xml",
+  "category": "football",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "refinery29-com-refinery29-fashion-rss-xml",
+  "kind": "rss",
+  "name": "Refinery29",
+  "domain": "refinery29.com",
+  "url": "https://www.refinery29.com/fashion/rss.xml",
+  "category": "fashion",
   "trust": 0.75,
   "featured": false
  },
@@ -4005,16 +3883,6 @@
   "domain": "refinery29.com",
   "url": "https://www.refinery29.com/beauty/rss.xml",
   "category": "beauty",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "refinery29-com-refinery29",
-  "kind": "rss",
-  "name": "Refinery29",
-  "domain": "refinery29.com",
-  "url": "https://www.refinery29.com/fashion/rss.xml",
-  "category": "fashion",
   "trust": 0.75,
   "featured": false
  },
@@ -4200,7 +4068,7 @@
  {
   "id": "rss-dziennik-pl-dziennik-pl-dziennik-dziennik-pl",
   "kind": "rss",
-  "name": "Dziennik.pl Dziennik - dziennik.pl",
+  "name": "Dziennik.pl Dziennik",
   "domain": "rss.dziennik.pl",
   "url": "http://rss.dziennik.pl/Dziennik-PL/",
   "category": "news",
@@ -4222,7 +4090,7 @@
  {
   "id": "rss-gazetaprawna-pl-gazetaprawna-pl-biznes-podatki-prawo-finanse-wiadomo-ci-prac",
   "kind": "rss",
-  "name": "GazetaPrawna.pl - biznes, podatki, prawo, finanse, wiadomości, praca",
+  "name": "GazetaPrawna.pl",
   "domain": "rss.gazetaprawna.pl",
   "url": "http://rss.gazetaprawna.pl/GazetaPrawna",
   "category": "news",
@@ -4263,12 +4131,12 @@
   "featured": false
  },
  {
-  "id": "rss-nytimes-com-nyt-style",
+  "id": "rss-nytimes-com-nyt-sports-soccer",
   "kind": "rss",
-  "name": "NYT > Style",
+  "name": "NYT > Sports > Soccer",
   "domain": "rss.nytimes.com",
-  "url": "https://rss.nytimes.com/services/xml/rss/nyt/FashionandStyle.xml",
-  "category": "fashion",
+  "url": "https://rss.nytimes.com/services/xml/rss/nyt/Soccer.xml",
+  "category": "football",
   "trust": 0.75,
   "featured": false
  },
@@ -4303,12 +4171,12 @@
   "featured": false
  },
  {
-  "id": "rss-nytimes-com-nyt-sports-soccer",
+  "id": "rss-nytimes-com-nyt-style",
   "kind": "rss",
-  "name": "NYT > Sports > Soccer",
+  "name": "NYT > Style",
   "domain": "rss.nytimes.com",
-  "url": "https://rss.nytimes.com/services/xml/rss/nyt/Soccer.xml",
-  "category": "football",
+  "url": "https://rss.nytimes.com/services/xml/rss/nyt/FashionandStyle.xml",
+  "category": "fashion",
   "trust": 0.75,
   "featured": false
  },
@@ -4323,22 +4191,22 @@
   "featured": false
  },
  {
-  "id": "rss-nytimes-com-nyt-sports-tennis",
-  "kind": "rss",
-  "name": "NYT > Sports > Tennis",
-  "domain": "rss.nytimes.com",
-  "url": "https://rss.nytimes.com/services/xml/rss/nyt/Tennis.xml",
-  "category": "tennis",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "rss-nytimes-com-nyt-climate-and-environment",
   "kind": "rss",
   "name": "NYT > Climate and Environment",
   "domain": "rss.nytimes.com",
   "url": "https://rss.nytimes.com/services/xml/rss/nyt/Climate.xml",
   "category": "environment",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "rss-nytimes-com-nyt-sports-tennis",
+  "kind": "rss",
+  "name": "NYT > Sports > Tennis",
+  "domain": "rss.nytimes.com",
+  "url": "https://rss.nytimes.com/services/xml/rss/nyt/Tennis.xml",
+  "category": "tennis",
   "trust": 0.75,
   "featured": false
  },
@@ -4356,7 +4224,7 @@
  {
   "id": "rss-sciam-com-scientific-american-content-global",
   "kind": "rss",
-  "name": "Scientific American Content: Global",
+  "name": "Scientific American Content",
   "domain": "rss.sciam.com",
   "url": "http://rss.sciam.com/ScientificAmerican-Global",
   "category": "science",
@@ -4499,7 +4367,7 @@
  {
   "id": "smashingmagazine-com-articles-on-smashing-magazine-for-web-designers-and-develop",
   "kind": "rss",
-  "name": "Articles on Smashing Magazine — For Web Designers And Developers",
+  "name": "Articles on Smashing Magazine",
   "domain": "smashingmagazine.com",
   "url": "https://www.smashingmagazine.com/feed",
   "category": "ui-ux",
@@ -4529,7 +4397,7 @@
  {
   "id": "smh-com-au-sydney-morning-herald-latest-news",
   "kind": "rss",
-  "name": "Sydney Morning Herald - Latest News",
+  "name": "Sydney Morning Herald",
   "domain": "smh.com.au",
   "url": "https://www.smh.com.au/rss/feed.xml",
   "category": "news",
@@ -4550,20 +4418,10 @@
  {
   "id": "softwareengineeringdaily-com-podcast-archives-software-engineering-daily",
   "kind": "rss",
-  "name": "Podcast Archives - Software Engineering Daily",
+  "name": "Software Engineering Daily · Podcast Ar…",
   "domain": "softwareengineeringdaily.com",
   "url": "https://softwareengineeringdaily.com/category/podcast/feed",
   "category": "programming",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "sportskeeda-com-sportskeeda",
-  "kind": "rss",
-  "name": "Sportskeeda",
-  "domain": "sportskeeda.com",
-  "url": "https://www.sportskeeda.com/feed",
-  "category": "sports",
   "trust": 0.75,
   "featured": false
  },
@@ -4613,17 +4471,17 @@
   "kind": "rss",
   "name": "Swift by Sundell",
   "domain": "swiftbysundell.com",
-  "url": "https://www.swiftbysundell.com/feed.rss",
+  "url": "https://swiftbysundell.com/feed.rss",
   "category": "ios-development",
   "trust": 0.75,
   "featured": false
  },
  {
-  "id": "swiftbysundell-com-swift-by-sundell",
+  "id": "swiftbysundell-com-swift-by-sundell-feed-rss",
   "kind": "rss",
   "name": "Swift by Sundell",
   "domain": "swiftbysundell.com",
-  "url": "https://swiftbysundell.com/feed.rss",
+  "url": "https://www.swiftbysundell.com/feed.rss",
   "category": "ios-development",
   "trust": 0.75,
   "featured": false
@@ -4662,7 +4520,7 @@
  {
   "id": "tagesschau-de-tagesschau-de-die-nachrichten-der-ard",
   "kind": "rss",
-  "name": "tagesschau.de - Die Nachrichten der ARD",
+  "name": "tagesschau.de",
   "domain": "tagesschau.de",
   "url": "http://www.tagesschau.de/xml/rss2",
   "category": "news",
@@ -4693,22 +4551,22 @@
   "featured": false
  },
  {
-  "id": "techcrunch-com-cryptocurrency-techcrunch",
-  "kind": "rss",
-  "name": "cryptocurrency | TechCrunch",
-  "domain": "techcrunch.com",
-  "url": "https://techcrunch.com/tag/cryptocurrency/feed",
-  "category": "cryptocurrency",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "techcrunch-com-cybersecurity-techcrunch",
   "kind": "rss",
   "name": "cybersecurity | TechCrunch",
   "domain": "techcrunch.com",
   "url": "https://techcrunch.com/tag/cybersecurity/feed/",
   "category": "cyber-security",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "techcrunch-com-cryptocurrency-techcrunch",
+  "kind": "rss",
+  "name": "cryptocurrency | TechCrunch",
+  "domain": "techcrunch.com",
+  "url": "https://techcrunch.com/tag/cryptocurrency/feed",
+  "category": "cryptocurrency",
   "trust": 0.75,
   "featured": false
  },
@@ -4767,72 +4625,9 @@
  {
   "id": "theconversation-com-environment-energy-the-conversation",
   "kind": "rss",
-  "name": "Environment + Energy – The Conversation",
+  "name": "The Conversation · Environment + Energy",
   "domain": "theconversation.com",
   "url": "https://theconversation.com/au/environment/articles.atom",
-  "category": "environment",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "theguardian-com-italy-the-guardian",
-  "kind": "rss",
-  "name": "Italy | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/world/italy/rss",
-  "category": "news",
-  "country": "Italy",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "theguardian-com-india-the-guardian",
-  "kind": "rss",
-  "name": "India | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/world/india/rss",
-  "category": "news",
-  "country": "India",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "guardian",
-  "kind": "rss",
-  "name": "The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/world/rss",
-  "category": "world",
-  "trust": 0.92,
-  "featured": true
- },
- {
-  "id": "theguardian-com-mexico-the-guardian",
-  "kind": "rss",
-  "name": "Mexico | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/world/mexico/rss",
-  "category": "news",
-  "country": "Mexico",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "theguardian-com-cricket-the-guardian",
-  "kind": "rss",
-  "name": "Cricket | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/sport/cricket/rss",
-  "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "theguardian-com-environment-the-guardian",
-  "kind": "rss",
-  "name": "Environment | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/us/environment/rss",
   "category": "environment",
   "trust": 0.75,
   "featured": false
@@ -4848,52 +4643,12 @@
   "featured": false
  },
  {
-  "id": "theguardian-com-fashion-the-guardian",
-  "kind": "rss",
-  "name": "Fashion | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/fashion/rss",
-  "category": "fashion",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "theguardian-com-chess-the-guardian",
-  "kind": "rss",
-  "name": "Chess | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/sport/chess/rss",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "theguardian-com-space-the-guardian",
   "kind": "rss",
   "name": "Space | The Guardian",
   "domain": "theguardian.com",
   "url": "https://www.theguardian.com/science/space/rss",
   "category": "space",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "theguardian-com-travel-the-guardian",
-  "kind": "rss",
-  "name": "Travel | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/uk/travel/rss",
-  "category": "travel",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "theguardian-com-sport-the-guardian",
-  "kind": "rss",
-  "name": "Sport | The Guardian",
-  "domain": "theguardian.com",
-  "url": "https://www.theguardian.com/uk/sport/rss",
-  "category": "sports",
   "trust": 0.75,
   "featured": false
  },
@@ -4908,12 +4663,115 @@
   "featured": false
  },
  {
+  "id": "theguardian-com-sport-the-guardian",
+  "kind": "rss",
+  "name": "Sport | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/uk/sport/rss",
+  "category": "sports",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
   "id": "theguardian-com-wildlife-the-guardian",
   "kind": "rss",
   "name": "Wildlife | The Guardian",
   "domain": "theguardian.com",
   "url": "https://www.theguardian.com/environment/wildlife/rss",
   "category": "animal-wildlife",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "theguardian-com-fashion-the-guardian",
+  "kind": "rss",
+  "name": "Fashion | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/fashion/rss",
+  "category": "fashion",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "theguardian-com-cricket-the-guardian",
+  "kind": "rss",
+  "name": "Cricket | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/sport/cricket/rss",
+  "category": "cricket",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "guardian",
+  "kind": "rss",
+  "name": "The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/world/rss",
+  "category": "world",
+  "trust": 0.92,
+  "featured": true
+ },
+ {
+  "id": "theguardian-com-india-the-guardian",
+  "kind": "rss",
+  "name": "India | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/world/india/rss",
+  "category": "news",
+  "country": "India",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "theguardian-com-travel-the-guardian",
+  "kind": "rss",
+  "name": "Travel | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/uk/travel/rss",
+  "category": "travel",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "theguardian-com-italy-the-guardian",
+  "kind": "rss",
+  "name": "Italy | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/world/italy/rss",
+  "category": "news",
+  "country": "Italy",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "theguardian-com-environment-the-guardian",
+  "kind": "rss",
+  "name": "Environment | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/us/environment/rss",
+  "category": "environment",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "theguardian-com-chess-the-guardian",
+  "kind": "rss",
+  "name": "Chess | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/sport/chess/rss",
+  "category": "chess",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "theguardian-com-mexico-the-guardian",
+  "kind": "rss",
+  "name": "Mexico | The Guardian",
+  "domain": "theguardian.com",
+  "url": "https://www.theguardian.com/world/mexico/rss",
+  "category": "news",
+  "country": "Mexico",
   "trust": 0.75,
   "featured": false
  },
@@ -4941,7 +4799,7 @@
  {
   "id": "thehindu-com-tennis-news-updates-tennis-scores-atp-wta-grand-slams-the-hi",
   "kind": "rss",
-  "name": "Tennis News, Updates, Tennis Scores, ATP, WTA, Grand Slams | The Hindu",
+  "name": "The Hindu",
   "domain": "thehindu.com",
   "url": "https://www.thehindu.com/sport/tennis/feeder/default.rss",
   "category": "tennis",
@@ -4951,7 +4809,7 @@
  {
   "id": "thehindu-com-football-news-football-scores-premier-league-la-liga-isl-the",
   "kind": "rss",
-  "name": "Football News, Football Scores, Premier League, La Liga, ISL | The Hindu",
+  "name": "The Hindu",
   "domain": "thehindu.com",
   "url": "https://www.thehindu.com/sport/football/feeder/default.rss",
   "category": "football",
@@ -4993,7 +4851,7 @@
  {
   "id": "thekitchn-com-kitchn-inspiring-cooks-nourishing-homes",
   "kind": "rss",
-  "name": "Kitchn | Inspiring cooks, nourishing homes",
+  "name": "Kitchn",
   "domain": "thekitchn.com",
   "url": "https://www.thekitchn.com/main.rss",
   "category": "food",
@@ -5013,22 +4871,11 @@
  {
   "id": "themoscowtimes-com-the-moscow-times-independent-news-from-russia",
   "kind": "rss",
-  "name": "The Moscow Times - Independent News From Russia",
+  "name": "The Moscow Times",
   "domain": "themoscowtimes.com",
   "url": "https://www.themoscowtimes.com/rss/news",
   "category": "news",
   "country": "Russia",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "thenews-com-pk-the-news-international-pakistan",
-  "kind": "rss",
-  "name": "The News International - Pakistan",
-  "domain": "thenews.com.pk",
-  "url": "https://www.thenews.com.pk/rss/1/1",
-  "category": "news",
-  "country": "Pakistan",
   "trust": 0.75,
   "featured": false
  },
@@ -5125,22 +4972,42 @@
   "featured": false
  },
  {
-  "id": "thewildlifeindia-com-the-wildlife-india",
-  "kind": "rss",
-  "name": "The Wildlife India",
-  "domain": "thewildlifeindia.com",
-  "url": "https://www.thewildlifeindia.com/feeds/posts/default",
-  "category": "animal-wildlife",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "tim-blog-the-blog-of-author-tim-ferriss",
   "kind": "rss",
   "name": "The Blog of Author Tim Ferriss",
   "domain": "tim.blog",
   "url": "https://tim.blog/feed/",
   "category": "business-economy",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "timesofindia-indiatimes-com-sports-news-cricket-live-scorecard-latest-cricket-ne",
+  "kind": "rss",
+  "name": "Sports News",
+  "domain": "timesofindia.indiatimes.com",
+  "url": "https://timesofindia.indiatimes.com/rssfeeds/4719148.cms",
+  "category": "sports",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "timesofindia-indiatimes-com-cricket-news-today-latest-cricket-updates-cricket-li",
+  "kind": "rss",
+  "name": "Times of India",
+  "domain": "timesofindia.indiatimes.com",
+  "url": "https://timesofindia.indiatimes.com/rssfeeds/54829575.cms",
+  "category": "cricket",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "timesofindia-indiatimes-com-world-news-today-world-news-latest-international-new",
+  "kind": "rss",
+  "name": "Times of India",
+  "domain": "timesofindia.indiatimes.com",
+  "url": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms",
+  "category": "news",
   "trust": 0.75,
   "featured": false
  },
@@ -5156,42 +5023,12 @@
   "featured": false
  },
  {
-  "id": "timesofindia-indiatimes-com-world-news-today-world-news-latest-international-new",
-  "kind": "rss",
-  "name": "World News, Today World News, Latest International News, World Breaking News, Trending News of World - Times of India",
-  "domain": "timesofindia.indiatimes.com",
-  "url": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms",
-  "category": "news",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "timesofindia-indiatimes-com-environment-news-earth-news-global-warming-wild-life",
   "kind": "rss",
-  "name": "Environment News, Earth News, Global Warming, Wild Life, Carbon Trading, Climate Business, Climate Change & Pollution News",
+  "name": "Environment News",
   "domain": "timesofindia.indiatimes.com",
   "url": "https://timesofindia.indiatimes.com/rssfeeds/2647163.cms",
   "category": "environment",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "timesofindia-indiatimes-com-sports-news-cricket-live-scorecard-latest-cricket-ne",
-  "kind": "rss",
-  "name": "Sports News: Cricket Live Scorecard, Latest Cricket News, Football, NBA, NFL, WWE, NHL, MLB News & More",
-  "domain": "timesofindia.indiatimes.com",
-  "url": "https://timesofindia.indiatimes.com/rssfeeds/4719148.cms",
-  "category": "sports",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "timesofindia-indiatimes-com-cricket-news-today-latest-cricket-updates-cricket-li",
-  "kind": "rss",
-  "name": "Cricket News Today, Latest Cricket Updates, Cricket Live Score, Upcoming Matches | Times of India",
-  "domain": "timesofindia.indiatimes.com",
-  "url": "https://timesofindia.indiatimes.com/rssfeeds/54829575.cms",
-  "category": "cricket",
   "trust": 0.75,
   "featured": false
  },
@@ -5209,7 +5046,7 @@
  {
   "id": "topgear-com-ph-top-gear-the-philippine-authority-on-cars-and-the-automotive",
   "kind": "rss",
-  "name": "Top Gear: The Philippine authority on cars and the automotive industry",
+  "name": "Top Gear",
   "domain": "topgear.com.ph",
   "url": "https://www.topgear.com.ph/feed/rss1",
   "category": "news",
@@ -5231,7 +5068,7 @@
  {
   "id": "toucharcade-com-toucharcade-iphone-ipad-android-games-forum",
   "kind": "rss",
-  "name": "TouchArcade - iPhone, iPad, Android Games Forum",
+  "name": "TouchArcade",
   "domain": "toucharcade.com",
   "url": "https://toucharcade.com/community/forums/-/index.rss",
   "category": "gaming",
@@ -5305,7 +5142,7 @@
  {
   "id": "tvline-com-tvline-all-tv-no-interference-tv-news-spoilers-by-tvline",
   "kind": "rss",
-  "name": "TVLine - All TV. No Interference. TV News & Spoilers by TVLine",
+  "name": "TVLine",
   "domain": "tvline.com",
   "url": "https://tvline.com/feed/",
   "category": "television",
@@ -5315,7 +5152,7 @@
  {
   "id": "twis-org-this-week-in-science-the-kickass-science-podcast",
   "kind": "rss",
-  "name": "This Week in Science – The Kickass Science Podcast",
+  "name": "This Week in Science",
   "domain": "twis.org",
   "url": "http://www.twis.org/feed/",
   "category": "science",
@@ -5418,20 +5255,10 @@
  {
   "id": "wisden-com-cricket-news-stories-features-interviews-opinion-reports-wis",
   "kind": "rss",
-  "name": "Cricket News: Stories, Features, Interviews, Opinion, Reports | Wisden",
+  "name": "Wisden · Cricket News",
   "domain": "wisden.com",
   "url": "https://www.wisden.com/feed",
   "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "wonderhowto-com-wonderhowto",
-  "kind": "rss",
-  "name": "WonderHowTo",
-  "domain": "wonderhowto.com",
-  "url": "https://www.wonderhowto.com/rss.xml",
-  "category": "diy",
   "trust": 0.75,
   "featured": false
  },
@@ -5448,7 +5275,7 @@
  {
   "id": "yatzer-com-yatzer-live-beautifully-explore-endlessly",
   "kind": "rss",
-  "name": "Yatzer | Live Beautifully. Explore Endlessly.",
+  "name": "Yatzer",
   "domain": "yatzer.com",
   "url": "https://www.yatzer.com/rss.xml",
   "category": "interior-design",
@@ -5466,11 +5293,81 @@
   "featured": false
  },
  {
-  "id": "youtube-com-droidcon-sf",
+  "id": "youtube-com-real-wild",
   "kind": "rss",
-  "name": "droidcon SF",
+  "name": "Real Wild",
   "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCKubKoe1CBw_-n_GXetEQbg",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCbq-4OJxnziD3awH-aTezeA",
+  "category": "animal-wildlife",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-nature-video",
+  "kind": "rss",
+  "name": "nature video",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC7c8mE90qCtu11z47U0KErg",
+  "category": "nature",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-conservation-international",
+  "kind": "rss",
+  "name": "Conservation International",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCam5sCp6mzGBcn8ZBB2RBJg",
+  "category": "environment",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-nature-on-pbs",
+  "kind": "rss",
+  "name": "Nature on PBS",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCcBp_9YPyma4c3HTadmRJ3Q",
+  "category": "nature",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-chessbase-india",
+  "kind": "rss",
+  "name": "ChessBase India",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCIsEhwBMPkRHsEgqYAPQHsA",
+  "category": "chess",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-agadmator-s-chess-channel",
+  "kind": "rss",
+  "name": "agadmator's Chess Channel",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCL5YbN5WLFD8dLIegT5QAbA",
+  "category": "chess",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-pakistan-cricket",
+  "kind": "rss",
+  "name": "Pakistan Cricket",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiWrjBhlICf_L_RK5y6Vrxw",
+  "category": "cricket",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-android-developers",
+  "kind": "rss",
+  "name": "Android Developers",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=androiddevelopers",
   "category": "android-development",
   "trust": 0.75,
   "featured": false
@@ -5486,282 +5383,12 @@
   "featured": false
  },
  {
-  "id": "youtube-com-android-developers",
-  "kind": "rss",
-  "name": "Android Developers",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=androiddevelopers",
-  "category": "android-development",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-love-nature",
-  "kind": "rss",
-  "name": "Love Nature",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCRZPkuHwaoKwTP3CYPdVldg",
-  "category": "animal-wildlife",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-kotlin",
-  "kind": "rss",
-  "name": "Kotlin",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?playlist_id=PLQ176FUIyIUa6SChjajjVc-LMzxWiz6dy",
-  "category": "android-development",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-apple",
-  "kind": "rss",
-  "name": "Apple",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=Apple",
-  "category": "apple",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-macrumors",
-  "kind": "rss",
-  "name": "MacRumors",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=macrumors",
-  "category": "apple",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-real-wild",
-  "kind": "rss",
-  "name": "Real Wild",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCbq-4OJxnziD3awH-aTezeA",
-  "category": "animal-wildlife",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-living-big-in-a-tiny-house",
-  "kind": "rss",
-  "name": "Living Big In A Tiny House",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=livingbigtinyhouse",
-  "category": "architecture",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-bloomberg-originals",
-  "kind": "rss",
-  "name": "Bloomberg Originals",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=Bloomberg",
-  "category": "business-economy",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-architectural-digest",
-  "kind": "rss",
-  "name": "Architectural Digest",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=ArchitecturalDigest",
-  "category": "architecture",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-chess-talk",
-  "kind": "rss",
-  "name": "Chess Talk",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC6HDXr-sNPnWLF_Q-y3KduA",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-business-insider",
-  "kind": "rss",
-  "name": "Business Insider",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=businessinsider",
-  "category": "business-economy",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-agadmator-s-chess-channel",
-  "kind": "rss",
-  "name": "agadmator's Chess Channel",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCL5YbN5WLFD8dLIegT5QAbA",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-chess-com",
-  "kind": "rss",
-  "name": "Chess.com",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=wwwChesscom",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-chessbase-india",
-  "kind": "rss",
-  "name": "ChessBase India",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCIsEhwBMPkRHsEgqYAPQHsA",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-thechesswebsite",
-  "kind": "rss",
-  "name": "thechesswebsite",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=thechesswebsite",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "youtube-com-cricbuzz",
   "kind": "rss",
   "name": "Cricbuzz",
   "domain": "youtube.com",
   "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCSRQXk5yErn4e14vN76upOw",
   "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-england-wales-cricket-board",
-  "kind": "rss",
-  "name": "England & Wales Cricket Board",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=ecbcricket",
-  "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-chess24",
-  "kind": "rss",
-  "name": "chess24",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=chess24media",
-  "category": "chess",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-conservation-international",
-  "kind": "rss",
-  "name": "Conservation International",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCam5sCp6mzGBcn8ZBB2RBJg",
-  "category": "environment",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-pakistan-cricket",
-  "kind": "rss",
-  "name": "Pakistan Cricket",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiWrjBhlICf_L_RK5y6Vrxw",
-  "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-binging-with-babish",
-  "kind": "rss",
-  "name": "Binging with Babish",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=bgfilms",
-  "category": "food",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-sri-lanka-cricket",
-  "kind": "rss",
-  "name": "Sri Lanka Cricket",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=TheOfficialSLC",
-  "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-cricket-com-au",
-  "kind": "rss",
-  "name": "cricket.com.au",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=cricketaustraliatv",
-  "category": "cricket",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-national-geographic",
-  "kind": "rss",
-  "name": "National Geographic",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCpVm7bg6pXKo1Pr6k5kxG9A",
-  "category": "nature",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-bon-app-tit",
-  "kind": "rss",
-  "name": "Bon Appétit",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=BonAppetitDotCom",
-  "category": "food",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-nature-on-pbs",
-  "kind": "rss",
-  "name": "Nature on PBS",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCcBp_9YPyma4c3HTadmRJ3Q",
-  "category": "nature",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-serious-eats",
-  "kind": "rss",
-  "name": "Serious Eats",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=SeriousEats",
-  "category": "food",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-laura-in-the-kitchen",
-  "kind": "rss",
-  "name": "Laura in the Kitchen",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=LauraVitalesKitchen",
-  "category": "food",
   "trust": 0.75,
   "featured": false
  },
@@ -5776,42 +5403,162 @@
   "featured": false
  },
  {
-  "id": "youtube-com-nature-video",
+  "id": "youtube-com-national-geographic",
   "kind": "rss",
-  "name": "nature video",
+  "name": "National Geographic",
   "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC7c8mE90qCtu11z47U0KErg",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCpVm7bg6pXKo1Pr6k5kxG9A",
   "category": "nature",
   "trust": 0.75,
   "featured": false
  },
  {
-  "id": "youtube-com-spacex",
+  "id": "youtube-com-bloomberg-originals",
   "kind": "rss",
-  "name": "SpaceX",
+  "name": "Bloomberg Originals",
   "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=spacexchannel",
-  "category": "space",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=Bloomberg",
+  "category": "business-economy",
   "trust": 0.75,
   "featured": false
  },
  {
-  "id": "youtube-com-google-techtalks",
+  "id": "youtube-com-apple",
   "kind": "rss",
-  "name": "Google TechTalks",
+  "name": "Apple",
   "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=GoogleTechTalks",
-  "category": "programming",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=Apple",
+  "category": "apple",
   "trust": 0.75,
   "featured": false
  },
  {
-  "id": "youtube-com-explore-oceans",
+  "id": "youtube-com-architectural-digest",
   "kind": "rss",
-  "name": "Explore Oceans",
+  "name": "Architectural Digest",
   "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCSyg9cb3Iq-NtlbxqNB9wGw",
-  "category": "nature",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=ArchitecturalDigest",
+  "category": "architecture",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-binging-with-babish",
+  "kind": "rss",
+  "name": "Binging with Babish",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=bgfilms",
+  "category": "food",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-bon-app-tit",
+  "kind": "rss",
+  "name": "Bon Appétit",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=BonAppetitDotCom",
+  "category": "food",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-love-nature",
+  "kind": "rss",
+  "name": "Love Nature",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCRZPkuHwaoKwTP3CYPdVldg",
+  "category": "animal-wildlife",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-business-insider",
+  "kind": "rss",
+  "name": "Business Insider",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=businessinsider",
+  "category": "business-economy",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-chess24",
+  "kind": "rss",
+  "name": "chess24",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=chess24media",
+  "category": "chess",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-cricket-com-au",
+  "kind": "rss",
+  "name": "cricket.com.au",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=cricketaustraliatv",
+  "category": "cricket",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-cnet",
+  "kind": "rss",
+  "name": "CNET",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=CNETTV",
+  "category": "tech",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-linus-tech-tips",
+  "kind": "rss",
+  "name": "Linus Tech Tips",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=LinusTechTips",
+  "category": "tech",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-tfil-traveling-to-every-country-in-a-z-order",
+  "kind": "rss",
+  "name": "TFIL (Traveling to EVERY COUNTRY in A-Z…",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=ECastee",
+  "category": "travel",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-england-wales-cricket-board",
+  "kind": "rss",
+  "name": "England & Wales Cricket Board",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=ecbcricket",
+  "category": "cricket",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-macrumors",
+  "kind": "rss",
+  "name": "MacRumors",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=macrumors",
+  "category": "apple",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-laura-in-the-kitchen",
+  "kind": "rss",
+  "name": "Laura in the Kitchen",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=LauraVitalesKitchen",
+  "category": "food",
   "trust": 0.75,
   "featured": false
  },
@@ -5836,12 +5583,22 @@
   "featured": false
  },
  {
-  "id": "youtube-com-cnet",
+  "id": "youtube-com-living-big-in-a-tiny-house",
   "kind": "rss",
-  "name": "CNET",
+  "name": "Living Big In A Tiny House",
   "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=CNETTV",
-  "category": "tech",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=livingbigtinyhouse",
+  "category": "architecture",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-spacex",
+  "kind": "rss",
+  "name": "SpaceX",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=spacexchannel",
+  "category": "space",
   "trust": 0.75,
   "featured": false
  },
@@ -5856,16 +5613,6 @@
   "featured": false
  },
  {
-  "id": "youtube-com-tfil-traveling-to-every-country-in-a-z-order",
-  "kind": "rss",
-  "name": "TFIL (Traveling to EVERY COUNTRY in A-Z Order)",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=ECastee",
-  "category": "travel",
-  "trust": 0.75,
-  "featured": false
- },
- {
   "id": "youtube-com-the-verge",
   "kind": "rss",
   "name": "The Verge",
@@ -5876,21 +5623,31 @@
   "featured": false
  },
  {
+  "id": "youtube-com-sri-lanka-cricket",
+  "kind": "rss",
+  "name": "Sri Lanka Cricket",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=TheOfficialSLC",
+  "category": "cricket",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
+  "id": "youtube-com-chess-com",
+  "kind": "rss",
+  "name": "Chess.com",
+  "domain": "youtube.com",
+  "url": "https://www.youtube.com/feeds/videos.xml?user=wwwChesscom",
+  "category": "chess",
+  "trust": 0.75,
+  "featured": false
+ },
+ {
   "id": "youtube-com-unbox-therapy",
   "kind": "rss",
   "name": "Unbox Therapy",
   "domain": "youtube.com",
   "url": "https://www.youtube.com/feeds/videos.xml?user=unboxtherapy",
-  "category": "tech",
-  "trust": 0.75,
-  "featured": false
- },
- {
-  "id": "youtube-com-linus-tech-tips",
-  "kind": "rss",
-  "name": "Linus Tech Tips",
-  "domain": "youtube.com",
-  "url": "https://www.youtube.com/feeds/videos.xml?user=LinusTechTips",
   "category": "tech",
   "trust": 0.75,
   "featured": false

@@ -519,3 +519,10 @@ button, summary { cursor: default; }
 .headline-group .headline { flex: 1; text-align: left; font-size: 14px; line-height: 1.5; color: var(--fg); padding: 0; background: none; border: 0; }
 .headline-group .headline:hover { color: var(--accent); }
 .headline-group time { font-size: 11px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+
+/* Catalogue filter chips */
+.facets { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 8px; }
+.facets .chip { font-size: 11.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--fg2); }
+.facets .chip small { color: var(--secondary); margin-left: 2px; }
+.facets .chip.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.facets .chip.active small { color: inherit; opacity: .7; }

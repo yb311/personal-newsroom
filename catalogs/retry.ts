@@ -4,10 +4,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CatalogFeed } from './build.ts';
+import { check } from './verify.ts';
 
 const DATA = join(dirname(fileURLToPath(import.meta.url)), 'data');
-const RETRYABLE = new Set(['http_429', 'http_403', 'timeout', 'fetch failed', 'http_405']);
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+const RETRYABLE = new Set(['rate_limited', 'forbidden', 'timeout', 'network', 'http_error', 'server_error']);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main(): Promise<void> {
@@ -29,20 +29,9 @@ async function main(): Promise<void> {
     const wait = 2500 - (Date.now() - (lastHit.get(feed.domain) ?? 0));
     if (wait > 0) await sleep(wait);
     lastHit.set(feed.domain, Date.now());
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 20_000);
-    try {
-      const res = await fetch(feed.url, { signal: ctl.signal, redirect: 'follow',
-        headers: { 'user-agent': UA, accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
-                   'accept-language': 'en-US,en;q=0.9' } });
-      if (!res.ok) { stillDead.push({ ...d, reason: `http_${res.status}` }); continue; }
-      const body = (await res.text()).slice(0, 400_000);
-      if (!/<(rss|feed|urlset|sitemapindex|rdf:RDF)[\s>]/i.test(body)) { stillDead.push({ ...d, reason: 'not_a_feed' }); continue; }
-      if (!/<(item|entry|url|sitemap)[\s>]/i.test(body)) { stillDead.push({ ...d, reason: 'empty' }); continue; }
-      recovered.push(feed);
-    } catch (e) {
-      stillDead.push({ ...d, reason: (e as Error)?.name === 'AbortError' ? 'timeout' : 'error' });
-    } finally { clearTimeout(t); }
+    const v = await check(feed);
+    if (v.ok) recovered.push(feed);
+    else stillDead.push({ ...d, reason: v.reason });
   }
 
   const merged = [...alive, ...recovered].sort((a, b) => a.domain.localeCompare(b.domain));

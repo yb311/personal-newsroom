@@ -1,5 +1,5 @@
 import { Inbox, Circle, Star, ChevronRight } from 'lucide-react';
-import { categoryLabel } from '../categories.ts';
+import { categoryLabel } from '@pnr/core/catalog-labels';
 import type { SourceRow } from '../types.ts';
 import type { Filter } from '../App.tsx';
 

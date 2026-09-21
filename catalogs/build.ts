@@ -8,7 +8,7 @@
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, 'data');
@@ -35,6 +35,30 @@ const domainOf = (u: string): string => {
 };
 const slug = (s: string): string =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+
+/**
+ * A feed's title is often the site's whole <title>: "Deccan Chronicle - Latest
+ * India news | Breaking news | Hyderabad News | …". Keep the part that names
+ * the publication — the segment matching the domain when there is one, else
+ * the first — so the catalogue and the sidebar show a name, not a slogan.
+ */
+export function cleanName(title: string, domain: string): string {
+  const t = title.replace(/\s+/g, ' ').trim();
+  if (t.length <= 32) return t;
+  const norm = (s: string): string => s.normalize('NFD').toLowerCase().replace(/[^\p{L}\p{N}]|\p{M}/gu, '');
+  const label = norm(domain.replace(/^(feeds?|rss|www)\./, '').split('.')[0] ?? '');
+  const segments = t.split(/\s+[|–—-]\s+|\s*\|\s*|\s+::\s+|:\s+/).map((s) => s.replace(/^[-–—]\s*/, '').trim()).filter((s) => s.length >= 2);
+  const isBrand = (s: string): boolean =>
+    label.length >= 4 && (norm(s).includes(label) || (norm(s).length >= 4 && label.includes(norm(s))));
+  const brand = segments.find(isBrand);
+  const first = segments[0] ?? t;
+  // A section feed ("Sports News | Sky News") keeps its section next to the brand.
+  let pick = !brand ? first
+    : brand === first || first.length > 24 ? brand
+    : `${brand} · ${first}`;
+  if (pick.length > 40) pick = pick.split(/[,.。，]\s*/)[0] ?? pick;
+  return pick.length > 40 ? `${pick.slice(0, 39)}…` : pick;
+}
 
 /** Minimal OPML reader: pulls every outline that carries an xmlUrl. */
 function parseOpml(xml: string): { title: string; url: string; group: string }[] {
@@ -78,7 +102,7 @@ async function main(): Promise<void> {
       byUrl.set(key, {
         id: `${slug(domain)}-${slug(e.title)}`.slice(0, 80),
         kind: 'rss',
-        name: e.title,
+        name: cleanName(e.title, domain),
         domain,
         url: e.url,
         category: isCountry ? 'news' : slug(e.group || region) || 'general',
@@ -118,7 +142,15 @@ async function main(): Promise<void> {
   ];
   for (const c of curated) byUrl.set(c.url.replace(/^https?:\/\//, ''), c);
 
-  const feeds = [...byUrl.values()].sort((a, b) => a.domain.localeCompare(b.domain));
+  const feeds = [...byUrl.values()].sort((a, b) => a.domain.localeCompare(b.domain) || a.url.localeCompare(b.url));
+  // Ids come from domain + title, and several feeds share both (BBC Sport has
+  // four "BBC Sport" feeds). Seeding keeps the first of a duplicate id and
+  // drops the rest, so later ones get a stable suffix from their URL.
+  const taken = new Set<string>();
+  for (const f of feeds) {
+    if (taken.has(f.id)) f.id = `${f.id}-${slug(f.url.replace(/^https?:\/\/[^/]+/, '')).slice(-24)}`;
+    taken.add(f.id);
+  }
   const cats = [...new Set(feeds.map((f) => f.category))].sort();
   const countries = [...new Set(feeds.map((f) => f.country).filter(Boolean))].sort();
 
@@ -129,4 +161,5 @@ async function main(): Promise<void> {
   console.log(`分类 ${cats.length} 个, 国家 ${countries.length} 个, 默认启用 ${feeds.filter(f=>f.featured).length} 个`);
   console.log(`写入 ${join(OUT, 'candidates.json')} —— 接着跑 catalog:verify 生成 feeds.json`);
 }
-main();
+// Run only when invoked directly, not when imported for its helpers.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) void main();

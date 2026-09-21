@@ -10,8 +10,18 @@
   "reason": "stale"
  },
  {
+  "url": "https://alistapart.com/main/feed/",
+  "name": "A List Apart: The Full Feed",
+  "reason": "stale"
+ },
+ {
   "url": "https://augmentedcode.io/feed/",
   "name": "Augmented Code",
+  "reason": "stale"
+ },
+ {
+  "url": "http://6figuredev.com/feed/rss/",
+  "name": "The 6 Figure Developer",
   "reason": "stale"
  },
  {
@@ -22,7 +32,7 @@
  {
   "url": "https://bdnews24.com/?widgetName=rssfeed&widgetId=1150&getXmlFeed=true",
   "name": "bdnews24.com - Home",
-  "reason": "not_a_feed"
+  "reason": "parse_error"
  },
  {
   "url": "https://benoitpasquier.com/index.xml",
@@ -30,18 +40,18 @@
   "reason": "stale"
  },
  {
-  "url": "http://www.bicolstandard.com/feeds/posts/default?alt=rss",
-  "name": "BICOL STANDARD | Bicol News | Bicol Newspaper",
-  "reason": "not_a_feed"
- },
- {
   "url": "https://www.bitcoin.kn/feed/podcast/",
   "name": "The Bitcoin Knowledge Podcast",
   "reason": "stale"
  },
  {
-  "url": "http://6figuredev.com/feed/rss/",
-  "name": "The 6 Figure Developer",
+  "url": "http://www.bicolstandard.com/feeds/posts/default?alt=rss",
+  "name": "BICOL STANDARD",
+  "reason": "parse_error"
+ },
+ {
+  "url": "https://bionicplanet.libsyn.com/rss",
+  "name": "Bionic Planet",
   "reason": "stale"
  },
  {
@@ -50,19 +60,14 @@
   "reason": "stale"
  },
  {
-  "url": "https://bionicplanet.libsyn.com/rss",
-  "name": "Bionic Planet: Reversing Climate Change by Restoring Nature",
-  "reason": "stale"
- },
- {
   "url": "https://blog.jooq.org/feed",
   "name": "Java, SQL and jOOQ.",
   "reason": "stale"
  },
  {
-  "url": "http://boxesandarrows.com/rss/",
-  "name": "Boxes and Arrows",
-  "reason": "not_a_feed"
+  "url": "https://buffer.com/resources/overflow/rss/",
+  "name": "Overflow - Buffer Resources",
+  "reason": "stale"
  },
  {
   "url": "https://www.bostonglobe.com/rss/bigpicture",
@@ -70,8 +75,13 @@
   "reason": "stale"
  },
  {
-  "url": "https://buffer.com/resources/overflow/rss/",
-  "name": "Overflow - Buffer Resources",
+  "url": "http://boxesandarrows.com/rss/",
+  "name": "Boxes and Arrows",
+  "reason": "parse_error"
+ },
+ {
+  "url": "https://avc.com/feed/",
+  "name": "AVC",
   "reason": "stale"
  },
  {
@@ -85,18 +95,18 @@
   "reason": "stale"
  },
  {
+  "url": "https://www.chessable.com/blog/feed/",
+  "name": "Chessable Blog",
+  "reason": "stale"
+ },
+ {
   "url": "https://chrynan.codes/rss/",
   "name": "Chris Keenan Codes",
   "reason": "stale"
  },
  {
-  "url": "http://www.brasilwire.com/feed/",
-  "name": "Brasil Wire",
-  "reason": "stale"
- },
- {
-  "url": "https://www.chessable.com/blog/feed/",
-  "name": "Chessable Blog",
+  "url": "https://codeascraft.com/feed/atom/",
+  "name": "Etsy Engineering | Code as Craft",
   "reason": "stale"
  },
  {
@@ -106,8 +116,18 @@
  },
  {
   "url": "https://www.ctvnews.ca/rss/ctvnews-ca-top-stories-public-rss-1.822009",
-  "name": "CTVNews.ca - Top Stories - Public RSS",
-  "reason": "http_404"
+  "name": "CTVNews.ca",
+  "reason": "not_found"
+ },
+ {
+  "url": "http://www.brasilwire.com/feed/",
+  "name": "Brasil Wire",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.couriermail.com.au/rss",
+  "name": "The Courier Mail",
+  "reason": "parse_error"
  },
  {
   "url": "https://www.cultofandroid.com/feed",
@@ -115,23 +135,23 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.couriermail.com.au/rss",
-  "name": "The Courier Mail",
-  "reason": "not_a_feed"
+  "url": "https://www.codewall.co.uk/feed/",
+  "name": "Code Wall",
+  "reason": "empty"
  },
  {
-  "url": "https://avc.com/feed/",
-  "name": "AVC",
+  "url": "https://www.dailytelegraph.com.au/news/breaking-news/rss",
+  "name": "Daily Telegraph",
+  "reason": "parse_error"
+ },
+ {
+  "url": "https://davidwalsh.name/feed",
+  "name": "David Walsh Blog",
   "reason": "stale"
  },
  {
   "url": "https://www.decoist.com/feed/",
   "name": "decoist",
-  "reason": "stale"
- },
- {
-  "url": "https://davidwalsh.name/feed",
-  "name": "David Walsh Blog",
   "reason": "stale"
  },
  {
@@ -142,7 +162,7 @@
  {
   "url": "https://diario.mx/jrz/media/sitemaps/rss.xml",
   "name": "El Diario",
-  "reason": "not_a_feed"
+  "reason": "parse_error"
  },
  {
   "url": "https://www.diariodelweb.it/rss/home/",
@@ -150,19 +170,19 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.dailytelegraph.com.au/news/breaking-news/rss",
-  "name": "Latest News and News Headlines | Daily Telegraph",
-  "reason": "not_a_feed"
+  "url": "http://www.dinneralovestory.com/feed/",
+  "name": "Dinner: A Love Story",
+  "reason": "stale"
+ },
+ {
+  "url": "http://www.dvb.no/feed",
+  "name": "DVB Multimedia Group",
+  "reason": "parse_error"
  },
  {
   "url": "http://www.ebc.com.br/rss/feed.xml",
   "name": "Portal EBC - RSS",
-  "reason": "http_404"
- },
- {
-  "url": "http://www.dinneralovestory.com/feed/",
-  "name": "Dinner: A Love Story",
-  "reason": "stale"
+  "reason": "not_found"
  },
  {
   "url": "https://www.elperiodico.com/es/rss/rss_portada.xml",
@@ -170,19 +190,19 @@
   "reason": "empty"
  },
  {
-  "url": "http://www.dvb.no/feed",
-  "name": "DVB Multimedia Group",
-  "reason": "not_a_feed"
- },
- {
   "url": "https://www.excelsior.com.mx/rss.xml",
   "name": "Excélsior - RSS",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
   "url": "https://english.kyodonews.net/rss/all.xml",
   "name": "All - Kyodo News+",
-  "reason": "http_404"
+  "reason": "not_found"
+ },
+ {
+  "url": "https://ewn.co.za/RSS%20Feeds/Latest%20News",
+  "name": "Eyewitness News | Latest News",
+  "reason": "not_found"
  },
  {
   "url": "https://www.fabisevi.ch/feed.xml",
@@ -190,13 +210,8 @@
   "reason": "stale"
  },
  {
-  "url": "https://ewn.co.za/RSS%20Feeds/Latest%20News",
-  "name": "Eyewitness News | Latest News",
-  "reason": "http_404"
- },
- {
   "url": "https://feed.podbean.com/essentialtennis/feed.xml",
-  "name": "Essential Tennis Podcast - Instruction, Lessons, Tips",
+  "name": "Essential Tennis Podcast",
   "reason": "stale"
  },
  {
@@ -205,48 +220,18 @@
   "reason": "stale"
  },
  {
-  "url": "http://feeds.codenewbie.org/cnpodcast.xml",
-  "name": "CodeNewbie",
-  "reason": "stale"
- },
- {
   "url": "https://www.eaglenews.ph/feed/",
   "name": "Eagle News",
   "reason": "stale"
  },
  {
-  "url": "http://feeds.feedburner.com/wPolitycepl",
-  "name": "Najnowsze",
-  "reason": "stale"
- },
- {
-  "url": "http://feeds.feedburner.com/Techpinas",
-  "name": "TechPinas : Philippines' Technology News, Tips and Reviews Blog",
-  "reason": "empty"
- },
- {
-  "url": "https://feeds.feedburner.com/Android_Arsenal",
-  "name": "The Android Arsenal",
-  "reason": "not_a_feed"
- },
- {
   "url": "http://feeds.feedburner.com/AndroidPolice",
   "name": "Android Police",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
   "url": "http://feeds.feedburner.com/AndroidCentralPodcast",
   "name": "Android Central Podcast",
-  "reason": "stale"
- },
- {
-  "url": "https://feeds.feedburner.com/intothegloss/oqoU",
-  "name": "Into The Gloss - Beauty Tips, Trends, And Product Reviews",
-  "reason": "stale"
- },
- {
-  "url": "http://feeds.feedburner.com/speedhunters",
-  "name": "Speedhunters",
   "reason": "stale"
  },
  {
@@ -255,18 +240,13 @@
   "reason": "stale"
  },
  {
-  "url": "http://feeds.feedburner.com/food52-TheAandMBlog",
-  "name": "Food52",
+  "url": "http://feeds.codenewbie.org/cnpodcast.xml",
+  "name": "CodeNewbie",
   "reason": "stale"
  },
  {
-  "url": "http://feeds.feedburner.com/seriouseats/recipes",
-  "name": "Serious Eats: Recipes",
-  "reason": "stale"
- },
- {
-  "url": "http://feeds.feedburner.com/ConservationInternationalBlog",
-  "name": "\"Human Nature\" Blog Feed",
+  "url": "http://feeds.feedburner.com/archidose",
+  "name": "A Weekly Dose of Architecture Books",
   "reason": "stale"
  },
  {
@@ -280,23 +260,8 @@
   "reason": "stale"
  },
  {
-  "url": "http://feeds.feedburner.com/TheiPhoneBlog",
-  "name": "iMore - The #1 iPhone, iPad, and iPod touch blog",
-  "reason": "stale"
- },
- {
-  "url": "https://feeds.feedburner.com/dancarlin/history?format=xml",
-  "name": "Dan Carlin's Hardcore History",
-  "reason": "stale"
- },
- {
-  "url": "http://feeds.feedburner.com/fubiz",
-  "name": "Fubiz Media",
-  "reason": "stale"
- },
- {
-  "url": "http://feeds.feedburner.com/metalinjection",
-  "name": "Metal Injection",
+  "url": "http://feeds.feedburner.com/food52-TheAandMBlog",
+  "name": "Food52",
   "reason": "stale"
  },
  {
@@ -305,18 +270,8 @@
   "reason": "stale"
  },
  {
-  "url": "http://feeds.feedburner.com/OneBigPhoto",
-  "name": "One Big Photo",
-  "reason": "stale"
- },
- {
-  "url": "https://feeds.feedburner.com/Frugalwoods",
-  "name": "Frugalwoods",
-  "reason": "stale"
- },
- {
-  "url": "http://feeds.feedburner.com/thetvaddict/AXob",
-  "name": "the TV addict",
+  "url": "http://feeds.feedburner.com/fubiz",
+  "name": "Fubiz Media",
   "reason": "stale"
  },
  {
@@ -325,18 +280,88 @@
   "reason": "stale"
  },
  {
+  "url": "http://feeds.feedburner.com/frmheadtotoe",
+  "name": "From Head To Toe",
+  "reason": "stale"
+ },
+ {
+  "url": "http://feeds.feedburner.com/metalinjection",
+  "name": "Metal Injection",
+  "reason": "stale"
+ },
+ {
+  "url": "http://feeds.feedburner.com/ConservationInternationalBlog",
+  "name": "\"Human Nature\" Blog Feed",
+  "reason": "stale"
+ },
+ {
+  "url": "http://feeds.feedburner.com/OneBigPhoto",
+  "name": "One Big Photo",
+  "reason": "stale"
+ },
+ {
+  "url": "http://feeds.feedburner.com/seriouseats/recipes",
+  "name": "Serious Eats: Recipes",
+  "reason": "stale"
+ },
+ {
+  "url": "http://feeds.feedburner.com/speedhunters",
+  "name": "Speedhunters",
+  "reason": "stale"
+ },
+ {
+  "url": "http://feeds.feedburner.com/thetvaddict/AXob",
+  "name": "the TV addict",
+  "reason": "stale"
+ },
+ {
   "url": "http://feeds.feedburner.com/TechCrunch",
   "name": "Crunch Hype",
   "reason": "stale"
  },
  {
+  "url": "http://feeds.feedburner.com/TheiPhoneBlog",
+  "name": "iMore",
+  "reason": "stale"
+ },
+ {
+  "url": "http://feeds.feedburner.com/wPolitycepl",
+  "name": "Najnowsze",
+  "reason": "stale"
+ },
+ {
+  "url": "https://feeds.feedburner.com/Android_Arsenal",
+  "name": "The Android Arsenal",
+  "reason": "parse_error"
+ },
+ {
+  "url": "https://feeds.feedburner.com/dancarlin/history?format=xml",
+  "name": "Dan Carlin's Hardcore History",
+  "reason": "stale"
+ },
+ {
+  "url": "https://feeds.feedburner.com/Frugalwoods",
+  "name": "Frugalwoods",
+  "reason": "stale"
+ },
+ {
+  "url": "https://feeds.feedburner.com/intothegloss/oqoU",
+  "name": "Into The Gloss",
+  "reason": "stale"
+ },
+ {
+  "url": "https://feeds.feedburner.com/Mixergy-main-podcast",
+  "name": "Startup Stories - Mixergy",
+  "reason": "stale"
+ },
+ {
   "url": "http://feeds.hanselman.com/ScottHanselman",
   "name": "Scott Hanselman's Blog",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
   "url": "http://feeds.macrumors.com/MacRumors-Mac",
-  "name": "MacRumors: Mac News and Rumors - Mac Blog",
+  "name": "MacRumors",
   "reason": "stale"
  },
  {
@@ -345,13 +370,8 @@
   "reason": "stale"
  },
  {
-  "url": "https://feeds.megaphone.fm/YMRT7068253588",
-  "name": "You Must Remember This",
-  "reason": "stale"
- },
- {
   "url": "https://feeds.megaphone.fm/listen-money-matters",
-  "name": "Listen Money Matters - Free your inner financial badass. All the stuff you should know about personal finance.",
+  "name": "Listen Money Matters",
   "reason": "stale"
  },
  {
@@ -360,23 +380,33 @@
   "reason": "stale"
  },
  {
+  "url": "https://feeds.simplecast.com/j5Cx9jps",
+  "name": "Bitcoin & Crypto Trading",
+  "reason": "stale"
+ },
+ {
   "url": "https://feeds.simplecast.com/xCQr3ykc",
   "name": "The Bitcoin Podcast",
   "reason": "stale"
  },
  {
-  "url": "https://feeds.simplecast.com/j5Cx9jps",
-  "name": "Bitcoin & Crypto Trading: Ledger Cast",
-  "reason": "stale"
- },
- {
   "url": "https://feeds.transistor.fm/productivity-in-tech-podcast",
-  "name": "The PIT Show: Reflections and Interviews in the Tech World",
+  "name": "The PIT Show",
   "reason": "stale"
  },
  {
   "url": "http://feeds.soundcloud.com/users/soundcloud:users:261098918/sounds.rss",
   "name": "The Privacy, Security, & OSINT Show",
+  "reason": "empty"
+ },
+ {
+  "url": "https://feeds.twit.tv/floss.xml",
+  "name": "FLOSS Weekly (Audio)",
+  "reason": "stale"
+ },
+ {
+  "url": "https://feeds.twit.tv/aaa.xml",
+  "name": "All About Android (Audio)",
   "reason": "stale"
  },
  {
@@ -385,18 +415,33 @@
   "reason": "stale"
  },
  {
+  "url": "https://feeds.soundcloud.com/users/soundcloud:users:844321453/sounds.rss",
+  "name": "Today in Web 3",
+  "reason": "stale"
+ },
+ {
+  "url": "https://focusingonwildlife.com/news/feed/",
+  "name": "Focusing on Wildlife",
+  "reason": "parse_error"
+ },
+ {
   "url": "https://feld.com/archives/tag/blog/feed",
   "name": "Blog on Feld Thoughts",
   "reason": "stale"
  },
  {
-  "url": "https://www.firstpost.com/rss/india.xml",
-  "name": "Firstpost India Latest News",
-  "reason": "not_a_feed"
+  "url": "https://www.financialexpress.com/feed/",
+  "name": "The Financial Express",
+  "reason": "not_found"
  },
  {
-  "url": "https://feeds.soundcloud.com/users/soundcloud:users:844321453/sounds.rss",
-  "name": "Today in Web 3",
+  "url": "https://www.firstpost.com/rss/india.xml",
+  "name": "Firstpost India Latest News",
+  "reason": "parse_error"
+ },
+ {
+  "url": "https://greenkitchenstories.com/feed/",
+  "name": "Green Kitchen Stories",
   "reason": "stale"
  },
  {
@@ -405,28 +450,23 @@
   "reason": "stale"
  },
  {
-  "url": "https://greenkitchenstories.com/feed/",
-  "name": "Green Kitchen Stories",
-  "reason": "stale"
- },
- {
   "url": "https://gosink.in/rss/",
   "name": "Sink In - Tech Learnings",
   "reason": "stale"
  },
  {
-  "url": "https://www.financialexpress.com/feed/",
-  "name": "The Financial Express",
-  "reason": "http_410"
+  "url": "https://www.goodfinancialcents.com/feed/",
+  "name": "Good Financial Cents®",
+  "reason": "stale"
  },
  {
   "url": "https://hd.stheadline.com/rss/news/daily/",
   "name": "頭條日報 Headline Daily - 頭條網",
-  "reason": "not_a_feed"
+  "reason": "parse_error"
  },
  {
-  "url": "https://www.goodfinancialcents.com/feed/",
-  "name": "Good Financial Cents®",
+  "url": "https://handstandsam.com/feed/",
+  "name": "Handstand Sam",
   "reason": "stale"
  },
  {
@@ -435,19 +475,19 @@
   "reason": "stale"
  },
  {
-  "url": "https://handstandsam.com/feed/",
-  "name": "Handstand Sam",
-  "reason": "stale"
+  "url": "https://www.heraldsun.com.au/news/breaking-news/rss",
+  "name": "Herald Sun",
+  "reason": "parse_error"
  },
  {
   "url": "https://www.gujaratsamachar.com/rss/top-stories",
-  "name": "Top Stories News - Gujarat Samachar : World's Leading Gujarati Newspaper",
-  "reason": "http_404"
+  "name": "Gujarat Samachar · Top Stories News",
+  "reason": "not_found"
  },
  {
-  "url": "https://www.heraldsun.com.au/news/breaking-news/rss",
-  "name": "Latest News and News Headlines | Herald Sun",
-  "reason": "not_a_feed"
+  "url": "http://googleonlinesecurity.blogspot.com/atom.xml",
+  "name": "Google Online Security Blog",
+  "reason": "stale"
  },
  {
   "url": "https://indianmemetemplates.com/feed/",
@@ -457,17 +497,17 @@
  {
   "url": "http://indianexpress.com/print/front-page/feed/",
   "name": "Front Page | The Indian Express",
-  "reason": "not_a_feed"
+  "reason": "parse_error"
  },
  {
   "url": "https://www.jansatta.com/feed/",
   "name": "JansattaJansatta",
-  "reason": "not_a_feed"
+  "reason": "parse_error"
  },
  {
-  "url": "https://www.jagonews24.com/rss/rss.xml",
-  "name": "jagonews24.com | rss Feed",
-  "reason": "not_a_feed"
+  "url": "https://www.interiordesign.net/rss/",
+  "name": "Interior Design",
+  "reason": "empty"
  },
  {
   "url": "https://www.joelonsoftware.com/feed/",
@@ -475,19 +515,24 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.jugantor.com/feed/rss.xml",
-  "name": "JUGANTOR",
-  "reason": "not_a_feed"
+  "url": "https://www.japantimes.co.jp/feed/topstories/",
+  "name": "Japan Times latest articles",
+  "reason": "stale"
  },
  {
-  "url": "http://k.img.com.ua/rss/ru/all_news2.0.xml",
-  "name": "Последние новости на сайте korrespondent.net",
-  "reason": "http_404"
+  "url": "https://www.jugantor.com/feed/rss.xml",
+  "name": "JUGANTOR",
+  "reason": "parse_error"
  },
  {
   "url": "https://labs.spotify.com/feed/",
   "name": "Spotify Engineering",
-  "reason": "http_404"
+  "reason": "not_found"
+ },
+ {
+  "url": "https://www.loksatta.com/desh-videsh/feed/",
+  "name": "Loksattaदेश-विदेश &#8211; Loksatta",
+  "reason": "parse_error"
  },
  {
   "url": "https://www.learntotradethemarket.com/feed",
@@ -495,29 +540,39 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.loksatta.com/desh-videsh/feed/",
-  "name": "Loksattaदेश-विदेश &#8211; Loksatta",
-  "reason": "not_a_feed"
- },
- {
   "url": "https://www.livelifetravel.world/feed/",
   "name": "Live Life Travel",
   "reason": "stale"
  },
  {
+  "url": "https://maharashtratimes.com/rssfeedsdefault.cms",
+  "name": "Maharashtra Times · Marathi News",
+  "reason": "not_found"
+ },
+ {
   "url": "https://lokmat.news18.com/rss/program.xml",
   "name": "Latest News program News18 Lokmat",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
   "url": "https://www.manilatimes.net/rssfeed/",
   "name": "- The Manila Times",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
-  "url": "https://maharashtratimes.com/rssfeedsdefault.cms",
-  "name": "Marathi News: मराठी बातम्या,  Latest News in Marathi, Breaking Marathi News, Marathi News Paper | Maharashtra Times",
-  "reason": "http_404"
+  "url": "https://www.lizmarieblog.com/feed/",
+  "name": "Liz Marie Blog",
+  "reason": "stale"
+ },
+ {
+  "url": "https://medium.com/feed/airbnb-engineering/tagged/android",
+  "name": "Android in The Airbnb Tech Blog on Medi…",
+  "reason": "stale"
+ },
+ {
+  "url": "https://malicious.life/feed/podcast/",
+  "name": "Malicious Life",
+  "reason": "stale"
  },
  {
   "url": "https://medium.com/feed/mindorks/tagged/android",
@@ -525,13 +580,8 @@
   "reason": "stale"
  },
  {
-  "url": "https://medium.com/feed/androiddevelopers",
-  "name": "Android Developers - Medium",
-  "reason": "stale"
- },
- {
-  "url": "https://medium.com/feed/airbnb-engineering/tagged/android",
-  "name": "Android in The Airbnb Tech Blog on Medium",
+  "url": "https://medium.com/feed/better-programming",
+  "name": "Better Programming - Medium",
   "reason": "stale"
  },
  {
@@ -540,8 +590,8 @@
   "reason": "stale"
  },
  {
-  "url": "https://medium.com/feed/better-programming",
-  "name": "Better Programming - Medium",
+  "url": "https://medium.com/feed/androiddevelopers",
+  "name": "Android Developers - Medium",
   "reason": "stale"
  },
  {
@@ -551,7 +601,7 @@
  },
  {
   "url": "https://www.makeupandbeautyblog.com/feed/",
-  "name": "Makeup and Beauty Blog | Makeup Reviews, Swatches and How-To Makeup",
+  "name": "Makeup and Beauty Blog",
   "reason": "stale"
  },
  {
@@ -560,19 +610,24 @@
   "reason": "stale"
  },
  {
-  "url": "https://manilastandard.net/feed/all",
-  "name": "Manila Standard",
-  "reason": "not_a_feed"
- },
- {
   "url": "https://mobilea11y.com/index.xml",
   "name": "Mobile A11y",
   "reason": "stale"
  },
  {
-  "url": "https://www.lizmarieblog.com/feed/",
-  "name": "Liz Marie Blog",
-  "reason": "stale"
+  "url": "https://manilastandard.net/feed/all",
+  "name": "Manila Standard",
+  "reason": "parse_error"
+ },
+ {
+  "url": "https://www.merdeka.com/feed/",
+  "name": "Merdeka.com",
+  "reason": "not_found"
+ },
+ {
+  "url": "http://myanmargazette.net/feed",
+  "name": "Myanmar Gazette News Media Forum Network",
+  "reason": "not_found"
  },
  {
   "url": "http://www.moneycontrol.com/rss/latestnews.xml",
@@ -580,38 +635,28 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.merdeka.com/feed/",
-  "name": "Merdeka.com",
-  "reason": "http_404"
- },
- {
-  "url": "http://myanmargazette.net/feed",
-  "name": "Myanmar Gazette News Media Forum Network",
-  "reason": "http_404"
+  "url": "https://www.jagonews24.com/rss/rss.xml",
+  "name": "jagonews24.com | rss Feed",
+  "reason": "parse_error"
  },
  {
   "url": "https://news.yahoo.com/rss/mostviewed",
-  "name": "Yahoo News - Latest News & Headlines",
-  "reason": "http_404"
- },
- {
-  "url": "https://www.newscientist.com/subject/space/feed/",
-  "name": "New Scientist - Space",
-  "reason": "http_406"
+  "name": "Yahoo News",
+  "reason": "not_found"
  },
  {
   "url": "https://navbharattimes.indiatimes.com/rssfeedsdefault.cms",
   "name": "Navbharat Times",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
   "url": "https://noticias.r7.com/feed.xml",
   "name": "R7 - Notícias",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
   "url": "https://www.nigerianbulletin.com/forums/-/index.rss",
-  "name": "Nigeria News Links | Today's Updates - Nigerian Bulletin",
+  "name": "Nigerian Bulletin · Nigeria News Links",
   "reason": "empty"
  },
  {
@@ -625,53 +670,33 @@
   "reason": "stale"
  },
  {
+  "url": "https://www.oneindia.com/rss/news-fb.xml",
+  "name": "Oneindia",
+  "reason": "stale"
+ },
+ {
   "url": "https://oleb.net/blog/atom.xml",
   "name": "Ole Begemann",
   "reason": "stale"
  },
  {
-  "url": "https://www.outlookindia.com/rss/main/magazine",
-  "name": "Outlook India",
-  "reason": "http_404"
- },
- {
   "url": "https://newsnblogs.com/feed/",
   "name": "News Blog",
-  "reason": "not_a_feed"
+  "reason": "parse_error"
  },
  {
-  "url": "https://www.oneindia.com/rss/news-fb.xml",
-  "name": "News, Latest News, Today's News Headlines, Breaking News, LIVE News - Oneindia",
-  "reason": "stale"
+  "url": "https://www.outlookindia.com/rss/main/magazine",
+  "name": "Outlook India",
+  "reason": "not_found"
  },
  {
   "url": "https://www.pap.pl/rss.xml",
   "name": "Polska Agencja Prasowa SA",
-  "reason": "not_a_feed"
- },
- {
-  "url": "https://www.philnews.xyz/feeds/posts/default?alt=rss",
-  "name": "PhilNews.XYZ",
-  "reason": "empty"
+  "reason": "parse_error"
  },
  {
   "url": "https://www.nomadicmatt.com/travel-blog/feed/",
   "name": "Travel Blog -",
-  "reason": "stale"
- },
- {
-  "url": "https://www.relay.fm/radar/feed",
-  "name": "Under the Radar",
-  "reason": "stale"
- },
- {
-  "url": "https://www.relay.fm/rocket/feed",
-  "name": "Rocket",
-  "reason": "stale"
- },
- {
-  "url": "https://rss.acast.com/bbcearthpodcast",
-  "name": "BBC Earth Podcast",
   "reason": "stale"
  },
  {
@@ -680,8 +705,33 @@
   "reason": "stale"
  },
  {
+  "url": "https://www.philnews.xyz/feeds/posts/default?alt=rss",
+  "name": "PhilNews.XYZ",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.premiumtimesng.com/feed",
+  "name": "Premium Times Nigeria",
+  "reason": "parse_error"
+ },
+ {
+  "url": "https://www.relay.fm/radar/feed",
+  "name": "Under the Radar",
+  "reason": "stale"
+ },
+ {
   "url": "https://robertheaton.com/feed.xml",
   "name": "Robert Heaton | Blog",
+  "reason": "stale"
+ },
+ {
+  "url": "https://rss.acast.com/bbcearthpodcast",
+  "name": "BBC Earth Podcast",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.relay.fm/rocket/feed",
+  "name": "Rocket",
   "reason": "stale"
  },
  {
@@ -690,8 +740,23 @@
   "reason": "stale"
  },
  {
+  "url": "http://rss.cnn.com/rss/cnn_travel.rss",
+  "name": "CNN.com",
+  "reason": "stale"
+ },
+ {
+  "url": "http://rss.cnn.com/rss/edition_football.rss",
+  "name": "CNN.com",
+  "reason": "stale"
+ },
+ {
   "url": "http://rss.cnn.com/rss/edition_sport.rss",
   "name": "CNN.com - RSS Channel - Sport",
+  "reason": "stale"
+ },
+ {
+  "url": "http://rss.cnn.com/rss/edition_tennis.rss",
+  "name": "CNN.com",
   "reason": "stale"
  },
  {
@@ -700,49 +765,19 @@
   "reason": "stale"
  },
  {
-  "url": "http://rss.cnn.com/rss/edition_football.rss",
-  "name": "CNN.com - RSS Channel - Sport - Football",
-  "reason": "stale"
- },
- {
-  "url": "http://rss.cnn.com/rss/edition_tennis.rss",
-  "name": "CNN.com - RSS Channel - Sport - Tennis",
-  "reason": "stale"
- },
- {
   "url": "http://rss.cnn.com/rss/edition.rss",
-  "name": "CNN.com - RSS Channel - App International Edition",
-  "reason": "stale"
- },
- {
-  "url": "http://rss.cnn.com/rss/cnn_travel.rss",
-  "name": "CNN.com - RSS Channel - App Travel Section",
-  "reason": "stale"
- },
- {
-  "url": "https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml",
-  "name": "NYT > Sports",
+  "name": "CNN.com",
   "reason": "stale"
  },
  {
   "url": "https://rss.focus.de/fol/XML/rss_folnews.xml",
   "name": "FOCUS Online",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
-  "url": "http://saharareporters.com/feeds/latest/feed",
-  "name": "All Content",
-  "reason": "http_404"
- },
- {
-  "url": "https://rss.unian.net/site/news_eng.rss",
-  "name": "News Agency UNIAN",
-  "reason": "stale"
- },
- {
-  "url": "https://www.sidehustlenation.com/feed",
-  "name": "Side Hustle Nation",
-  "reason": "not_a_feed"
+  "url": "https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml",
+  "name": "NYT > Sports",
+  "reason": "empty"
  },
  {
   "url": "https://rss.newsru.com/top/big/",
@@ -750,8 +785,33 @@
   "reason": "stale"
  },
  {
+  "url": "http://saharareporters.com/feeds/latest/feed",
+  "name": "All Content",
+  "reason": "not_found"
+ },
+ {
+  "url": "https://rss.unian.net/site/news_eng.rss",
+  "name": "News Agency UNIAN",
+  "reason": "stale"
+ },
+ {
+  "url": "https://russia-insider.com/en/all-content/rss",
+  "name": "Russia Insider Daily Headlines",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.sidehustlenation.com/feed",
+  "name": "Side Hustle Nation",
+  "reason": "parse_error"
+ },
+ {
   "url": "https://slack.engineering/feed",
   "name": "Engineering at Slack",
+  "reason": "stale"
+ },
+ {
+  "url": "https://saket.me/feed/",
+  "name": "Saket Narayan",
   "reason": "stale"
  },
  {
@@ -760,8 +820,8 @@
   "reason": "empty"
  },
  {
-  "url": "https://saket.me/feed/",
-  "name": "Saket Narayan",
+  "url": "https://www.sproutedkitchen.com/home?format=rss",
+  "name": "Sprouted Kitchen",
   "reason": "stale"
  },
  {
@@ -770,19 +830,9 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.sproutedkitchen.com/home?format=rss",
-  "name": "Sprouted Kitchen",
-  "reason": "stale"
- },
- {
   "url": "https://store.steampowered.com/feeds/news.xml",
   "name": "Steam RSS News Feed",
   "reason": "stale"
- },
- {
-  "url": "https://www.sunstar.com.ph/rssFeed/selected",
-  "name": "https://www.sunstar.com.ph/",
-  "reason": "http_404"
  },
  {
   "url": "https://stackabuse.com/rss/",
@@ -792,27 +842,37 @@
  {
   "url": "https://stuckincustoms.com/feed/",
   "name": "Stuck in Customs",
-  "reason": "not_a_feed"
+  "reason": "parse_error"
  },
  {
   "url": "https://www.sowetanlive.co.za/rss/?publication=sowetan-live",
   "name": "SowetanLIVE",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
-  "url": "https://russia-insider.com/en/all-content/rss",
-  "name": "Russia Insider Daily Headlines",
-  "reason": "stale"
+  "url": "https://www.sunstar.com.ph/rssFeed/selected",
+  "name": "https://www.sunstar.com.ph/",
+  "reason": "not_found"
  },
  {
   "url": "https://www.suara.com/rss",
   "name": "Suara.com",
-  "reason": "http_404"
+  "reason": "not_found"
  },
  {
   "url": "https://telegraf.com.ua/yandex-feed/",
-  "name": "ТЕЛЕГРАФ - последние новости Украины и мира",
-  "reason": "http_404"
+  "name": "ТЕЛЕГРАФ",
+  "reason": "not_found"
+ },
+ {
+  "url": "https://www.thecrazyprogrammer.com/category/programming/feed",
+  "name": "The Crazy Programmer · Programming Arch…",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.thenews.com.pk/rss/1/1",
+  "name": "The News International",
+  "reason": "stale"
  },
  {
   "url": "http://thegrowthshow.hubspot.libsynpro.com/",
@@ -820,29 +880,9 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.thecrazyprogrammer.com/category/programming/feed",
-  "name": "Programming Archives - The Crazy Programmer",
-  "reason": "stale"
- },
- {
-  "url": "https://www.thestandard.com.hk/newsfeed/latest/news.xml",
-  "name": "The Standard - Latest News",
-  "reason": "not_a_feed"
- },
- {
   "url": "https://www.themercury.com.au/rss",
   "name": "The Mercury",
-  "reason": "not_a_feed"
- },
- {
-  "url": "https://theprint.in/feed/",
-  "name": "ThePrint",
-  "reason": "not_a_feed"
- },
- {
-  "url": "https://thewomenintechshow.com/category/podcast/feed/",
-  "name": "The Women in Tech Show: A Technical Podcast",
-  "reason": "stale"
+  "reason": "parse_error"
  },
  {
   "url": "https://www.thedailystar.net/frontpage/rss.xml",
@@ -850,14 +890,49 @@
   "reason": "stale"
  },
  {
+  "url": "https://www.thestandard.com.hk/newsfeed/latest/news.xml",
+  "name": "The Standard - Latest News",
+  "reason": "parse_error"
+ },
+ {
   "url": "https://www.theroar.com.au/cricket/feed/",
   "name": "Cricket – The Roar",
   "reason": "stale"
  },
  {
+  "url": "https://thewomenintechshow.com/category/podcast/feed/",
+  "name": "The Women in Tech Show",
+  "reason": "stale"
+ },
+ {
   "url": "https://www.timeslive.co.za/rss/",
   "name": "TimesLIVE",
-  "reason": "http_404"
+  "reason": "not_found"
+ },
+ {
+  "url": "https://www.thewildlifeindia.com/feeds/posts/default",
+  "name": "The Wildlife India",
+  "reason": "stale"
+ },
+ {
+  "url": "https://theprint.in/feed/",
+  "name": "ThePrint",
+  "reason": "parse_error"
+ },
+ {
+  "url": "http://www.thithtoolwin.com/feeds/posts/default",
+  "name": "THIT HTOO LWIN (Daily News)",
+  "reason": "not_found"
+ },
+ {
+  "url": "https://tyler.io/feed/",
+  "name": "tyler.io",
+  "reason": "parse_error"
+ },
+ {
+  "url": "http://threatpost.com/feed",
+  "name": "Threatpost",
+  "reason": "stale"
  },
  {
   "url": "https://usabilitygeek.com/feed/",
@@ -870,19 +945,19 @@
   "reason": "stale"
  },
  {
-  "url": "https://tyler.io/feed/",
-  "name": "tyler.io",
-  "reason": "not_a_feed"
- },
- {
-  "url": "http://www.thithtoolwin.com/feeds/posts/default",
-  "name": "THIT HTOO LWIN (Daily News)",
-  "reason": "http_404"
- },
- {
   "url": "https://www.vox.com/rss/energy-and-environment/index.xml",
   "name": "Vox",
   "reason": "empty"
+ },
+ {
+  "url": "https://www.vesti.ru/vesti.rss",
+  "name": "Вести.Ru",
+  "reason": "not_found"
+ },
+ {
+  "url": "https://useyourloaf.com/blog/rss.xml",
+  "name": "Use Your Loaf",
+  "reason": "stale"
  },
  {
   "url": "https://wokeread.home.blog/feed/",
@@ -890,28 +965,53 @@
   "reason": "stale"
  },
  {
-  "url": "https://www.vesti.ru/vesti.rss",
-  "name": "Вести.Ru",
-  "reason": "http_404"
- },
- {
-  "url": "https://useyourloaf.com/blog/rss.xml",
-  "name": "Use Your Loaf - iOS Development News & Tips",
+  "url": "https://www.wonderhowto.com/rss.xml",
+  "name": "WonderHowTo",
   "reason": "stale"
  },
  {
-  "url": "http://threatpost.com/feed",
-  "name": "Threatpost",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC6HDXr-sNPnWLF_Q-y3KduA",
+  "name": "Chess Talk",
   "reason": "stale"
  },
  {
-  "url": "https://www.zacsweers.dev/rss/",
-  "name": "Zac Sweers",
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCKubKoe1CBw_-n_GXetEQbg",
+  "name": "droidcon SF",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCSyg9cb3Iq-NtlbxqNB9wGw",
+  "name": "Explore Oceans",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.youtube.com/feeds/videos.xml?playlist_id=PLQ176FUIyIUa6SChjajjVc-LMzxWiz6dy",
+  "name": "Kotlin",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.youtube.com/feeds/videos.xml?user=GoogleTechTalks",
+  "name": "Google TechTalks",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.youtube.com/feeds/videos.xml?user=thechesswebsite",
+  "name": "thechesswebsite",
   "reason": "stale"
  },
  {
   "url": "https://yucksauce.com/feed/",
   "name": "YuckSauce",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.youtube.com/feeds/videos.xml?user=SeriousEats",
+  "name": "Serious Eats",
+  "reason": "stale"
+ },
+ {
+  "url": "https://www.zacsweers.dev/rss/",
+  "name": "Zac Sweers",
   "reason": "stale"
  },
  {
@@ -927,361 +1027,381 @@
  {
   "url": "https://www.24-horas.mx/feed/",
   "name": "24 Horas",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://www.banglanews24.com/rss/rss.xml",
   "name": "Bangla News",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://businessmirror.com.ph/feed/",
   "name": "BusinessMirror",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://cryptonews.com/news/feed",
   "name": "News - Cryptonews",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://www.diplomatie.gouv.fr/spip.php?page=backend-fd&lang=en",
-  "name": "Ministry for Europe and Foreign Affairs - Actualités",
-  "reason": "http_403"
+  "name": "Ministry for Europe and Foreign Affairs",
+  "reason": "forbidden"
  },
  {
   "url": "http://api.patrika.com/rss/india-news",
-  "name": "Patrika : India's Leading Hindi News Portal",
-  "reason": "error"
- },
- {
-  "url": "https://www.efe.com/efe/english/4/rss",
-  "name": "Agencia EFE | www.efe.com | English edition",
-  "reason": "http_403"
- },
- {
-  "url": "http://feeds.news24.com/articles/news24/TopStories/rss",
-  "name": "News24 Top Stories",
-  "reason": "http_403"
- },
- {
-  "url": "https://architizer.wpengine.com/feed/",
-  "name": "Journal",
-  "reason": "error"
+  "name": "Patrika",
+  "reason": "network"
  },
  {
   "url": "https://androidcommunity.com/feed/",
   "name": "Android Community",
-  "reason": "error"
+  "reason": "network"
+ },
+ {
+  "url": "https://www.efe.com/efe/english/4/rss",
+  "name": "Agencia EFE",
+  "reason": "forbidden"
+ },
+ {
+  "url": "https://architizer.wpengine.com/feed/",
+  "name": "Journal",
+  "reason": "network"
+ },
+ {
+  "url": "https://feed.livehindustan.com/rss/3127",
+  "name": "Live Hindustan Rss feed",
+  "reason": "server_error"
+ },
+ {
+  "url": "http://feeds.news24.com/articles/news24/TopStories/rss",
+  "name": "News24 Top Stories",
+  "reason": "forbidden"
+ },
+ {
+  "url": "https://www.bworldonline.com/feed/",
+  "name": "BusinessWorld",
+  "reason": "timeout"
  },
  {
   "url": "https://guardian.ng/feed/",
-  "name": "The Guardian Nigeria News – Nigeria and World News",
-  "reason": "http_403"
+  "name": "The Guardian Nigeria News",
+  "reason": "forbidden"
  },
  {
   "url": "https://www.hket.com/rss/hongkong",
   "name": "香港新聞RSS - 香港經濟日報 hket.com",
-  "reason": "http_405"
+  "reason": "http_error"
  },
  {
   "url": "https://indaily.com.au/feed/",
   "name": "InDaily",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://www.ilpost.it/feed/",
   "name": "Il Post",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://www.kalerkantho.com/rss.xml",
   "name": "kalerkantho Kantho",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://www.michaelwest.com.au/feed/",
   "name": "Michael West",
-  "reason": "http_403"
+  "reason": "forbidden"
+ },
+ {
+  "url": "https://www.newscientist.com/subject/space/feed/",
+  "name": "New Scientist - Space",
+  "reason": "http_error"
  },
  {
   "url": "https://pia.gov.ph/news/feed.rss",
-  "name": "Latest News | Philippine Information Agency",
-  "reason": "http_403"
+  "name": "Latest News",
+  "reason": "forbidden"
  },
  {
   "url": "https://www.pna.gov.ph/latest.rss",
-  "name": "Latest News | Philippine News Agency",
-  "reason": "http_403"
+  "name": "Latest News",
+  "reason": "forbidden"
  },
  {
   "url": "https://quequi.com.mx/feed/",
   "name": "Tu Periódico Quequi",
-  "reason": "error"
- },
- {
-  "url": "https://www.reddit.com/r/wildlifephotography/.rss",
-  "name": "Wildlife Photography: Gear, Photos & Discussion",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/apple/.rss",
-  "name": "r/Apple: Unofficial Apple Community",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/NatureIsFuckingLit/.rss",
-  "name": "🔥 Nature Is Fucking Lit",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/iphone/.rss",
-  "name": "r/iPhone",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/formula1/.rss",
-  "name": "Formula 1",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/chessbeginners/.rss",
-  "name": "For the budding patzer",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/architecture/.rss",
-  "name": "Architecture",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/chess/.rss",
-  "name": "r/Chess",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/Cricket/.rss",
-  "name": "Cricket",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/CryptoCurrency/.rss",
-  "name": "Cryptocurrency News & Discussion",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/Bitcoin/.rss",
-  "name": "Bitcoin - The Currency of the Internet",
-  "reason": "http_429"
- },
- {
-  "url": "https://reddit.com/r/books/.rss",
-  "name": "So many books, so little time",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/ethereum/.rss",
-  "name": "Ethereum",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/blackhat/.rss",
-  "name": "Blackhat Library: Hacking techniques and research",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/netsec/.rss",
-  "name": "Technical Information Security Content & Discussion",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/cybersecurity/.rss",
-  "name": "cybersecurity",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/environment/.rss",
-  "name": "Environment",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/Championship/.rss?format=xml",
-  "name": "EFL Championship",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/football/.rss?format=xml",
-  "name": "Football - The People's Sport",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/gaming.rss",
-  "name": "r/gaming",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/memes/.rss",
-  "name": "/r/Memes the original since 2008",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/InteriorDesign/.rss",
-  "name": "Interior Design (Interior Architecture)",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/historymemes/.rss",
-  "name": "A sub for History Memes",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/AdviceAnimals/.rss",
-  "name": "Advice Animals",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/IndianMeyMeys/.rss",
-  "name": "Indian Memes",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/PrequelMemes/.rss",
-  "name": "PrequelMemes - Memes of the Star Wars Prequels",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/dankmemes/.rss",
-  "name": "dankmemes",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/IndianDankMemes/.rss",
-  "name": "r/IndianDankMemes - India's Largest Meme Subreddit",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/me_irl/.rss",
-  "name": "selfies of the soul",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/terriblefacebookmemes/.rss",
-  "name": "😎HAHA DAE MINIONS!!!😎",
-  "reason": "http_429"
+  "reason": "network"
  },
  {
   "url": "https://www.reddit.com/r/2meirl4meirl/.rss",
   "name": "when things get too real for meirl",
-  "reason": "http_429"
+  "reason": "rate_limited"
  },
  {
-  "url": "https://www.reddit.com/r/nature/.rss",
-  "name": "Nature",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/EarthPorn/.rss",
-  "name": "EarthPorn: Amazing images of light and landscape",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/worldnews/.rss",
-  "name": "World News",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/NatureGifs/.rss",
-  "name": "Nature Gifs",
-  "reason": "http_429"
- },
- {
-  "url": "https://reddit.com/r/movies/.rss",
-  "name": "Movie News and Discussion",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/programming/.rss",
-  "name": "programming",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/space/.rss?format=xml",
-  "name": "/r/space: news, articles and discussion",
-  "reason": "http_429"
- },
- {
-  "url": "https://www.reddit.com/r/sports.rss",
-  "name": "Reddit Sports",
-  "reason": "http_429"
+  "url": "https://reddit.com/r/androiddev.rss",
+  "name": "Developing Android Apps",
+  "reason": "rate_limited"
  },
  {
   "url": "https://reddit.com/r/personalfinance/.rss",
   "name": "Personal Finance",
-  "reason": "http_429"
+  "reason": "rate_limited"
  },
  {
-  "url": "https://www.reddit.com/r/userexperience/.rss",
-  "name": "User Experience",
-  "reason": "http_429"
+  "url": "https://www.reddit.com/r/AdviceAnimals/.rss",
+  "name": "Advice Animals",
+  "reason": "rate_limited"
  },
  {
-  "url": "https://www.reddit.com/r/tennis/.rss",
-  "name": "Tennis News & Discussion",
-  "reason": "http_429"
+  "url": "https://www.reddit.com/r/architecture/.rss",
+  "name": "Architecture",
+  "reason": "rate_limited"
  },
  {
   "url": "https://reddit.com/r/science/.rss",
   "name": "Reddit Science",
-  "reason": "http_429"
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/Bitcoin/.rss",
+  "name": "Bitcoin",
+  "reason": "rate_limited"
  },
  {
   "url": "https://reddit.com/r/television/.rss",
   "name": "📺Television News and Discussion",
-  "reason": "http_429"
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/blackhat/.rss",
+  "name": "Blackhat Library",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/Championship/.rss?format=xml",
+  "name": "EFL Championship",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/chess/.rss",
+  "name": "r/Chess",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/apple/.rss",
+  "name": "r/Apple",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/android/.rss",
+  "name": "Android",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/CryptoCurrency/.rss",
+  "name": "Cryptocurrency News & Discussion",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/cybersecurity/.rss",
+  "name": "cybersecurity",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/chessbeginners/.rss",
+  "name": "For the budding patzer",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/Cricket/.rss",
+  "name": "Cricket",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/dankmemes/.rss",
+  "name": "dankmemes",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/EarthPorn/.rss",
+  "name": "EarthPorn",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/environment/.rss",
+  "name": "Environment",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/historymemes/.rss",
+  "name": "A sub for History Memes",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/gaming.rss",
+  "name": "r/gaming",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/formula1/.rss",
+  "name": "Formula 1",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/ethereum/.rss",
+  "name": "Ethereum",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/IndianDankMemes/.rss",
+  "name": "India's Largest Meme Subreddit · r/Indi…",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/IndianMeyMeys/.rss",
+  "name": "Indian Memes",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/memes/.rss",
+  "name": "/r/Memes the original since 2008",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/InteriorDesign/.rss",
+  "name": "Interior Design (Interior Architecture)",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/iphone/.rss",
+  "name": "r/iPhone",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/nature/.rss",
+  "name": "Nature",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/NatureGifs/.rss",
+  "name": "Nature Gifs",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/NatureIsFuckingLit/.rss",
+  "name": "🔥 Nature Is Fucking Lit",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/netsec/.rss",
+  "name": "Technical Information Security Content …",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/PrequelMemes/.rss",
+  "name": "PrequelMemes",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/programming/.rss",
+  "name": "programming",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/space/.rss?format=xml",
+  "name": "/r/space",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/sports.rss",
+  "name": "Reddit Sports",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/me_irl/.rss",
+  "name": "selfies of the soul",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/tennis/.rss",
+  "name": "Tennis News & Discussion",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/terriblefacebookmemes/.rss",
+  "name": "😎HAHA DAE MINIONS!!!😎",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/userexperience/.rss",
+  "name": "User Experience",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/wholesomememes/.rss",
+  "name": "Internet for the Spirit",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/wildlifephotography/.rss",
+  "name": "Wildlife Photography",
+  "reason": "rate_limited"
+ },
+ {
+  "url": "https://www.reddit.com/r/worldnews/.rss",
+  "name": "World News",
+  "reason": "rate_limited"
  },
  {
   "url": "http://rssfeeds.9news.com/kusa/home&x=1",
   "name": "KUSA - News",
-  "reason": "error"
+  "reason": "network"
+ },
+ {
+  "url": "https://www.sportskeeda.com/feed",
+  "name": "Sportskeeda",
+  "reason": "http_error"
  },
  {
   "url": "https://www.tasnimnews.com/fa/rss/feed/0/8/0/%D9%85%D9%87%D9%85%D8%AA%D8%B1%DB%8C%D9%86-%D8%A7%D8%AE%D8%A8%D8%A7%D8%B1-%D8%AA%D8%B3%D9%86%DB%8C%D9%85",
   "name": "اخبار ایران و جهان",
-  "reason": "error"
+  "reason": "network"
  },
  {
   "url": "https://thenationonlineng.net/feed/",
-  "name": "Latest Nigeria News, Nigerian Newspapers, Politics",
-  "reason": "http_403"
+  "name": "Latest Nigeria News",
+  "reason": "forbidden"
  },
  {
   "url": "https://www.thestar.com/content/thestar/feed.RSSManagerServlet.articles.topstories.rss",
   "name": "Toronto Star",
-  "reason": "not_a_feed"
+  "reason": "rate_limited"
  },
  {
   "url": "https://www.tvfanatic.com/rss.xml",
   "name": "TV Fanatic",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://www.unbox.ph/feed/",
   "name": "UNBOX PH",
-  "reason": "http_403"
+  "reason": "forbidden"
  },
  {
   "url": "https://vesti.ua/feeds/partners",
   "name": "Вести.ua",
-  "reason": "error"
+  "reason": "network"
  },
  {
   "url": "https://www.yjc.ir/fa/rss/allnews",
-  "name": "خبرگزاری باشگاه خبرنگاران | آخرین اخبار ایران و جهان | YJC",
-  "reason": "http_403"
+  "name": "خبرگزاری باشگاه خبرنگاران",
+  "reason": "forbidden"
  },
  {
   "url": "http://tempo.com.ph/feed/",
-  "name": "Tempo – The Nation's Fastest Growing Newspaper",
-  "reason": "http_522"
+  "name": "Tempo",
+  "reason": "timeout"
  }
 ]

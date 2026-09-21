@@ -4,5 +4,8 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
-  "exports": { ".": "./src/index.ts" }
+  "exports": {
+    ".": "./src/index.ts",
+    "./catalog-labels": "./src/catalog-labels.ts"
+  }
 }

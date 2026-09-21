@@ -4,42 +4,38 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { CatalogFeed } from './build.ts';
+import { download, ACCEPT_FEED } from '../packages/core/src/index.ts';
+import { parseFeed } from '../packages/reader-core/src/index.ts';
 
 const DATA = join(dirname(fileURLToPath(import.meta.url)), 'data');
 const CONCURRENCY = 12;
 const TIMEOUT_MS = 15_000;
 const STALE_DAYS = 45;
 
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
-
 type Verdict = { ok: true; items: number; newestAt: number | null } | { ok: false; reason: string };
 
-async function check(feed: CatalogFeed): Promise<Verdict> {
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
+/**
+ * One feed, checked the way the app will read it: downloaded by the app's own
+ * downloader and parsed by the reader core, so charsets, RDF, JSON Feed and
+ * sitemaps are handled exactly as in production. Stale means the newest dated
+ * item is older than STALE_DAYS.
+ */
+export async function check(feed: CatalogFeed): Promise<Verdict> {
   try {
-    const res = await fetch(feed.url, {
-      signal: ctl.signal,
-      redirect: 'follow',
-      headers: { 'user-agent': UA, accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' }
-    });
-    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
-    const body = (await res.text()).slice(0, 400_000);
-    if (!/<(rss|feed|urlset|sitemapindex|rdf:RDF)[\s>]/i.test(body)) return { ok: false, reason: 'not_a_feed' };
-    const entries = body.match(/<(item|entry|url|sitemap)[\s>]/gi) ?? [];
-    if (entries.length === 0) return { ok: false, reason: 'empty' };
-    const dates = [...body.matchAll(/<(?:pubDate|published|updated|lastmod|news:publication_date)>([^<]+)</gi)]
-      .map((m) => Date.parse(m[1]!.trim()))
-      .filter((n) => Number.isFinite(n));
-    const newest = dates.length ? Math.max(...dates) : null;
+    const d = await download(feed.url, { accept: ACCEPT_FEED, timeoutMs: TIMEOUT_MS });
+    const kind = feed.kind === 'news_sitemap' ? 'sitemap' : feed.kind === 'news_sitemap_index' ? 'sitemap_index' : 'feed';
+    const parsed = await parseFeed(d.url, kind, d.body);
+    if (kind === 'sitemap_index') return parsed.children?.length ? { ok: true, items: parsed.children.length, newestAt: null } : { ok: false, reason: 'empty' };
+    if (parsed.items.length === 0) return { ok: false, reason: 'empty' };
+    const dated = parsed.items.filter((i) => !i.dateEstimated).map((i) => Date.parse(i.publishedAt));
+    const newest = dated.length ? Math.max(...dated) : null;
     if (newest !== null && Date.now() - newest > STALE_DAYS * 864e5) return { ok: false, reason: 'stale' };
-    return { ok: true, items: entries.length, newestAt: newest };
+    return { ok: true, items: parsed.items.length, newestAt: newest };
   } catch (e) {
-    const m = (e as Error)?.name === 'AbortError' ? 'timeout' : ((e as Error)?.message ?? 'error');
-    return { ok: false, reason: m.slice(0, 40) };
-  } finally { clearTimeout(timer); }
+    return { ok: false, reason: (e as { reason?: string }).reason ?? ((e as Error)?.message ?? 'error').slice(0, 40) };
+  }
 }
 
 async function main(): Promise<void> {
@@ -77,4 +73,5 @@ async function main(): Promise<void> {
   const countries = [...new Set(alive.map((f) => f.country).filter(Boolean))];
   console.log(`\n最终: ${alive.length} 源 · ${cats.length} 分类 · ${countries.length} 国家 · 默认启用 ${alive.filter(f=>f.featured).length}`);
 }
-main();
+// Run only when invoked directly, not when imported for its helpers.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) void main();
