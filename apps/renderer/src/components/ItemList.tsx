@@ -1,3 +1,5 @@
+import { Search, Star, Inbox } from 'lucide-react';
+import type { Filter } from '../App.tsx';
 import type { ItemRow } from '../types.ts';
 
 const when = (ts: number): string => {
@@ -12,15 +14,21 @@ const when = (ts: number): string => {
 
 interface Props {
   items: ItemRow[]; selected: string | null;
+  query: string; onQuery: (q: string) => void; filter: Filter; onManage: () => void;
   onSelect: (id: string) => void; onStar: (id: string) => void;
 }
 
-export function ItemList({ items, selected, onSelect, onStar }: Props) {
-  if (items.length === 0) {
-    return <section className="list empty"><p>这里还没有内容。点右上角「刷新」抓一次。</p></section>;
-  }
+export function ItemList({ items, selected, onSelect, onStar, query, onQuery, filter, onManage }: Props) {
   return (
-    <section className="list">
+    <section className="list" aria-label="文章列表">
+      <div className="list-toolbar">
+        <div className="list-heading"><h2>{filter === 'unread' ? '未读文章' : filter === 'starred' ? '我的收藏' : '全部文章'}</h2><span>{items.length} 篇</span></div>
+        <label className="search-field"><Search size={16} /><input type="search" aria-label="搜索当前列表" placeholder="搜索当前列表" value={query} onChange={e => onQuery(e.target.value)} /></label>
+      </div>
+      {items.length === 0 && <div className="empty-state"><Inbox size={30} /><h3>{query ? '没有找到文章' : filter === 'starred' ? '还没有收藏' : filter === 'unread' ? '暂时没有未读文章' : '从一份订阅开始'}</h3>
+        <p>{query ? '试试其他关键词，或清除搜索。' : filter === 'starred' ? '点击文章旁的收藏按钮，留待稍后阅读。' : filter === 'unread' ? '刷新订阅，看看有没有新内容。' : '添加你喜欢的媒体，新闻会出现在这里。'}</p>
+        {query ? <button onClick={() => onQuery('')}>清除搜索</button> : filter === 'all' ? <button className="primary" onClick={onManage}>添加订阅</button> : null}
+      </div>}
       {items.map((it) => (
         <article
           key={it.id}
@@ -39,9 +47,10 @@ export function ItemList({ items, selected, onSelect, onStar }: Props) {
               className={`star ${it.starredAt ? 'on' : ''}`}
               onClick={(e) => { e.stopPropagation(); onStar(it.id); }}
               title={it.starredAt ? '取消收藏' : '收藏'}
-            >{it.starredAt ? '★' : '☆'}</button>
+              aria-label={it.starredAt ? '取消收藏' : '收藏'} aria-pressed={Boolean(it.starredAt)}
+            ><Star size={15} fill={it.starredAt ? 'currentColor' : 'none'} /></button>
           </div>
-          <h3>{it.title}</h3>
+          <h3><button className="article-title" aria-current={selected === it.id ? true : undefined} onClick={(e) => { e.stopPropagation(); onSelect(it.id); }}>{it.title}</button></h3>
           {it.snippet && <p>{it.snippet.slice(0, 180)}</p>}
         </article>
       ))}

@@ -10,6 +10,8 @@ const run = promisify(execFile);
 
 export const LABEL_DAILY = 'com.yb311.personal-newsroom.daily';
 export const LABEL_FLASHES = 'com.yb311.personal-newsroom.flashes';
+const SERVICE_DAILY = `${LABEL_DAILY}.plist`;
+const SERVICE_FLASHES = `${LABEL_FLASHES}.plist`;
 
 /**
  * Background scheduling on macOS.
@@ -32,6 +34,7 @@ export interface ScheduleState {
   flashIntervalHours: number;
   lastRun: { kind: string; at: number; outcome: string | null; stats: unknown } | null;
   plistPath: string | null;
+  status?: 'not-registered' | 'enabled' | 'requires-approval' | 'not-found';
 }
 
 const userAgentsDir = join(homedir(), 'Library', 'LaunchAgents');
@@ -69,30 +72,26 @@ ${schedule}
 `;
 }
 
-function paths(dataDir: string): { node: string; worker: string } {
-  if (app.isPackaged) {
-    // The packaged app carries its own Node; the worker never depends on one
-    // being installed on the user's machine.
-    return {
-      node: join(process.resourcesPath, 'node'),
-      worker: join(process.resourcesPath, 'worker.cjs')
-    };
-  }
+function devPaths(): { node: string; worker: string } {
   return { node: process.execPath.includes('Electron') ? 'node' : process.execPath,
            worker: join(app.getAppPath(), '..', 'worker', 'dist', 'worker.cjs') };
 }
 
 export async function enableSchedule(db: Db, dataDir: string, dailyHour = 7): Promise<ScheduleState> {
-  const { node, worker } = paths(dataDir);
+  setSetting(db, 'schedule.dailyHour', String(dailyHour));
   if (app.isPackaged) {
     try {
-      app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: LABEL_DAILY });
-      app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: LABEL_FLASHES });
+      app.setLoginItemSettings({ openAtLogin: true, type: 'agentService', serviceName: SERVICE_DAILY });
+      app.setLoginItemSettings({ openAtLogin: true, type: 'agentService', serviceName: SERVICE_FLASHES });
       setSetting(db, 'schedule.enabled', '1');
       return state(db, 'agentService', dailyHour);
-    } catch { /* fall through to the plist path */ }
+    } catch {
+      setSetting(db, 'schedule.enabled', '0');
+      return state(db, 'unsupported', dailyHour);
+    }
   }
 
+  const { node, worker } = devPaths();
   mkdirSync(userAgentsDir, { recursive: true });
   const jobs: [string, string, Record<string, number>][] = [
     [LABEL_DAILY, 'daily', { calendarHour: dailyHour }],
@@ -107,14 +106,13 @@ export async function enableSchedule(db: Db, dataDir: string, dailyHour = 7): Pr
     await run('launchctl', ['bootstrap', `gui/${process.getuid?.() ?? 501}`, path]).catch(() => undefined);
   }
   setSetting(db, 'schedule.enabled', '1');
-  setSetting(db, 'schedule.dailyHour', String(dailyHour));
   return state(db, 'launchAgent', dailyHour);
 }
 
 export async function disableSchedule(db: Db): Promise<ScheduleState> {
-  for (const label of [LABEL_DAILY, LABEL_FLASHES]) {
+  for (const [label, service] of [[LABEL_DAILY, SERVICE_DAILY], [LABEL_FLASHES, SERVICE_FLASHES]]) {
     if (app.isPackaged) {
-      try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: label }); }
+      try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: service }); }
       catch { /* ignore */ }
     }
     await run('launchctl', ['bootout', `gui/${process.getuid?.() ?? 501}/${label}`]).catch(() => undefined);
@@ -134,12 +132,17 @@ function state(db: Db, mode: ScheduleState['mode'], dailyHour: number): Schedule
   const last = db.prepare(
     'SELECT kind, started_at AS at, outcome, stats_json AS stats FROM runs ORDER BY started_at DESC LIMIT 1'
   ).get() as any;
+  const status = app.isPackaged && mode === 'agentService'
+    ? app.getLoginItemSettings({ type: 'agentService', serviceName: SERVICE_DAILY }).status
+    : undefined;
+  const wanted = getSetting(db, 'schedule.enabled') === '1';
   return {
-    enabled: getSetting(db, 'schedule.enabled') === '1',
+    enabled: wanted && (!status || status === 'enabled' || status === 'requires-approval'),
     mode, dailyHour, flashIntervalHours: 3,
     lastRun: last ? { kind: last.kind, at: last.at, outcome: last.outcome,
                       stats: last.stats ? JSON.parse(last.stats) : null } : null,
-    plistPath: app.isPackaged ? null : devPlist(LABEL_DAILY)
+    plistPath: app.isPackaged ? null : devPlist(LABEL_DAILY),
+    ...(status ? { status } : {})
   };
 }
 

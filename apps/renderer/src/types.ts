@@ -46,11 +46,16 @@ export interface SocialStatus {
 export interface ScheduleState {
   enabled: boolean; mode: 'agentService' | 'launchAgent' | 'unsupported';
   dailyHour: number; flashIntervalHours: number; plistPath: string | null;
+  status?: 'not-registered' | 'enabled' | 'requires-approval' | 'not-found';
   lastRun: { kind: string; at: number; outcome: string | null; stats: unknown } | null;
   runs?: unknown[];
 }
 
 export interface Pnr {
+  onCommand?(cb: (command: string) => void): () => void;
+  addSource(input: { kind: string; value: string; name?: string; category?: string }): Promise<{ ok: boolean; id?: string; name?: string; items?: number; error?: string }>;
+  suggestedRoutes(): Promise<{ label: string; route: string; note?: string }[]>;
+  rssHubReady(): Promise<boolean>;
   listSources(): Promise<SourceRow[]>;
   listItems(o: { sourceId?: string; filter?: 'all'|'unread'|'starred'; limit?: number; offset?: number }): Promise<ItemRow[]>;
   getItem(id: string): Promise<(ItemRow & { blocks: Block[] | null; bodyError: string | null }) | null>;

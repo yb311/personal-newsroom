@@ -1,35 +1,40 @@
 {
   "name": "@pnr/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "本地优先、意图驱动的个人新闻编辑部",
+  "author": "yb311",
   "license": "AGPL-3.0-or-later",
   "main": "dist/main.cjs",
   "scripts": {
-    "build:main": "esbuild src/main.ts src/preload.ts --bundle --platform=node --format=cjs --outdir=dist --out-extension:.js=.cjs --external:electron --external:better-sqlite3 --external:sqlite-vec --external:jsdom --external:defuddle --external:@extractus/article-extractor --external:fast-xml-parser --external:rsshub",
+    "build:main": "esbuild src/main.ts src/preload.ts --bundle --platform=node --format=cjs --outdir=dist --out-extension:.js=.cjs --external:electron --external:better-sqlite3 --external:sqlite-vec --external:jsdom --external:rsshub",
     "build:renderer": "vite build",
     "build": "npm run copy:catalog && npm run build:main && npm run build:renderer",
     "dev": "npm run copy:catalog && npm run build:main && electron .",
     "start": "electron .",
-    "copy:catalog": "mkdir -p catalogs && cp ../../catalogs/data/feeds.json catalogs/feeds.json"
+    "copy:catalog": "mkdir -p catalogs && cp ../../catalogs/data/feeds.json catalogs/feeds.json",
+    "typecheck:renderer": "tsc -p ../renderer/tsconfig.json"
   },
   "dependencies": {
+    "@pnr/ai": "*",
     "@pnr/core": "*",
     "@pnr/feed": "*",
+    "@pnr/generate": "*",
     "@pnr/reader": "*",
-    "@pnr/store": "*",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "@pnr/ai": "*",
-    "@pnr/watch": "*",
     "@pnr/recall": "*",
-    "@pnr/generate": "*"
+    "@pnr/store": "*",
+    "@pnr/watch": "*",
+    "lucide-react": "^1.47.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "electron": "^44.4.3",
+    "electron": "44.4.3",
     "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
     "vite": "^8.3.0"
   }
 }

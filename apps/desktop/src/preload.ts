@@ -16,6 +16,11 @@ for (const name of API_METHODS) {
 
 contextBridge.exposeInMainWorld('pnr', {
   ...api,
+  onCommand: (cb: (command: string) => void) => {
+    const fn = (_e: unknown, command: string): void => cb(command);
+    ipcRenderer.on('app:command', fn);
+    return () => ipcRenderer.off('app:command', fn);
+  },
   refresh: () => ipcRenderer.invoke('app:refresh'),
   runWatches: () => ipcRenderer.invoke('app:runWatches'),
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),

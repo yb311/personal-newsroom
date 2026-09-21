@@ -64,6 +64,12 @@ We'd rather you know before you install.
   Ollama is planned; it is slower and lower quality, and we'll say so.
 - **Paywalls are paywalls.** When article text can't be fetched, the reader says
   so and offers to open the page. It does not dress up a summary as the article.
+- **The app's own interface is Chinese-only for now.** Per-Watch *content* language
+  (what language your briefs and flashes are written in) is fully configurable —
+  the UI chrome around it (menus, labels, settings) isn't translated yet.
+- **You can open two windows and confuse yourself.** There's no app-level
+  single-instance lock yet, only a database lock that serializes the actual
+  writes. Nothing gets corrupted, but a second window can feel unresponsive.
 
 ## Roadmap
 
@@ -82,6 +88,12 @@ We'd rather you know before you install.
 
 M1 is deliberately shippable on its own: install it, pick from a catalogue of
 ~1000 curated feeds, read. The AI features layer on top when you add a key.
+
+The milestones above cover the main line; a handful of smaller items inside
+them are still open (app-level single-instance lock, first-run consent screen
+for the background worker, per-Watch language picker in the UI, a couple of
+niche source adapters). None of it blocks daily use — tracked in `AGENTS.md`
+for anyone picking up the work.
 
 ## License
 

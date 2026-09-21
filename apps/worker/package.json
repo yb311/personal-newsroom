@@ -1,12 +1,12 @@
 {
   "name": "@pnr/worker",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "dist/worker.cjs",
   "scripts": {
-    "build": "esbuild src/worker.ts --bundle --platform=node --format=cjs --outfile=dist/worker.cjs --external:better-sqlite3 --external:sqlite-vec --external:jsdom --external:defuddle --external:@extractus/article-extractor --external:fast-xml-parser --external:@google/genai --external:rsshub"
+    "build": "esbuild src/worker.ts --bundle --platform=node --format=cjs --outfile=dist/worker.cjs --external:better-sqlite3 --external:sqlite-vec --external:jsdom --external:rsshub"
   },
   "dependencies": {
     "@pnr/ai": "*",

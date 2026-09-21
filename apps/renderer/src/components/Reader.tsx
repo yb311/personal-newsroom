@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { BookOpen, ArrowLeft, Star, ExternalLink, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { Block, ItemRow } from '../types.ts';
 import { Blocks } from './Blocks.tsx';
 
@@ -10,51 +11,68 @@ interface Deep {
   milestones: { date: string; text: string; refIds: string[] }[];
 }
 
-export function Reader({ id, onStar, aiReady }:
-  { id: string | null; onStar: (id: string) => void; aiReady: boolean }) {
+export function Reader({ id, onStar, aiReady, revision, onBack }:
+  { id: string | null; onStar: (id: string) => void; aiReady: boolean; revision: number; onBack: () => void }) {
   const [item, setItem] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
   const [deep, setDeep] = useState<Deep | null>(null);
   const [deepBusy, setDeepBusy] = useState(false);
   const [deepErr, setDeepErr] = useState('');
+  const activeId = useRef(id);
+  activeId.current = id;
 
   useEffect(() => {
     if (!id) { setItem(null); return; }
     let live = true;
-    setDeep(null); setDeepErr('');
+    setItem(null); setDeep(null); setDeepErr(''); setDeepBusy(false);
     void (async () => {
       setLoading(true);
-      const full = await window.pnr.getItem(id);
-      if (!live) return;
-      setItem(full);
-      setLoading(false);
-      // Body not fetched yet: pull it now so opening an article just works.
-      if (full && full.bodyState === 'pending') {
-        await window.pnr.enrichOne(id);
-        const again = await window.pnr.getItem(id);
-        if (live) setItem(again);
-      }
+      try {
+        const full = await window.pnr.getItem(id);
+        if (!live) return;
+        setItem(full);
+        setLoading(false);
+        // Body not fetched yet: pull it now so opening an article just works.
+        if (full && full.bodyState === 'pending') {
+          await window.pnr.enrichOne(id);
+          const again = await window.pnr.getItem(id);
+          if (live) setItem(again);
+        }
+      } catch { if (live) { setLoading(false); setDeepErr('文章暂时无法载入，请重新选择或稍后重试。'); } }
     })();
     return () => { live = false; };
   }, [id]);
+  useEffect(() => {
+    if (!id) return;
+    let live = true;
+    void window.pnr.getItem(id).then(full => {
+      if (live && full) setItem(current => current?.id === full.id ? { ...current, starredAt: full.starredAt } : current);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [id, revision]);
 
-  if (!id) return <section className="reader empty"><p>选一篇开始读。</p></section>;
-  if (loading && !item) return <section className="reader empty"><p>载入中…</p></section>;
-  if (!item) return <section className="reader empty"><p>找不到这一篇。</p></section>;
+  if (!id) return <section className="reader empty"><div className="empty-state"><BookOpen size={38} strokeWidth={1.4} /><h2>未选择文章</h2><p>从列表中选择文章。</p></div></section>;
+  if (loading && !item) return <section className="reader"><button className="reader-back" onClick={onBack}><ArrowLeft size={16} />返回列表</button><p className="empty-state" role="status">载入中…</p></section>;
+  if (!item) return <section className="reader"><button className="reader-back" onClick={onBack}><ArrowLeft size={16} />返回列表</button><p className="empty-state">{deepErr || '找不到这一篇。请重新选择文章。'}</p></section>;
 
   const open = (): void => { void window.pnr.openExternal(item.url); };
 
   const goDeep = async (): Promise<void> => {
     setDeepBusy(true); setDeepErr('');
-    const r = await window.pnr.deepSummary(item.id);
-    if (r.noProvider) setDeepErr('还没配置 AI');
-    else if (r.error) setDeepErr(r.error);
-    else setDeep(r.summary as Deep);
-    setDeepBusy(false);
+    const requestedId = item.id;
+    try {
+      const r = await window.pnr.deepSummary(requestedId);
+      if (activeId.current !== requestedId) return;
+      if (r.noProvider) setDeepErr('请先连接 AI 服务');
+      else if (r.error) setDeepErr(r.error);
+      else setDeep(r.summary as Deep);
+    } catch { if (activeId.current === requestedId) setDeepErr('暂时无法生成，请重试。'); }
+    finally { if (activeId.current === requestedId) setDeepBusy(false); }
   };
 
   return (
     <section className="reader">
+      <button className="reader-back" onClick={onBack}><ArrowLeft size={16} />返回列表</button>
       <article>
         <div className="reader-meta">
           <span className="src">{item.sourceName}</span>
@@ -66,11 +84,11 @@ export function Reader({ id, onStar, aiReady }:
         </div>
         <h1>{item.title}</h1>
         <div className="reader-actions">
-          <button onClick={() => onStar(item.id)}>{item.starredAt ? '★ 已收藏' : '☆ 收藏'}</button>
-          <button onClick={open}>在浏览器打开</button>
+          <button aria-pressed={Boolean(item.starredAt)} onClick={() => onStar(item.id)}><Star size={15} fill={item.starredAt ? 'currentColor' : 'none'} />{item.starredAt ? '已收藏' : '收藏'}</button>
+          <button onClick={open}><ExternalLink size={15} />查看原文</button>
           {aiReady && !deep && (
             <button onClick={() => void goDeep()} disabled={deepBusy}>
-              {deepBusy ? '正在梳理…' : '深入'}
+              <Sparkles size={15} />{deepBusy ? '正在整理…' : '深入了解'}
             </button>
           )}
           {item.bodyWords ? <span className="words">{item.bodyWords} 词</span> : null}
@@ -148,14 +166,14 @@ function Unavailable(
   { state, error, snippet, onOpen }:
   { state: string; error: string | null; snippet: string | null; onOpen: () => void }
 ) {
-  const why = state === 'blocked' ? '这家媒体有付费墙，正文抓不到。'
+  const why = state === 'blocked' ? '该网站限制了访问，暂时无法获取正文。'
     : state === 'pending' ? '正在抓取正文…'
     : state === 'failed' ? `正文抓取失败${error ? `（${error}）` : ''}。`
     : '暂时没有正文。';
   return (
     <div className="unavailable">
       <p className="why">{why}</p>
-      {snippet && <p className="snippet">{snippet}</p>}
+      {snippet && <div className="snippet"><span className="eyebrow">来源提供的摘要 · 非完整正文</span><p>{snippet}</p></div>}
       {state !== 'pending' && <button onClick={onOpen}>在浏览器打开原文</button>}
     </div>
   );

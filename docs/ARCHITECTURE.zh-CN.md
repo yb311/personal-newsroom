@@ -1,5 +1,10 @@
 # personal-newsroom — 从 daily-brief 引出的本地优先个人新闻软件
 
+> 本文是开工前写的架构计划，决策部分仍然有效。**两处已被验证结果修订**（见
+> `SPIKES.zh-CN.md`）：RSSHub 从「独立进程」改成「库调用」；R3 发现层主力从
+> GDELT 换成 Google News 搜索 RSS。**当前实现状态和已知缺口见 `AGENTS.md` 的
+> 「进度」一节**，不要以为这里写的都已经原样落地。
+
 ## Context（为什么做这件事）
 
 `daily-brief`（`/Users/zhoujingxuan/Documents/GitHub/daily-brief`）是一个已经成型的双语新闻门户：约 58000 行 TypeScript，98 个提交，Next.js 16 + React 19，跑在 Vercel + Upstash Redis + Cloudflare R2 + GitHub Actions 上，AI 用 Gemini。它每天产出 13 篇深度报道、每 3 小时一批快讯、今日摘要和播客，质量门槛很高。
@@ -298,9 +303,12 @@ personal-newsroom/
 │   ├── renderer/           React UI（今日 / 快讯 / 阅读 / 关注 四 tab + 设置）
 │   └── worker/             无界面 worker 入口，供 launchd 调起
 ├── packages/
-│   ├── feed/               ← 移植 lib/feed/*，FeedConfig 扩展出 rsshub / telegram / hackernews
-│   │                         / reddit / github / gdelt / googlenews / apify-x 等源类型
-│   ├── rsshub/             【全新】本地 RSSHub 进程的下载、启动、健康检查、端口管理、更新
+│   ├── feed/               ← 移植 lib/feed/*，src/adapters/ 下 11 种源适配器
+│   │                         （rss/sitemap/sitemapindex/telegram/hackernews/reddit/github/
+│   │                         googlenews/bingnews/gdelt/rsshub），OSS Insight 和 Apify-X 未实现
+│   │                         【已改】RSSHub 不是独立包/独立进程，是 feed 包里的一个适配器
+│   │                         （见 SPIKES §2：它是库不是服务器，`await request(path)` 直接拿数据，
+│   │                         没有端口/健康检查/崩溃重启这些东西，此处原计划已作废）
 │   ├── evidence/           ← 移植 lib/evidence/*，闸门换成意图闸门
 │   ├── watch/              【全新】Watch 模型、recallAids 生成、纠偏、预置标签目录
 │   ├── recall/             【全新】R1/R2/R3 三路召回 + 批量判定编排

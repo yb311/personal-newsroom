@@ -18,7 +18,11 @@ export function openDb(path: string): Db {
   const db = new Database(path);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  sqliteVec.load(db);
+  // Electron exposes files inside app.asar through its patched fs APIs, but
+  // SQLite's native dlopen cannot read that virtual path. electron-builder
+  // places native libraries in the matching app.asar.unpacked directory.
+  const vecPath = sqliteVec.getLoadablePath().replace('/app.asar/', '/app.asar.unpacked/');
+  db.loadExtension(vecPath);
   migrate(db);
   return db;
 }

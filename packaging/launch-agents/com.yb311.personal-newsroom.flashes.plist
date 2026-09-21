@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.yb311.personal-newsroom.flashes</string>
+  <key>AssociatedBundleIdentifiers</key>
+  <string>com.yb311.personal-newsroom</string>
+  <key>BundleProgram</key>
+  <string>Contents/MacOS/所闻</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>所闻 · 快讯检查</string>
+    <string>-e</string>
+    <string>require(require('node:path').join(require('node:path').dirname(process.execPath),'../Resources/app.asar/worker.cjs'))</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ELECTRON_RUN_AS_NODE</key><string>1</string>
+    <key>PNR_SCHEDULED_RUN</key><string>1</string>
+    <key>PNR_WORKER_MODE</key><string>flashes</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>10800</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>LowPriorityIO</key><true/>
+  <key>Nice</key><integer>5</integer>
+</dict>
+</plist>

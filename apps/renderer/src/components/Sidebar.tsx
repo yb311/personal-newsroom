@@ -1,3 +1,4 @@
+import { categoryLabel } from '../categories.ts';
 import type { SourceRow } from '../types.ts';
 import type { Filter } from '../App.tsx';
 
@@ -20,11 +21,11 @@ export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter,
   }
 
   return (
-    <nav className="sidebar">
+    <nav className="sidebar" aria-label="阅读筛选">
       <ul className="filters">
         {filters.map(([f, label, count]) => (
           <li key={f}>
-            <button className={filter === f ? 'active' : ''} onClick={() => onPickFilter(f)}>
+            <button aria-pressed={filter === f} className={filter === f ? 'active' : ''} onClick={() => onPickFilter(f)}>
               <span>{label}</span>
               {count ? <em>{count}</em> : null}
             </button>
@@ -39,18 +40,18 @@ export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter,
 
       <ul className="sources">
         <li>
-          <button className={!sourceId ? 'active' : ''} onClick={() => onPickSource(undefined)}>
+          <button aria-pressed={!sourceId} className={!sourceId ? 'active' : ''} onClick={() => onPickSource(undefined)}>
             <span>所有源</span><em>{sources.length}</em>
           </button>
         </li>
         {[...byCategory.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([cat, list]) => (
           <li key={cat} className="group">
-            <div className="group-label">{cat}</div>
+            <div className="group-label">{categoryLabel(cat)}</div>
             <ul>
               {list.map((s) => (
                 <li key={s.id}>
                   <button
-                    className={sourceId === s.id ? 'active' : ''}
+                    aria-pressed={sourceId === s.id} className={sourceId === s.id ? 'active' : ''}
                     onClick={() => onPickSource(s.id)}
                     title={s.lastError ? `上次抓取失败：${s.lastError}` : s.domain ?? s.name}
                   >

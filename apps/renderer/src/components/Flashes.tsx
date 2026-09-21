@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface FlashRow {
@@ -14,20 +15,21 @@ const when = (ts: number): string => {
   return h < 24 ? `${h} 小时前` : new Date(ts).toLocaleDateString('zh-CN');
 };
 
-export function Flashes({ aiReady, onSetup, onRun, running }:
-  { aiReady: boolean; onSetup: () => void; onRun: () => void; running: boolean }) {
+export function Flashes({ aiReady, onSetup, onRead, onRun, running }:
+  { aiReady: boolean; onSetup: () => void; onRead: () => void; onRun: () => void; running: boolean }) {
   const [rows, setRows] = useState<FlashRow[]>([]);
   const [onlyImportant, setOnlyImportant] = useState(false);
 
   useEffect(() => { void window.pnr.flashes(24).then((r) => setRows(r as FlashRow[])); }, [running]);
 
-  if (!aiReady) {
+  if (!aiReady && rows.length === 0) {
     return (
       <section className="pane center">
-        <div className="setup-card">
-          <h2>快讯需要 AI</h2>
-          <p>快讯只推你关注的事的新进展，所以需要 AI 帮你判断什么算「新」。</p>
-          <button className="primary" onClick={onSetup}>去设置</button>
+        <div className="setup-card"><div className="feature-icon"><Sparkles size={27} /></div>
+          <h2>尚未启用快讯</h2>
+          <p>在设置中连接 AI，检查关注的新进展。</p>
+          <div className="setup-actions"><button className="primary" onClick={onSetup}>连接 AI</button><button onClick={onRead}>先去阅读</button></div>
+          <p className="muted">阅读和收藏无需 AI，随时可用。</p>
         </div>
       </section>
     );
@@ -37,7 +39,7 @@ export function Flashes({ aiReady, onSetup, onRun, running }:
 
   return (
     <section className="pane scroll">
-      <div className="pane-inner">
+      <div className="pane-inner flashes-page">
         <div className="flash-head">
           <h2>最近 24 小时</h2>
           <span className="grow" />
@@ -45,7 +47,7 @@ export function Flashes({ aiReady, onSetup, onRun, running }:
             <input type="checkbox" checked={onlyImportant} onChange={(e) => setOnlyImportant(e.target.checked)} />
             只看重要的
           </label>
-          <button onClick={onRun} disabled={running}>{running ? '生成中…' : '现在检查'}</button>
+
         </div>
 
         {shown.length === 0 && (
@@ -59,7 +61,7 @@ export function Flashes({ aiReady, onSetup, onRun, running }:
           {shown.map((f) => (
             <li key={f.id}>
               <div className="flash-meta">
-                <em className={`imp ${f.importance >= 8 ? 'high' : ''}`}>{f.importance}</em>
+                <em className={`imp ${f.importance >= 8 ? 'high' : ''}`}>{f.importance >= 8 ? '重要' : '进展'}</em>
                 {f.watchLabel && <span className="src">{f.watchLabel}</span>}
                 <span className="dot">·</span>
                 <time>{when(f.publishedAt)}</time>

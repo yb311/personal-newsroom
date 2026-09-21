@@ -1,3 +1,5 @@
+import { Dialog } from './Dialog.tsx';
+import { Plus, Trash2, Search, Bookmark, ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { Milestone, PresetRow, WatchRow } from '../types.ts';
 
@@ -7,117 +9,111 @@ export function Watches({ aiReady, onSetup }: { aiReady: boolean; onSetup: () =>
   const [watches, setWatches] = useState<WatchRow[]>([]);
   const [presets, setPresets] = useState<PresetRow[]>([]);
   const [open, setOpen] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [query, setQuery] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState('');
   const [draft, setDraft] = useState({ label: '', intent: '' });
 
   const load = useCallback(async () => {
     const [w, p] = await Promise.all([window.pnr.watches(), window.pnr.presets()]);
     setWatches(w); setPresets(p);
+    setOpen(id => w.some(x => x.id === id) ? id : w[0]?.id ?? null);
   }, []);
   useEffect(() => { void load(); }, [load]);
 
   const add = async (): Promise<void> => {
     const intent = draft.intent.trim();
-    if (!intent) return;
-    await window.pnr.addWatch({ label: draft.label.trim() || intent.slice(0, 12), intent });
-    setDraft({ label: '', intent: '' });
-    void load();
+    if (!intent || adding) return;
+    setAdding(true); setError('');
+    try {
+      const watch = await window.pnr.addWatch({ label: draft.label.trim() || intent.slice(0, 12), intent });
+      setDraft({ label: '', intent: '' }); await load(); setOpen(watch.id); setShowAdd(false); setDirty(false);
+    } catch { setError('未能添加关注，请重试。'); }
+    finally { setAdding(false); }
   };
 
+  const selected = watches.find(w => w.id === open);
+  const pick = (id: string): void => {
+    if (id !== open && dirty && !window.confirm('放弃尚未保存的修改？')) return;
+    setDirty(false); setOpen(id);
+  };
   return (
-    <section className="pane scroll">
-      <div className="pane-inner">
-        <h2>用一句话说你想看什么</h2>
-        <p className="muted">
-          比如「我想知道习近平最近在干什么」或者「跟进这场谈判的进展」。
-          写得越具体越好——这句话会原样交给 AI，不会被改写成关键词。
-        </p>
-        <div className="new-watch">
-          <input placeholder="名字（可留空）" value={draft.label}
-                 onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
-          <input placeholder="我想知道……" value={draft.intent}
-                 onChange={(e) => setDraft({ ...draft, intent: e.target.value })}
-                 onKeyDown={(e) => { if (e.key === 'Enter') void add(); }} />
-          <button className="primary" onClick={() => void add()}>添加</button>
-        </div>
-        {!aiReady && (
-          <p className="muted warn">
-            还没有配置 AI，关注不会自动更新。<button className="link" onClick={onSetup}>去设置</button>
-          </p>
-        )}
-
-        <h2 className="section-gap">我的关注</h2>
-        {watches.length === 0 && <p className="muted">还没有关注。写一句话，或者从下面的常用主题里勾一个。</p>}
-        <ul className="watch-list">
-          {watches.map((w) => (
-            <WatchCard key={w.id} watch={w} open={open === w.id}
-                       onToggle={() => setOpen(open === w.id ? null : w.id)}
-                       onChanged={load} />
-          ))}
-        </ul>
-
-        <h2 className="section-gap">常用主题</h2>
-        <p className="muted">勾一个就能用。它们本质上就是预先写好的那句话，你随时可以改成自己的。</p>
-        <ul className="presets">
-          {presets.map((p) => (
-            <li key={p.id}>
-              <label title={p.intent}>
-                <input type="checkbox" checked={p.enabled}
-                       onChange={async () => { await window.pnr.togglePreset(p.id, !p.enabled); void load(); }} />
-                <span>{p.label}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
+    <section className={`watch-workspace ${selected ? 'has-selection' : ''}`}>
+      <aside className="watch-browser" aria-label="关注列表">
+        <div className="section-toolbar"><strong>我的关注</strong><span className="grow" /><button title="添加关注" aria-label="添加关注" onClick={() => setShowAdd(true)}><Plus size={17} /></button></div>
+        <label className="search-field"><Search size={14} /><input type="search" aria-label="搜索关注" placeholder="搜索" value={query} onChange={e => setQuery(e.target.value)} /></label>
+        <div className="watch-rows">{watches.filter(w => `${w.label} ${w.intent}`.includes(query)).map(w => <button key={w.id} className={`watch-row ${open === w.id ? 'selected' : ''}`} aria-current={open === w.id ? true : undefined} onClick={() => pick(w.id)}>
+          <Bookmark size={16} /><span><strong>{w.label}</strong><small>{w.intent}</small></span>{w.newCount > 0 && <em className="badge">{w.newCount}</em>}
+        </button>)}{watches.length === 0 && <p className="empty-block">尚无关注<br /><button onClick={() => setShowAdd(true)}>添加关注</button></p>}</div>
+        <footer className="list-status">{watches.length} 个关注</footer>
+      </aside>
+      <div className="watch-detail">
+        {selected ? <><button className="watch-back" onClick={() => { if (!dirty || window.confirm('放弃尚未保存的修改？')) { setDirty(false); setOpen(null); } }}><ArrowLeft size={15} />关注列表</button>
+          <WatchCard key={selected.id} watch={selected} onChanged={load} onDirty={setDirty} />
+        </> : <div className="empty-state"><Bookmark size={28} /><h2>选择一个关注</h2><p>查看进展或编辑关注内容。</p></div>}
+        {!aiReady && <div className="inline-notice">自动整理需要 AI。<button className="link" onClick={onSetup}>打开设置</button></div>}
       </div>
+      {showAdd && <Dialog title="添加关注" onClose={() => { if (!adding) setShowAdd(false); }} className="add-watch-dialog">
+        <header><h2>添加关注</h2></header>
+        <form className="watch-composer" onSubmit={e => { e.preventDefault(); void add(); }}>
+          <label className="field"><span>名称（选填）</span><input autoFocus value={draft.label} onChange={e => setDraft({ ...draft, label: e.target.value })} /></label>
+          <label className="field"><span>想关注的事</span><textarea required rows={3} placeholder="例如：人工智能在医疗领域的最新进展" value={draft.intent} onChange={e => setDraft({ ...draft, intent: e.target.value })} /></label>
+          <details className="preset-disclosure"><summary>从常用主题选择</summary><ul className="presets">{presets.map(p => <li key={p.id}><button type="button" onClick={() => setDraft({label:p.label,intent:p.intent})}>{p.label}</button></li>)}</ul></details>
+          {error && <p role="alert" className="muted warn">{error}</p>}
+          <div className="dialog-actions"><button type="button" disabled={adding} onClick={() => setShowAdd(false)}>取消</button><button className="primary" disabled={adding || !draft.intent.trim()}>{adding ? '添加中…' : '添加'}</button></div>
+        </form>
+      </Dialog>}
     </section>
   );
 }
 
-function WatchCard({ watch, open, onToggle, onChanged }:
-  { watch: WatchRow; open: boolean; onToggle: () => void; onChanged: () => void }) {
+function WatchCard({ watch, onChanged, onDirty }:
+  { watch: WatchRow; onChanged: () => void; onDirty: (dirty: boolean) => void }) {
   const [tl, setTl] = useState<Milestone[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
   const [intent, setIntent] = useState(watch.intent);
 
   useEffect(() => {
-    if (open) void window.pnr.watchTimeline(watch.id).then((r) => setTl(r.milestones));
-  }, [open, watch.id]);
+    let live = true;
+    void window.pnr.watchTimeline(watch.id).then(r => { if (live) setTl(r.milestones); }).catch(() => { if (live) setMessage('进展暂时无法载入'); });
+    return () => { live = false; };
+  }, [watch.id]);
 
   const save = async (): Promise<void> => {
     if (intent.trim() && intent !== watch.intent) {
-      await window.pnr.editWatch(watch.id, { intent: intent.trim() });
-      onChanged();
+      setSaving(true); setMessage('');
+      try { await window.pnr.editWatch(watch.id, { intent: intent.trim() }); onDirty(false); onChanged(); setMessage('已保存'); }
+      catch { setMessage('保存失败，请重试。'); }
+      finally { setSaving(false); }
     }
   };
 
   return (
-    <li className={`watch-card ${open ? 'open' : ''}`}>
-      <div className="watch-head" onClick={onToggle}>
-        <span className="watch-label">{watch.label}</span>
-        {watch.origin !== 'intent' && <span className="tag">{watch.origin === 'preset' ? '预置' : '已改'}</span>}
-        <span className="grow" />
-        {watch.newCount > 0 && <em className="badge">{watch.newCount} 新</em>}
-        <em className="muted">{watch.passed} 条入选</em>
-      </div>
-
-      {open && (
+    <section className="watch-inspector">
+      <div className="detail-heading"><h2>{watch.label}</h2><span className="muted">{watch.passed} 篇相关报道</span></div>
         <div className="watch-body">
           <label className="field">
             <span>你的原话</span>
-            <textarea value={intent} onChange={(e) => setIntent(e.target.value)} onBlur={() => void save()} rows={2} />
+            <textarea value={intent} onChange={(e) => { setIntent(e.target.value); onDirty(e.target.value !== watch.intent); }} rows={2} />
           </label>
 
+          <div className="save-row"><button onClick={() => void save()} disabled={saving || !intent.trim() || intent === watch.intent}>{saving ? '保存中…' : '保存修改'}</button><span role="status" className="muted">{message}</span></div>
           {watch.recallAids && (
-            <div className="aids">
+            <details className="aids"><summary>查看辅助检索词</summary>
               <p className="muted">
-                AI 用这些词帮你多找一些候选。它们<strong>只会扩大范围，不会筛掉任何东西</strong>，
-                所以写错了也不要紧。改了下次运行生效。
+                用于发现更多相关报道，不影响按你的原话判断。
               </p>
               <Chips title="别名" items={watch.recallAids.aliases} />
               <Chips title="相关词" items={watch.recallAids.relatedTerms} />
               <Chips title="信源倾向" items={watch.recallAids.sourceHints} />
-            </div>
+            </details>
           )}
 
+          {tl.length === 0 && <div className="timeline"><h4>进展</h4><p className="muted">暂无进展。更新关注后会出现在这里。</p></div>}
           {tl.length > 0 && (
             <div className="timeline">
               <h4>时间线</h4>
@@ -133,11 +129,10 @@ function WatchCard({ watch, open, onToggle, onChanged }:
           )}
 
           <div className="watch-actions">
-            <button onClick={async () => { await window.pnr.removeWatch(watch.id); onChanged(); }}>删除这个关注</button>
+            {confirmDelete ? <div className="delete-confirm"><span>删除「{watch.label}」及其关注记录？</span><button onClick={() => setConfirmDelete(false)}>取消</button><button className="danger" onClick={async () => { try { await window.pnr.removeWatch(watch.id); onDirty(false); onChanged(); } catch { setMessage('删除失败，请重试。'); } }}>确认删除</button></div> : <button onClick={() => setConfirmDelete(true)}><Trash2 size={14} />删除关注</button>}
           </div>
         </div>
-      )}
-    </li>
+    </section>
   );
 }
 

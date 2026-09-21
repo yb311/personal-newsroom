@@ -1,24 +1,24 @@
+import { Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Today as TodayData } from '../types.ts';
 import { Blocks } from './Blocks.tsx';
 
 /** The 今日 tab: the "since yesterday" panel on top, then the brief itself.
  *  Both are rendered from the same milestone data (see progress.ts). */
-export function Today({ aiReady, onSetup, onRun, running }:
-  { aiReady: boolean; onSetup: () => void; onRun: () => void; running: boolean }) {
+export function Today({ aiReady, onSetup, onRead, onRun, running }:
+  { aiReady: boolean; onSetup: () => void; onRead: () => void; onRun: () => void; running: boolean }) {
   const [data, setData] = useState<TodayData | null>(null);
 
   useEffect(() => { void window.pnr.today().then(setData); }, [running]);
 
-  if (!aiReady) {
+  if (!aiReady && !data?.digest && !data?.changes.length) {
     return (
       <section className="pane center">
-        <div className="setup-card">
-          <h2>今日摘要需要 AI</h2>
-          <p>这个软件不填 key 也能当 RSS 阅读器用。要生成专属摘要、快讯和进展对比，
-             需要填一个你自己的 API key。内容和 key 都只存在你这台电脑上。</p>
-          <p className="muted">按目前的设计，一天大约花 10–30 美分。</p>
-          <button className="primary" onClick={onSetup}>去设置</button>
+        <div className="setup-card"><div className="feature-icon"><Sparkles size={27} /></div>
+          <h2>尚未启用今日摘要</h2>
+          <p>在设置中连接 AI，生成关注摘要和进展。</p>
+          <div className="setup-actions"><button className="primary" onClick={onSetup}>连接 AI</button><button onClick={onRead}>先去阅读</button></div>
+          <p className="muted">阅读和收藏无需 AI，随时可用。</p>
         </div>
       </section>
     );
@@ -29,7 +29,7 @@ export function Today({ aiReady, onSetup, onRun, running }:
 
   return (
     <section className="pane scroll">
-      <div className="pane-inner">
+      <div className="pane-inner today-page">
         {changes.length > 0 && (
           <div className="changes">
             <h2>昨天到今天</h2>

@@ -19,9 +19,33 @@ import { setSink, log } from '@pnr/core';
 
 type Mode = 'daily' | 'flashes' | 'fetch';
 
-const mode = (process.argv[2] ?? 'daily') as Mode;
+const mode = (process.env['PNR_WORKER_MODE'] ?? process.argv[2] ?? 'daily') as Mode;
+process.title = mode === 'daily' ? '所闻 · 每日更新'
+  : mode === 'flashes' ? '所闻 · 快讯检查' : '所闻 · 新闻抓取';
 const dataDir = process.env['PNR_DATA_DIR'] ?? defaultDataDir();
 const db = openDb(join(dataDir, 'newsroom.db'));
+
+/** The packaged daily agent wakes every 30 minutes so a user-selected hour can
+ * be honoured without rewriting the signed plist inside the app bundle. It
+ * works only after the chosen local time and at most once per local day. */
+function scheduledDailyIsDue(now = Date.now()): boolean {
+  if (mode !== 'daily' || process.env['PNR_SCHEDULED_RUN'] !== '1') return true;
+  const configured = db.prepare("SELECT value FROM settings WHERE key = 'schedule.dailyHour'")
+    .get() as { value: string } | undefined;
+  const hour = Math.min(23, Math.max(0, Number(configured?.value ?? '7')));
+  const target = new Date(now);
+  target.setHours(hour, 15, 0, 0);
+  if (now < target.getTime()) return false;
+  const last = db.prepare(
+    "SELECT started_at FROM runs WHERE kind = 'daily' AND outcome IN ('ok','partial') ORDER BY started_at DESC LIMIT 1"
+  ).get() as { started_at: number } | undefined;
+  return !last || last.started_at < target.getTime();
+}
+
+if (!scheduledDailyIsDue()) {
+  db.close();
+  process.exit(0);
+}
 
 const runId = `${mode}-${Date.now()}`;
 db.prepare('INSERT INTO runs (id, kind, started_at) VALUES (?, ?, ?)').run(runId, mode, Date.now());

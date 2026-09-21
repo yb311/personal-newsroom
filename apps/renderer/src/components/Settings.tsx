@@ -1,8 +1,11 @@
+import { Dialog } from './Dialog.tsx';
 import { useEffect, useState } from 'react';
 import type { AiStatus, ScheduleState, SocialStatus } from '../types.ts';
 
 /** Keys live on this machine only. The app is deliberately usable without one. */
 export function Settings({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const [section, setSection] = useState<'ai' | 'sources' | 'background'>('ai');
+  const [installing, setInstalling] = useState(false);
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [key, setKey] = useState('');
   const [provider, setProvider] = useState('gemini');
@@ -13,6 +16,8 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   const [hour, setHour] = useState(7);
   const [social, setSocial] = useState<SocialStatus | null>(null);
   const [instance, setInstance] = useState('');
+  const [instanceSaving, setInstanceSaving] = useState(false);
+  const [instanceMessage, setInstanceMessage] = useState('');
   const [progress, setProgress] = useState<string>('');
 
   useEffect(() => {
@@ -33,10 +38,12 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
   }, []);
 
   const installPack = async (): Promise<void> => {
-    setProgress('准备中…');
-    const r = await window.pnr.socialInstall();
-    setProgress(r.ok ? '' : `失败：${r.error ?? ''}`);
-    setSocial(await window.pnr.socialStatus());
+    setInstalling(true); setProgress('准备中…');
+    try { const r = await window.pnr.socialInstall();
+      setProgress(r.ok ? '' : `失败：${r.error ?? '请重试'}`);
+      setSocial(await window.pnr.socialStatus());
+    } catch { setProgress('失败：下载未完成，请重试'); }
+    finally { setInstalling(false); }
   };
 
   const toggleSchedule = async (on: boolean): Promise<void> => {
@@ -47,28 +54,31 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
     setSaving(true); setMsg('正在验证…');
     const patch: Record<string, string> = { provider, outputLang: lang };
     if (key.trim()) patch['geminiApiKey'] = key.trim();
-    const ok = await window.pnr.saveAiSettings(patch);
-    setMsg(ok ? '已连接 ✅' : provider === 'ollama' ? '连不上本地 Ollama，确认它在运行' : 'key 验证失败');
-    setSaving(false);
-    setStatus(await window.pnr.aiStatus());
-    onChanged();
+    try {
+      const ok = await window.pnr.saveAiSettings(patch);
+      setMsg(ok ? provider === 'none' ? '已保存 · 阅读模式' : '已保存并连接' : provider === 'ollama' ? '无法连接 Ollama，请确认已启动' : '无法验证密钥，请检查后重试');
+      setStatus(await window.pnr.aiStatus());
+      if (ok) setKey('');
+      onChanged();
+    } catch { setMsg('保存失败，请重试。'); }
+    finally { setSaving(false); }
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal narrow" onClick={(e) => e.stopPropagation()}>
+    <Dialog title="设置" onClose={onClose} className="settings-modal">
         <header><h2>设置</h2><span className="grow" /><button onClick={onClose}>完成</button></header>
+        <nav className="settings-nav" aria-label="设置分类">{([['ai', 'AI 与语言'], ['sources', '扩展订阅'], ['background', '后台更新']] as const).map(([id, label]) => <button key={id} aria-pressed={section === id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}</nav>
         <div className="settings">
+          <section hidden={section !== 'ai'}><h3 className="sub">AI 与语言</h3>
           <p className="muted">
-            所有内容都存在你这台电脑上。API key 也只存在本地，不会发给我们——
-            我们没有服务器。<strong>不填 key 也能把它当 RSS 阅读器用。</strong>
+            阅读无需 AI。连接后可生成摘要、快讯和进展。密钥保存在本机；使用云端 AI 时，相关内容会发送给所选服务。
           </p>
 
           <label className="field">
             <span>AI 服务商</span>
             <select value={provider} onChange={(e) => setProvider(e.target.value)}>
               <option value="gemini">Google Gemini（云端）</option>
-              <option value="ollama">Ollama（本地，完全不出网）</option>
+              <option value="ollama">Ollama（本地模型）</option>
               <option value="none">先不用 AI</option>
             </select>
           </label>
@@ -78,14 +88,13 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
               <span>Gemini API Key</span>
               <input type="password" value={key} placeholder={status?.available ? '已保存，留空则不改' : 'AIza…'}
                      onChange={(e) => setKey(e.target.value)} />
-              <small className="muted">在 Google AI Studio 免费申请。按目前设计一天大约 10–30 美分。</small>
+              <small className="muted">在 Google AI Studio 获取密钥。使用费用由 Google 收取。</small>
             </label>
           )}
 
           {provider === 'ollama' && (
             <p className="muted">
-              需要本机已经装好并运行 Ollama。本地模型更慢、质量也弱一些，
-              而且正文抓不到时没有补全能力——我们会照实说明，不会假装。
+              请先在这台 Mac 上安装并启动 Ollama。模型在本机运行，不支持搜索补全。
             </p>
           )}
 
@@ -96,36 +105,35 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
               <option value="en-US">English</option>
               <option value="ja-JP">日本語</option>
             </select>
-            <small className="muted">摘要和进展用这个语言写。每个关注还能单独设置。原文永远保持原样。</small>
+            <small className="muted">用于生成的摘要和进展，不改变原文语言。</small>
           </label>
 
           <div className="settings-actions">
-            <button className="primary" onClick={() => void save()} disabled={saving}>保存</button>
-            {msg && <span className="muted">{msg}</span>}
+            <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? '保存中…' : '保存'}</button>
+            {msg && <span role="status" className="muted">{msg}</span>}
           </div>
 
-          <hr className="deep-sep" />
-
-          <h3 className="sub">社交媒体源</h3>
+          </section><section hidden={section !== 'sources'}>
+          <h3 className="sub">扩展订阅</h3>
           <p className="muted">
-            微博、B站、知乎、小红书、X 这些不提供 RSS，要靠 RSSHub 转换。
-            它有 370 MB，所以<strong>不随应用一起装</strong>——用不到就不占你的硬盘。
+            通过 RSSHub 订阅更多社交平台。按需下载约 63 MB，安装后占用约 370 MB。
           </p>
 
           <label className="field">
-            <span>已有自己的 RSSHub 实例？填地址直接用</span>
+            <span>RSSHub 服务地址（选填）</span>
             <input placeholder="http://127.0.0.1:1200" value={instance}
-                   onChange={(e) => setInstance(e.target.value)}
-                   onBlur={async () => {
-                     await window.pnr.socialSetInstance(instance);
-                     setSocial(await window.pnr.socialStatus());
-                   }} />
+                   onChange={(e) => { setInstance(e.target.value); setInstanceMessage(''); }} />
             <small className="muted">
-              自建或你信任的实例。<strong>我们不会替你连任何公共实例</strong>——
-              那等于把你在看什么告诉一台陌生的服务器。
+              仅连接你自建或信任的服务，留空则使用本地扩展。输入地址后点击保存。
             </small>
           </label>
 
+          <div className="save-row"><button disabled={instanceSaving} onClick={async () => {
+            setInstanceSaving(true); setInstanceMessage('');
+            try { await window.pnr.socialSetInstance(instance.trim()); setSocial(await window.pnr.socialStatus()); setInstanceMessage('地址已保存'); }
+            catch { setInstanceMessage('保存失败，请检查地址后重试。'); }
+            finally { setInstanceSaving(false); }
+          }}>{instanceSaving ? '保存中…' : '保存地址'}</button><span role="status" className="muted">{instanceMessage}</span></div>
           {!social?.instanceUrl && (
             <div className="pack-box">
               {social?.pack.installed ? (
@@ -137,13 +145,13 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
                   <button onClick={async () => {
                     await window.pnr.socialRemove();
                     setSocial(await window.pnr.socialStatus());
-                  }}>删除，腾出空间</button>
+                  }}>移除扩展</button>
                 </>
               ) : (
                 <>
-                  <p className="muted">没装的话，这类源用不了，其他一切照常。</p>
-                  <button className="primary" onClick={() => void installPack()} disabled={Boolean(progress)}>
-                    {progress || '下载并启用（约 63 MB）'}
+                  <p className="muted">安装后可启用 RSSHub 订阅，普通订阅无需安装。</p>
+                  <button className="primary" onClick={() => void installPack()} disabled={installing}>
+                    {installing ? progress : '下载扩展'}
                   </button>
                 </>
               )}
@@ -151,24 +159,25 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
             </div>
           )}
 
-          <hr className="deep-sep" />
-
-          <h3 className="sub">后台运行</h3>
+          </section><section hidden={section !== 'background'}>
+          <h3 className="sub">后台更新</h3>
           <p className="muted">
-            装一个后台任务，这样你不开这个软件，它也会自己收新闻、生成摘要。
-            早上打开就能直接看。<strong>Mac 睡着时不会跑</strong>，醒来后会把错过的那次补上。
+            关闭窗口后继续更新新闻。Mac 休眠时暂停，唤醒后补上。
           </p>
 
           <label className="inline-check big">
             <input type="checkbox" checked={Boolean(sched?.enabled)}
                    onChange={(e) => void toggleSchedule(e.target.checked)} />
-            让它在后台自己跑
+            允许后台更新
           </label>
 
           {sched?.enabled && (
             <>
+              {sched.status === 'requires-approval' && (
+                <p className="muted warn">还差一步：请到「系统设置 → 通用 → 登录项」允许「所闻」后台运行。</p>
+              )}
               <label className="field">
-                <span>每天什么时候生成摘要</span>
+                <span>每日摘要时间</span>
                 <select value={hour} onChange={async (e) => {
                   const h = Number(e.target.value); setHour(h);
                   setSched(await window.pnr.setSchedule(true, h) as ScheduleState);
@@ -185,7 +194,7 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
                     {sched.lastRun.kind} · {sched.lastRun.outcome === 'ok' ? '正常' :
                       sched.lastRun.outcome === 'partial' ? '部分完成' : '失败'}
                   </p>
-                ) : <p className="muted">还没有跑过。</p>}
+                ) : <p className="muted">尚未运行。</p>}
                 <p className="muted small">
                   它会出现在「系统设置 → 通用 → 登录项」里，你随时可以在那里关掉。
                   {sched.mode === 'launchAgent' && sched.plistPath && (
@@ -195,8 +204,8 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
               </div>
             </>
           )}
+          </section>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

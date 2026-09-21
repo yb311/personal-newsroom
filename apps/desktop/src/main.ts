@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeTheme } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { openDb, defaultDataDir, acquireLock, releaseLock } from '@pnr/store';
@@ -11,6 +11,10 @@ import { generateDigest, generateProgress, generateFlashes, generateDeepSummary 
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
+
+// `productName` controls packaged builds. This keeps development builds from
+// showing the workspace package name in the menu bar and About panel.
+app.setName('所闻');
 
 const DATA_DIR = process.env['PNR_DATA_DIR'] ?? defaultDataDir();
 const db = openDb(join(DATA_DIR, 'newsroom.db'));
@@ -25,6 +29,7 @@ function createWindow(): void {
   win = new BrowserWindow({
     width: 1180, height: 820, minWidth: 720, minHeight: 520,
     titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 18 },
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f0f0f' : '#f5f2eb',
     webPreferences: { preload: join(__dirname, 'preload.cjs'), sandbox: false, contextIsolation: true }
   });
@@ -38,10 +43,64 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   setDevDockIcon();
+  installApplicationMenu();
+  app.setAboutPanelOptions({
+    applicationName: '所闻',
+    applicationVersion: app.getVersion(),
+    copyright: 'Copyright © 2026 yb311'
+  });
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+function installApplicationMenu(): void {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: '所闻',
+      submenu: [
+        { role: 'about', label: '关于所闻' },
+        { label: '设置…', accelerator: 'CmdOrCtrl+,', click: () => win?.webContents.send('app:command', 'settings') },
+        { type: 'separator' },
+        { role: 'services', label: '服务' },
+        { type: 'separator' },
+        { role: 'hide', label: '隐藏所闻' },
+        { role: 'hideOthers', label: '隐藏其他' },
+        { role: 'unhide', label: '全部显示' },
+        { type: 'separator' },
+        { role: 'quit', label: '退出所闻' }
+      ]
+    },
+    { label: '文件', submenu: [
+      { label: '添加订阅…', accelerator: 'CmdOrCtrl+N', click: () => win?.webContents.send('app:command', 'subscribe') },
+      { role: 'close', label: '关闭窗口' }
+    ] },
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' }, { role: 'copy', label: '拷贝' },
+        { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }
+      ]
+    },
+    { label: '显示', submenu: [
+      ...(['今日', '快讯', '阅读', '关注'] as const).map((label, i) => ({ label, accelerator: `CmdOrCtrl+${i + 1}`, click: () => win?.webContents.send('app:command', ['today', 'flashes', 'read', 'watches'][i]) })),
+      { type: 'separator' as const },
+      { label: '更新订阅', accelerator: 'CmdOrCtrl+R', click: () => win?.webContents.send('app:command', 'refresh') },
+      { role: 'togglefullscreen', label: '进入全屏幕' }
+    ] },
+    {
+      label: '窗口',
+      submenu: [
+        { role: 'minimize', label: '最小化' },
+        { role: 'zoom', label: '缩放' },
+        { type: 'separator' },
+        { role: 'front', label: '前置全部窗口' }
+      ]
+    }
+  ]));
+}
 
 /** Unpackaged runs (`npm run dev`) get the generic Electron dock icon, because
  *  there is no bundle Info.plist to read `assets/icon.icns` from. Set it by
