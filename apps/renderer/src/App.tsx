@@ -2,6 +2,7 @@ import { SplitDivider } from './components/SplitDivider.tsx';
 import { Sun, Zap, BookOpen, Bookmark, Settings as SettingsIcon, Plus, RefreshCw, PanelLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { ItemRow, SourceRow } from './types.ts';
+import type { OutsidePick } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { ItemList } from './components/ItemList.tsx';
 import { Reader } from './components/Reader.tsx';
@@ -45,6 +46,7 @@ export default function App() {
   const [revision, setRevision] = useState(0);
   const [askBackground, setAskBackground] = useState(false);
   const [reportAnchor, setReportAnchor] = useState<ReportAnchor | null>(null);
+  const [watchDraft, setWatchDraft] = useState<OutsidePick['suggestion'] | null>(null);
   const [reportWidth, setReportWidth] = useState(() => Math.max(340, Math.min(640, Number(localStorage.getItem('pnr.reportWidth')) || 420)));
   const reportReturnFocus = useRef<HTMLElement | null>(null);
   const requestId = useRef(0);
@@ -156,6 +158,7 @@ export default function App() {
   };
   const openReport = (anchor: ReportAnchor): void => { reportReturnFocus.current = document.activeElement as HTMLElement | null; setReportAnchor(anchor); };
   const closeReport = (): void => { setReportAnchor(null); requestAnimationFrame(() => reportReturnFocus.current?.focus()); };
+  const followOutside = (draft: OutsidePick['suggestion']): void => { setWatchDraft(draft); setTab('watches'); };
 
   const visibleItems = items.filter(i => `${i.title} ${i.sourceName} ${i.snippet ?? ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const title = t(`tabs.${tab}`);
@@ -169,7 +172,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app ${sidebarVisible ? '' : 'sidebar-hidden'}`} style={{ '--list-width': `${listWidth}px` } as CSSProperties}>
+    <div className={`app ${sidebarVisible ? '' : 'sidebar-hidden'} ${reportAnchor ? 'report-opened' : ''}`} style={{ '--list-width': `${listWidth}px` } as CSSProperties}>
       <aside className="app-sidebar" hidden={!sidebarVisible}>
         <div className="sidebar-brand"><button className="sidebar-toggle" title={`${t('app.hideSidebar')} (⌘⌃S)`} aria-label={t('app.hideSidebar')} onClick={() => setSidebarVisible(false)}><PanelLeft size={18} /></button></div>
         <nav className="main-nav" aria-label={t('app.mainNav')}>
@@ -203,9 +206,9 @@ export default function App() {
           <SplitDivider width={listWidth} onChange={setListWidth} />
           <Reader id={selected} onStar={onStar} aiReady={aiReady} revision={revision} onBack={() => setSelected(null)} onReport={openReport} reportLang={outputLang} />
         </div>}
-        {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRun={() => void runWatches()} onOpen={openItem} onReport={openReport} reportLang={outputLang} running={busy} />}
+        {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRun={() => void runWatches()} onOpen={openItem} onReport={openReport} onFollow={followOutside} reportLang={outputLang} running={busy} />}
         {tab === 'flashes' && <Flashes aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onOpen={openItem} onReport={openReport} reportLang={outputLang} running={busy} />}
-        {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} onOpen={openItem} onReport={openReport} reportLang={outputLang} />}
+        {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} onOpen={openItem} onReport={openReport} reportLang={outputLang} prefill={watchDraft} onPrefillDone={() => setWatchDraft(null)} />}
         <footer className="window-status" role="status"><span className={busy ? 'busy-dot' : 'status-dot'} />{note || (tab === 'read' ? t('app.statusLine', { count: sources.length, filter: t(`filters.${filter}`) }) : '所闻')}<span className="grow" /><span>{aiReady ? t('common.aiConnected') : t('common.readingMode')}</span></footer>
       </main>{reportAnchor && <><ReportDivider width={reportWidth} onChange={setReportWidth} /><div style={{ width: reportWidth }} className="report-slot"><ReportPanel anchor={reportAnchor} onClose={closeReport} /></div></>}</div>
       {showCatalogue && <Catalogue onClose={() => { setShowCatalogue(false); void loadSources(); void loadItems(); }} />}

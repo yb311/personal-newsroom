@@ -37,6 +37,7 @@
     "test:rsshub": "node --experimental-strip-types dev/rsshub.test.ts",
     "test:flash-deep": "node --experimental-strip-types dev/flash-deep.test.ts",
     "test:report": "PNR_DISABLE_SEARCH=1 node --experimental-strip-types dev/report.test.ts",
+    "test:outside": "node --experimental-strip-types dev/outside.test.ts",
     "preview": "dev/preview.sh",
     "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",
     "icon:build": "electron dev/make-icon.mjs",

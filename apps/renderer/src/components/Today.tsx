@@ -1,6 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { HeadlineGroup, ItemRef, Today as TodayData } from '../types.ts';
+import type { HeadlineGroup, ItemRef, OutsidePick, Today as TodayData } from '../types.ts';
 import { Blocks } from './Blocks.tsx';
 import { Cites } from './Cites.tsx';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +12,8 @@ import { clock } from '../i18n.ts';
  * day from every subscribed source — rather than a request to set something up.
  * Every AI-written sentence links back to the articles it came from.
  */
-export function Today({ aiReady, onSetup, onRun, onOpen, onReport, reportLang, running }:
-  { aiReady: boolean; onSetup: () => void; onRun: () => void; onOpen: (id: string) => void; onReport: (a: {anchorItemId:string;itemIds:string[];topic:string;lang:string}) => void; reportLang: string; running: boolean }) {
+export function Today({ aiReady, onSetup, onRun, onOpen, onReport, onFollow, reportLang, running }:
+  { aiReady: boolean; onSetup: () => void; onRun: () => void; onOpen: (id: string) => void; onReport: (a: {anchorItemId:string;itemIds:string[];topic:string;lang:string}) => void; onFollow:(draft:OutsidePick['suggestion'])=>void; reportLang: string; running: boolean }) {
   const { t } = useTranslation();
   const [data, setData] = useState<TodayData | null>(null);
   const [headlines, setHeadlines] = useState<HeadlineGroup[]>([]);
@@ -65,6 +65,16 @@ export function Today({ aiReady, onSetup, onRun, onOpen, onReport, reportLang, r
             <button className="link" onClick={onSetup}>{t('common.goSettings')}</button>
           </p>
         )}
+
+        {(data?.outside?.length ?? 0) > 0 && <section className="outside-picks">
+          <h2>{t('outside.title')}</h2><p className="muted">{t('outside.hint')}</p>
+          <ul>{data!.outside.map((pick) => <li key={pick.id}><h3>{pick.title}</h3><p>{pick.reason}</p>
+            <Cites ids={pick.itemIds} refs={refs} onOpen={onOpen} />
+            <div><button onClick={() => onFollow(pick.suggestion)}>{t('outside.follow')}</button>
+              {pick.itemIds[0] && <button className="report-open" onClick={() => onReport({anchorItemId:pick.itemIds[0]!,itemIds:pick.itemIds,topic:pick.title,lang:reportLang})}><Sparkles size={12}/>{t('report.open')}</button>}</div>
+          </li>)}</ul>
+        </section>}
+        {data && data.outside.length === 0 && <p className="muted outside-empty">{t('outside.empty')}</p>}
 
         <div className="headlines">
           <h2>{t('today.headlines')}</h2>

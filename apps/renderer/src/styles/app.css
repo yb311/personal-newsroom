@@ -534,7 +534,7 @@ button, summary { cursor: default; }
 .report-panel > footer input { flex: 1; padding: 7px 9px; font-size: 12px; }
 .report-panel > footer button { padding: 6px 8px; font-size: 11px; }
 .report-open { color: var(--accent); padding: 3px 6px; font-size: 10px; }
-@media (max-width: 940px) { .report-slot { width: min(420px, 48vw) !important; min-width: 320px; } .body .list { display: none; } .body { grid-template-columns: minmax(0, 1fr); } .body > .split-divider { display: none; } }
+@media (max-width: 940px) { .report-slot { width: min(420px, 48vw) !important; min-width: 320px; } .report-opened .body.has-selection .list { display: none !important; } .report-opened .body.has-selection .reader { display: block; } .report-opened .body { grid-template-columns: minmax(0, 1fr); } .report-opened .body > .split-divider { display: none; } }
 
 /* 今日要闻 */
 .today-note { display: flex; align-items: center; gap: 6px; margin: 0 0 28px; }
@@ -547,6 +547,16 @@ button, summary { cursor: default; }
 .headline-group .headline { flex: 1; text-align: left; font-size: 14px; line-height: 1.5; color: var(--fg); padding: 0; background: none; border: 0; }
 .headline-group .headline:hover { color: var(--accent); }
 .headline-group time { font-size: 11px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.outside-picks { margin: 30px 0; padding: 22px 0; border-block: 1px solid var(--border); }
+.outside-picks > h2 { font: 600 20px/1.4 var(--serif); margin: 0; }
+.outside-picks > p { margin: 4px 0 14px; }
+.outside-picks ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.outside-picks li { padding: 13px 15px; background: var(--bg2); border-radius: 8px; }
+.outside-picks h3 { margin: 0 0 5px; font-size: 14px; }
+.outside-picks li > p { margin: 0 0 7px; color: var(--secondary); font-size: 12px; }
+.outside-picks li > div { display: flex; gap: 6px; margin-top: 8px; }
+.outside-picks button { font-size: 11px; padding: 5px 8px; }
+.outside-empty { margin: 28px 0; }
 
 /* Catalogue filter chips */
 .facets { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 8px; }

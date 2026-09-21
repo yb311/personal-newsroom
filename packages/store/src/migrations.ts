@@ -378,6 +378,9 @@ CREATE INDEX conversation_messages_order ON conversation_messages(conversation_i
 CREATE TABLE conversation_sources (conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, ref_id TEXT NOT NULL, item_id TEXT REFERENCES items(id) ON DELETE SET NULL, basis TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL, publisher TEXT, published_at INTEGER, material_text TEXT NOT NULL, search_material_id TEXT REFERENCES search_materials(id) ON DELETE SET NULL, created_at INTEGER NOT NULL, PRIMARY KEY (conversation_id, ref_id), UNIQUE(conversation_id, item_id));
 `;
 
+const M009_OUTSIDE_PICKS = `CREATE TABLE outside_picks (id TEXT PRIMARY KEY, edition_date TEXT NOT NULL, lang TEXT NOT NULL, mode TEXT NOT NULL, event_title TEXT NOT NULL, importance_reason TEXT NOT NULL, item_ids_json TEXT NOT NULL, suggestion_json TEXT NOT NULL, config_fingerprint TEXT NOT NULL, created_at INTEGER NOT NULL);
+CREATE INDEX outside_picks_current ON outside_picks(edition_date, lang, config_fingerprint, created_at DESC);`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_init', sql: M001_INIT },
   { name: '002_vectors', sql: M002_VECTORS },
@@ -386,5 +389,6 @@ export const MIGRATIONS: Migration[] = [
   { name: '005_watch_outputs', sql: M005_WATCH_OUTPUTS },
   { name: '006_ai_runtime', sql: M006_AI_RUNTIME },
   { name: '007_search_fill', sql: M007_SEARCH_FILL },
-  { name: '008_report_conversations', sql: M008_REPORT_CONVERSATIONS }
+  { name: '008_report_conversations', sql: M008_REPORT_CONVERSATIONS },
+  { name: '009_outside_picks', sql: M009_OUTSIDE_PICKS }
 ];

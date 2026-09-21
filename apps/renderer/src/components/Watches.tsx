@@ -9,7 +9,7 @@ const splitKeywords = (s: string): string[] => s.split(/[,，、;；\n]+/).map((
 
 /** The 关注 tab. Presets and written intents are the same object; the only
  *  difference is who wrote the sentence. */
-export function Watches({ aiReady, onSetup, onOpen, onReport, reportLang }: { aiReady: boolean; onSetup: () => void; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
+export function Watches({ aiReady, onSetup, onOpen, onReport, reportLang, prefill, onPrefillDone }: { aiReady: boolean; onSetup: () => void; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string; prefill:{label:string;intent:string;keywords:string[]}|null; onPrefillDone:()=>void }) {
   const { t } = useTranslation();
   const [watches, setWatches] = useState<WatchRow[]>([]);
   const [open, setOpen] = useState<string | null>(null);
@@ -23,6 +23,7 @@ export function Watches({ aiReady, onSetup, onOpen, onReport, reportLang }: { ai
     setOpen((id) => (w.some((x) => x.id === id) ? id : w[0]?.id ?? null));
   }, []);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (prefill) setShowAdd(true); }, [prefill]);
 
   const selected = watches.find((w) => w.id === open);
   const pick = (id: string | null): void => {
@@ -61,19 +62,19 @@ export function Watches({ aiReady, onSetup, onOpen, onReport, reportLang }: { ai
           <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} onChanged={load} onDirty={setDirty} onOpen={onOpen} onReport={onReport} reportLang={reportLang} />
         </> : <div className="empty-state"><Bookmark size={28} /><h2>{t('watches.pickTitle')}</h2><p>{t('watches.pickHint')}</p></div>}
       </div>
-      {showAdd && <AddWatch onClose={() => setShowAdd(false)} onAdded={async (id) => { await load(); if (id) setOpen(id); setShowAdd(false); }} />}
+      {showAdd && <AddWatch prefill={prefill} onClose={() => { setShowAdd(false); onPrefillDone(); }} onAdded={async (id) => { await load(); if (id) setOpen(id); setShowAdd(false); onPrefillDone(); }} />}
     </section>
   );
 }
 
 // ── adding ──────────────────────────────────────────────────────────────────
 
-function AddWatch({ onClose, onAdded }: { onClose: () => void; onAdded: (id: string | null) => void }) {
+function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded: (id: string | null) => void; prefill:{label:string;intent:string;keywords:string[]}|null }) {
   const { t, i18n } = useTranslation();
-  const [mode, setMode] = useState<'library' | 'custom'>('library');
+  const [mode, setMode] = useState<'library' | 'custom'>(prefill ? 'custom' : 'library');
   const [presets, setPresets] = useState<PresetRow[]>([]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [draft, setDraft] = useState({ label: '', intent: '', keywords: '' });
+  const [draft, setDraft] = useState({ label: prefill?.label ?? '', intent: prefill?.intent ?? '', keywords: prefill?.keywords.join(', ') ?? '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

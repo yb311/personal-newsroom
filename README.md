@@ -30,11 +30,11 @@ personalization.
 
 | | |
 |---|---|
-| **Today** | Your own daily brief, plus a **"since yesterday"** panel: what actually changed on the things you follow |
+| **Today** | Your own daily brief, a **"since yesterday"** panel, and a small evidence-backed section for important events outside your watches |
 | **Flashes** | Short, fast updates — only the ones that pass your intent filter |
 | **Read** | A real reader. Article text extracted and shown in-app, so you don't bounce out to a browser |
 | **Watches** | Tick a preset topic, or write a sentence. Either way you can see and edit exactly how it's searching |
-| *On demand* | Any story has a "go deeper" button: a written summary with a timeline, where every sentence links back to the source paragraph it came from |
+| *On demand* | Open a persistent deep-report panel from any story, ask follow-ups, find more material, and trace every factual unit back to saved source evidence |
 
 **Three things that make it different:**
 
@@ -60,8 +60,8 @@ We'd rather you know before you install.
 - **Twitter/X needs a cookie from you.** There is no free zero-config way to
   read X any more. You supply a logged-in web cookie, or pay for a scraper.
 - **Local storage ≠ fully offline.** Your data lives on your disk, but whatever
-  gets sent to your AI provider does leave your machine. A fully local mode via
-  Ollama is planned; it is slower and lower quality, and we'll say so.
+  gets sent to a cloud AI provider leaves your machine. You can instead use a
+  local Ollama model; its available context and quality depend on your local setup.
 - **Paywalls are paywalls.** When article text can't be fetched, the reader says
   so and offers to open the page. It does not dress up a summary as the article.
 - **The interface comes in Chinese and English** (Settings → General; it follows
@@ -79,8 +79,8 @@ We'd rather you know before you install.
 | **M2** | ✅ Watches: presets, written intent, visible search plan |
 | **M3** | ✅ Recall and relevance judging |
 | **M4** | ✅ Brief, flashes, **progress** |
-| **M5** | ✅ On-demand deep summaries |
-| **M6** | ✅ Background worker, Ollama support |
+| **M5** | ✅ Restorable deep-report conversations with source snapshots |
+| **M6** | ✅ Background worker; Gemini, OpenAI, Claude, compatible APIs and Ollama |
 | **M7** | ⏳ Packaging, signing, notarisation |
 
 M1 is deliberately shippable on its own: install it, pick from a catalogue of

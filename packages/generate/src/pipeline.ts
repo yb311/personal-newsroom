@@ -8,6 +8,7 @@ import { recallForWatch, aiPrescreenWatches, judgeAll, gateWatch, matchKeywords 
 import { generateDigest, type Digest } from './digest.ts';
 import { generateProgress } from './progress.ts';
 import { generateFlashes, FLASH_WINDOW_HOURS, type SearchFillContext } from './flashes.ts';
+import { generateOutsidePicks } from './outside.ts';
 
 /**
  * The runs behind 今日 and 快讯, shared by the app and the background worker so
@@ -29,6 +30,7 @@ export interface RunResult {
   digest?: boolean;
   milestones?: number;
   flashes?: number;
+  outside?: number;
 }
 
 /** Bodies for what passed the gate, so writing works from articles rather than
@@ -113,24 +115,26 @@ export async function runDaily(db: Db, provider: Provider | null, opts: RunOptio
   const matched = await matchAll(db, provider, watches, { windowHours: 72, useSearch: true, maxJudged: 40 }, opts.onProgress);
   const ready = matched.ready; let failed = matched.failed;
   const base: RunResult = { fetched: ing.inserted, watches: ready.length, failed, mode: provider ? 'ai' : 'keywords' };
-  if (!provider || ready.length === 0) return base;
-
-  opts.onProgress?.({ phase: 'extract' });
-  await enrichMatched(db, opts.dataDir, ready.map((w) => w.id), Date.now() - 72 * 3600_000, 30);
-
-  opts.onProgress?.({ phase: 'writing' });
   let milestones = 0;
-  for (const w of ready) {
-    try { milestones += (await generateProgress(db, provider, w, w.outputLang ?? opts.lang, { toldBefore: startedAt })).length; }
-    catch (e) {
-      failed++;
-      log({ event: 'run.progress', phase: 'failed', entityId: w.id, reasonDetail: String(e).slice(0, 160) });
-    }
-  }
   let digest: Digest | null = null;
-  try { digest = await generateDigest(db, provider, ready, opts.lang); }
-  catch (e) { failed++; log({ event: 'run.digest', phase: 'failed', reasonDetail: String(e).slice(0, 160) }); }
-  return { ...base, failed, digest: Boolean(digest), milestones };
+  if (provider && ready.length) {
+    opts.onProgress?.({ phase: 'extract' });
+    await enrichMatched(db, opts.dataDir, ready.map((w) => w.id), Date.now() - 72 * 3600_000, 30);
+    opts.onProgress?.({ phase: 'writing' });
+    for (const w of ready) {
+      try { milestones += (await generateProgress(db, provider, w, w.outputLang ?? opts.lang, { toldBefore: startedAt })).length; }
+      catch (e) {
+        failed++;
+        log({ event: 'run.progress', phase: 'failed', entityId: w.id, reasonDetail: String(e).slice(0, 160) });
+      }
+    }
+    try { digest = await generateDigest(db, provider, ready, opts.lang); }
+    catch (e) { failed++; log({ event: 'run.digest', phase: 'failed', reasonDetail: String(e).slice(0, 160) }); }
+  }
+  let outside = 0;
+  try { outside = (await generateOutsidePicks(db, provider, ready, opts.lang)).length; }
+  catch (e) { failed++; log({ event: 'run.outside', phase: 'failed', reasonDetail: String(e).slice(0, 160) }); }
+  return { ...base, failed, digest: Boolean(digest), milestones, outside };
 }
 
 /**

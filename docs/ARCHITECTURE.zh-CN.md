@@ -123,7 +123,7 @@ Electron 本身跨平台，所以将来要出另外两个平台，主要工作�
 |---|---|---|
 | 桌面外壳 | **Electron** | 老项目 58000 行全是 TypeScript，Electron 主进程就是 Node，抓取/聚类/AI 管线原封不动能跑，省掉几个月移植。代价是安装包 150–200MB |
 | 本地存储 | **SQLite + sqlite-vec** | 单文件数据库放 Application Support，正文和图片存旁边文件夹，备份就是拷一个文件夹。sqlite-vec 是纯 C 无依赖扩展，配 better-sqlite3 在 Electron 里是成熟组合 |
-| AI 供应商 | **云端（Gemini 优先）+ 本地 Ollama 双路** | 老项目 prompt 全按 Gemini 调好，直接能用；写快讯时的 `googleSearch` 细节补全也是 Gemini 原生能力。同时给最在意隐私的人一条完全不出网的路（Ollama 模式下三路召回照常，只是失去细节补全，要说明） |
+| AI 供应商 | **Vercel AI SDK 统一层：Gemini 优先 + OpenAI + Claude + OpenAI 兼容接口 + Ollama** | 业务层只依赖项目自己的 Provider 契约；密钥直连厂商，不经过默认网关。搜索能力按厂商实际工具证据判断，本地 Ollama 没有原生搜索时诚实降级 |
 | 视觉语言 | **沿用 daily-brief 的报纸美学** | 见下 |
 
 ### 视觉语言：直接移植 daily-brief 的设计 token
@@ -322,10 +322,10 @@ personal-newsroom/
 │   ├── watch/              【全新】Watch 模型、recallAids 生成、纠偏、预置标签目录
 │   ├── recall/             【全新】R1/R2/R3 三路召回 + 批量判定编排
 │   ├── reader/             【全新】正文服务、阅读状态（v2 扩翻译）
-│   ├── ai/                 Provider 抽象（Gemini / OpenAI 兼容 / Ollama）+ 细节补全（googleSearch 工具）
+│   ├── ai/                 Provider 抽象（Gemini / OpenAI / Claude / 兼容接口 / Ollama）+ 统一生成、流式、向量与搜索取证
 │   │                         + 移植 semantic-embeddings
 │   ├── store/              【全新】SQLite schema、迁移、sqlite-vec、locks、runs/events
-│   ├── generate/           ← 移植 brief-service + story-timeline + digest + 按需深度总结
+│   ├── generate/           摘要、进展、快讯、搜索补全、深度报道会话与视野补充
 │   └── core/               ← 移植 schemas / retry / logging / config / debug-artifacts
 └── catalogs/               内置源目录 + NOTICE + 许可证归属
 ```
@@ -334,7 +334,9 @@ personal-newsroom/
 
 ### SQLite schema（一次设计到位）
 
-`sources` · `items`（原始条目 + 正文指针 + 抽取状态）· `watches` · `matches`（item × watch 的分数与 AI 给的理由）· `digests` · `flashes` · `progress` · `deep_summaries` · `translations`（v2 用，按段落 hash，先建表）· `reading_state` · `embeddings`（sqlite-vec）· `runs` / `events` · `locks`。
+`sources` · `items`（原始条目 + 正文指针 + 抽取状态）· `watches` · `matches`（item × watch 的分数与 AI 给的理由）· `digests` · `flashes` · `milestones` · `search_materials` · `conversations` / `conversation_messages` / `conversation_sources` · `outside_picks` · `translations` · `reading_state` · `embeddings`（sqlite-vec）· `ai_requests` · `runs` / `events` · `locks`。
+
+迁移 006–009 分别负责多厂商 AI 运行态、可溯源搜索补全、深度报道会话和视野补充。深度报道保存实际使用的完整材料快照；旧 `deep_summaries` 在发现演示库仍有数据后改名为 `legacy_deep_summaries` 备份，不参与新功能。
 
 这张表单覆盖 v1 全部内容加 v2 的翻译，不留「以后再加表」的坑。
 
@@ -458,7 +460,7 @@ Kagi 的 `kite_feeds.json` 标的是 CC BY-NC。**NC 限制的是商业使用，
 
 **M4 三种产出** — 今日摘要、快讯、**进展**（顶部「昨天到今天」板块 + Watch 页完整时间线，共用 `firstSeenAt` 一份数据）。进展最难，留足时间，先在两三个 Watch 上做对再铺开。
 
-**M5 按需深度总结** — 「深入」入口：相关报道检索 → 抓取抽取 → 两阶段写作 → 时间线 → 逐句溯源。
+**M5 深度报道对话** — App 级右侧分栏：「深入」入口 → 相关报道检索 → 完整正文/搜索补全 → 流式写作 → 逐条溯源；可追问、再找资料、取消、恢复和重新开始。
 
 **M6 后台与供应商** — SMAppService + launchd 调度 + 休眠补跑 + 首运行同意流；Provider 接口接上 Ollama。
 

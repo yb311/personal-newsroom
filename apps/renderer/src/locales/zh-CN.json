@@ -138,6 +138,7 @@
     "askPlaceholder": "继续追问…", "ask": "提问", "research": "再找资料", "cancel": "停止生成", "sources": "依据的材料（{{count}}）",
     "basis": { "article": "出版方原文", "snippet": "来源摘要", "search": "搜索补全" }
   },
+  "outside": { "title": "重要但你没关注", "hint": "这些事件不在现有关注范围内，但值得你决定是否继续跟进。", "follow": "关注这件事", "empty": "暂时没有足够可靠的关注范围外事件。" },
   "today": {
     "changes": "昨天到今天",
     "generatedAt": "{{date}} · 生成于 {{time}}",
@@ -219,6 +220,8 @@
     "outputLanguageHint": "用于生成的摘要和进展，不改变原文语言。",
     "searchFillEnabled": "允许搜索补全",
     "searchFillHint": "正文抓不到且事件足够重要时，用当前 AI 厂商的搜索工具查证并补全。",
+    "outsidePicksEnabled": "显示“重要但你没关注”",
+    "outsidePicksHint": "每日更新时从关注范围之外挑出少量重要事件；关闭后不展示也不生成。",
     "connection": {
       "none": "已切换到阅读模式，不使用 AI",
       "ollama": "已保存，已连接本机 Ollama",

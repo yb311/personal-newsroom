@@ -148,6 +148,7 @@
     "askPlaceholder": "Ask a follow-up…", "ask": "Ask", "research": "Find more sources", "cancel": "Stop generating", "sources": "Source material ({{count}})",
     "basis": { "article": "Publisher article", "snippet": "Source summary", "search": "Search fill" }
   },
+  "outside": { "title": "Important beyond your watches", "hint": "These events fall outside your current watches but may deserve continued attention.", "follow": "Follow this event", "empty": "No sufficiently well-supported outside events right now." },
   "today": {
     "changes": "Since yesterday",
     "generatedAt": "{{date}} · written at {{time}}",
@@ -230,6 +231,8 @@
     "outputLanguageHint": "For the briefs and developments AI writes. Articles stay in their own language.",
     "searchFillEnabled": "Allow search fill",
     "searchFillHint": "When an important story body cannot be fetched, verify and fill it with the current AI provider's search tool.",
+    "outsidePicksEnabled": "Show important stories outside my watches",
+    "outsidePicksHint": "During daily updates, pick a few important events beyond your watches. Turning this off also stops generation.",
     "connection": {
       "none": "Switched to reading mode; AI is off",
       "ollama": "Saved and connected to Ollama on this Mac",

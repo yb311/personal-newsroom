@@ -15,6 +15,7 @@ export interface AiSettings {
   compatibleSupportsSchema?: string;
   ollamaHost?: string; ollamaWriteModel?: string; ollamaFastModel?: string; ollamaEmbedModel?: string;
   searchFillEnabled?: string;
+  outsidePicksEnabled?: string;
   outputLang?: string;
 }
 
@@ -24,6 +25,7 @@ export interface PublicAiSettings {
   compatibleEndpoint: string; writeModel: string; fastModel: string; embedModel: string; contextTokens: string;
   ollamaHost: string; ollamaWriteModel: string; ollamaFastModel: string; ollamaEmbedModel: string;
   searchFillEnabled: boolean;
+  outsidePicksEnabled: boolean;
 }
 
 export function readSettings(db: Db): AiSettings {
@@ -44,7 +46,7 @@ export function publicSettings(db: Db): PublicAiSettings {
     embedModel: s.embedModel ?? '', contextTokens: s.contextTokens ?? '',
     ollamaHost: s.ollamaHost ?? 'http://127.0.0.1:11434', ollamaWriteModel: s.ollamaWriteModel ?? 'qwen3:8b',
     ollamaFastModel: s.ollamaFastModel ?? '', ollamaEmbedModel: s.ollamaEmbedModel ?? 'nomic-embed-text',
-    searchFillEnabled: s.searchFillEnabled !== '0'
+    searchFillEnabled: s.searchFillEnabled !== '0', outsidePicksEnabled: s.outsidePicksEnabled !== '0'
   };
 }
 

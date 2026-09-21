@@ -2,7 +2,7 @@ import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
 import { aiAvailable, checkConnection, publicSettings, writeSetting, invalidateProvider, type AiConnection } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection } from '@pnr/watch';
-import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions } from '@pnr/generate';
+import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions, readOutsidePicks } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
 import { CATEGORIES, countryLabel } from '@pnr/core/catalog-labels';
 import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, curatedRoutes, matchRouteFromUrl, adapterFor, normalizeItems, APIFY_TOKEN_KEY,
@@ -233,7 +233,7 @@ export function createApi(db: Db, dataDir: string) {
       const allowed = new Set([
         'provider','geminiApiKey','openaiApiKey','anthropicApiKey','compatibleApiKey','compatibleEndpoint',
         'writeModel','fastModel','embedModel','contextTokens','compatibleSupportsSchema',
-        'ollamaHost','ollamaWriteModel','ollamaFastModel','ollamaEmbedModel','searchFillEnabled','outputLang'
+        'ollamaHost','ollamaWriteModel','ollamaFastModel','ollamaEmbedModel','searchFillEnabled','outsidePicksEnabled','outputLang'
       ]);
       for (const [k, v] of Object.entries(patch)) {
         if (!allowed.has(k)) continue;
@@ -317,14 +317,16 @@ export function createApi(db: Db, dataDir: string) {
     today(date?: string): unknown {
       const d = date ?? localDateKey();
       const digest = getDigest(db, d);
-      const changes = listWatches(db, true).map((w) => ({
+      const watches = listWatches(db, true);
+      const changes = watches.map((w) => ({
         watchId: w.id, label: w.label, milestones: newSinceYesterday(db, w.id)
       })).filter((x) => x.milestones.length > 0);
       const cited = [
         ...(digest?.blocks ?? []).flatMap((b) => ('sourceRefIds' in b ? b.sourceRefIds ?? [] : [])),
-        ...changes.flatMap((c) => c.milestones.flatMap((m) => m.itemIds))
+        ...changes.flatMap((c) => c.milestones.flatMap((m) => m.itemIds)),
+        ...readOutsidePicks(db, watches, publicSettings(db).outputLang).flatMap((p) => p.itemIds)
       ];
-      return { date: d, digest, changes, refs: refsFor(cited) };
+      return { date: d, digest, changes, outside: readOutsidePicks(db, watches, publicSettings(db).outputLang), refs: refsFor(cited) };
     },
 
     /**

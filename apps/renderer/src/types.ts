@@ -53,8 +53,10 @@ export interface Today {
   date: string;
   digest: { id: string; title: string; blocks: Block[]; generatedAt: number } | null;
   changes: { watchId: string; label: string; milestones: Milestone[] }[];
+  outside: OutsidePick[];
   refs: ItemRef[];
 }
+export interface OutsidePick { id:string; date:string; lang:string; mode:'ai'|'local'; title:string; reason:string; itemIds:string[]; suggestion:{label:string;intent:string;keywords:string[]}; createdAt:number }
 export interface HeadlineGroup { sourceId: string; sourceName: string; items: ItemRow[] }
 export interface FlashRow {
   id: string; watchIds: string[]; watchLabels: string[];
@@ -87,6 +89,7 @@ export interface AiStatus {
   compatibleEndpoint: string; writeModel: string; fastModel: string; embedModel: string; contextTokens: string;
   ollamaHost: string; ollamaWriteModel: string; ollamaFastModel: string; ollamaEmbedModel: string;
   searchFillEnabled: boolean;
+  outsidePicksEnabled: boolean;
 }
 export interface SocialStatus {
   mode: 'off' | 'http' | 'library';
