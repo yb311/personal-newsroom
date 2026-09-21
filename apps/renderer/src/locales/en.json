@@ -2,6 +2,7 @@
   "common": {
     "loading": "Loading…",
     "cancel": "Cancel",
+    "close": "Close",
     "done": "Done",
     "save": "Save",
     "saving": "Saving…",
@@ -140,6 +141,12 @@
       "too_thin": "The page has very little text; it may need a browser.",
       "encoding": "The page's text encoding couldn't be recognised."
     }
+  },
+  "report": {
+    "title": "Deep report", "open": "Investigate", "restart": "Start over", "resize": "Resize deep report", "gathering": "Gathering and checking full source material…",
+    "writing": "Writing the report…", "failed": "This answer did not finish. You can retry.", "needAi": "Connect AI to start a new report.",
+    "askPlaceholder": "Ask a follow-up…", "ask": "Ask", "research": "Find more sources", "cancel": "Stop generating", "sources": "Source material ({{count}})",
+    "basis": { "article": "Publisher article", "snippet": "Source summary", "search": "Search fill" }
   },
   "today": {
     "changes": "Since yesterday",

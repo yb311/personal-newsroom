@@ -1,5 +1,5 @@
 import { Dialog } from './Dialog.tsx';
-import { Plus, Trash2, Search, Bookmark, ArrowLeft, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Plus, Trash2, Search, Bookmark, ArrowLeft, RefreshCw, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ItemRef, Milestone, OpenQuestion, PresetRow, Sensitivity, WatchItem, WatchRow } from '../types.ts';
 import { Cites } from './Cites.tsx';
@@ -9,7 +9,7 @@ const splitKeywords = (s: string): string[] => s.split(/[,，、;；\n]+/).map((
 
 /** The 关注 tab. Presets and written intents are the same object; the only
  *  difference is who wrote the sentence. */
-export function Watches({ aiReady, onSetup, onOpen }: { aiReady: boolean; onSetup: () => void; onOpen: (id: string) => void }) {
+export function Watches({ aiReady, onSetup, onOpen, onReport, reportLang }: { aiReady: boolean; onSetup: () => void; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
   const { t } = useTranslation();
   const [watches, setWatches] = useState<WatchRow[]>([]);
   const [open, setOpen] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export function Watches({ aiReady, onSetup, onOpen }: { aiReady: boolean; onSetu
         )}
         {selected ? <>
           <button className="watch-back" onClick={() => pick(null)}><ArrowLeft size={15} />{t('watches.list')}</button>
-          <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} onChanged={load} onDirty={setDirty} onOpen={onOpen} />
+          <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} onChanged={load} onDirty={setDirty} onOpen={onOpen} onReport={onReport} reportLang={reportLang} />
         </> : <div className="empty-state"><Bookmark size={28} /><h2>{t('watches.pickTitle')}</h2><p>{t('watches.pickHint')}</p></div>}
       </div>
       {showAdd && <AddWatch onClose={() => setShowAdd(false)} onAdded={async (id) => { await load(); if (id) setOpen(id); setShowAdd(false); }} />}
@@ -159,8 +159,8 @@ function AddWatch({ onClose, onAdded }: { onClose: () => void; onAdded: (id: str
 
 type Tab = 'items' | 'timeline' | 'settings';
 
-function WatchDetail({ watch, aiReady, onChanged, onDirty, onOpen }:
-  { watch: WatchRow; aiReady: boolean; onChanged: () => void; onDirty: (dirty: boolean) => void; onOpen: (id: string) => void }) {
+function WatchDetail({ watch, aiReady, onChanged, onDirty, onOpen, onReport, reportLang }:
+  { watch: WatchRow; aiReady: boolean; onChanged: () => void; onDirty: (dirty: boolean) => void; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('items');
   const [running, setRunning] = useState(false);
@@ -196,14 +196,14 @@ function WatchDetail({ watch, aiReady, onChanged, onDirty, onOpen }:
           </button>
         ))}
       </nav>
-      {tab === 'items' && <WatchItems watch={watch} revision={revision} onOpen={onOpen} onChanged={onChanged} />}
-      {tab === 'timeline' && <WatchTimeline watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} />}
+      {tab === 'items' && <WatchItems watch={watch} revision={revision} onOpen={onOpen} onChanged={onChanged} onReport={onReport} reportLang={reportLang} />}
+      {tab === 'timeline' && <WatchTimeline watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} onReport={onReport} reportLang={reportLang} />}
       {tab === 'settings' && <WatchSettings watch={watch} onChanged={onChanged} onDirty={onDirty} />}
     </section>
   );
 }
 
-function WatchItems({ watch, revision, onOpen, onChanged }: { watch: WatchRow; revision: number; onOpen: (id: string) => void; onChanged: () => void }) {
+function WatchItems({ watch, revision, onOpen, onChanged, onReport, reportLang }: { watch: WatchRow; revision: number; onOpen: (id: string) => void; onChanged: () => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<WatchItem[] | null>(null);
   const [noting, setNoting] = useState<{ id: string; verdict: 'wanted' | 'not_wanted' } | null>(null);
@@ -238,6 +238,7 @@ function WatchItems({ watch, revision, onOpen, onChanged }: { watch: WatchRow; r
               {it.verdict === 'wanted' && <span className="tag ok">{t('watches.markedWanted')}</span>}
             </div>
             <button className="headline" onClick={() => onOpen(it.id)}>{it.title}</button>
+            <button className="report-open" onClick={() => onReport({anchorItemId:it.id,itemIds:[it.id],topic:it.title,lang:watch.outputLang ?? reportLang})}><Sparkles size={12}/>{t('report.open')}</button>
             {it.reason && <p className="why">{it.reason}</p>}
             {noting?.id === it.id ? (
               <form className="note-row" onSubmit={(e) => { e.preventDefault(); void send(); }}>
@@ -259,7 +260,7 @@ function WatchItems({ watch, revision, onOpen, onChanged }: { watch: WatchRow; r
   );
 }
 
-function WatchTimeline({ watch, aiReady, revision, onOpen }: { watch: WatchRow; aiReady: boolean; revision: number; onOpen: (id: string) => void }) {
+function WatchTimeline({ watch, aiReady, revision, onOpen, onReport, reportLang }: { watch: WatchRow; aiReady: boolean; revision: number; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
   const { t } = useTranslation();
   const [data, setData] = useState<{ milestones: Milestone[]; refs: ItemRef[]; questions: OpenQuestion[] } | null>(null);
   useEffect(() => { void window.pnr.watchTimeline(watch.id).then(setData); }, [watch.id, revision]);
@@ -284,7 +285,7 @@ function WatchTimeline({ watch, aiReady, revision, onOpen }: { watch: WatchRow; 
               {data.milestones.map((m) => (
                 <li key={m.id} className={m.isNew ? 'new' : ''}>
                   <time>{m.occurredOn}</time>
-                  <span>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></span>
+                  <span>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} />{m.itemIds[0] && <button className="report-open" onClick={() => onReport({anchorItemId:m.itemIds[0]!,itemIds:m.itemIds,topic:m.summary,lang:watch.outputLang ?? reportLang})}><Sparkles size={12}/>{t('report.open')}</button>}</span>
                 </li>
               ))}
             </ul>

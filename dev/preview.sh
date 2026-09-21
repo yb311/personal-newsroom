@@ -51,7 +51,8 @@ cat > "$OUT/preview.html" <<'HTML'
     runWatches: async () => ({busy:false, watches:d.watches.length, digest:true}),
     runFlashes: async () => ({busy:false, published:0}),
     flashes: async () => d.flashes,
-    deepSummary: async (id) => d.deeps[id] ? {summary: d.deeps[id]} : {error:'no deep summary in this snapshot'}
+    reportGet: async () => null, reportStart: async () => ({error:'preview'}), reportAsk: async () => ({error:'preview'}),
+    reportCancel: async () => true, onReportEvent: () => () => {}
   };
   const html = await (await fetch('./index.html')).text();
   const l = document.createElement('link'); l.rel='stylesheet';

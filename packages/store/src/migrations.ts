@@ -370,6 +370,14 @@ CREATE TABLE search_material_sources (
 ALTER TABLE flashes ADD COLUMN search_material_id TEXT REFERENCES search_materials(id) ON DELETE SET NULL;
 `;
 
+const M008_REPORT_CONVERSATIONS = `ALTER TABLE deep_summaries RENAME TO legacy_deep_summaries;
+CREATE TABLE conversations (id TEXT PRIMARY KEY, anchor_item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE, lang TEXT NOT NULL, topic TEXT NOT NULL, initial_item_ids_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE INDEX conversations_anchor ON conversations(anchor_item_id, lang, updated_at DESC);
+CREATE TABLE conversation_messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, sequence INTEGER NOT NULL, role TEXT NOT NULL, question TEXT, answer_json TEXT, status TEXT NOT NULL, model TEXT, request_id TEXT UNIQUE, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(conversation_id, sequence));
+CREATE INDEX conversation_messages_order ON conversation_messages(conversation_id, sequence);
+CREATE TABLE conversation_sources (conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, ref_id TEXT NOT NULL, item_id TEXT REFERENCES items(id) ON DELETE SET NULL, basis TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL, publisher TEXT, published_at INTEGER, material_text TEXT NOT NULL, search_material_id TEXT REFERENCES search_materials(id) ON DELETE SET NULL, created_at INTEGER NOT NULL, PRIMARY KEY (conversation_id, ref_id), UNIQUE(conversation_id, item_id));
+`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_init', sql: M001_INIT },
   { name: '002_vectors', sql: M002_VECTORS },
@@ -377,5 +385,6 @@ export const MIGRATIONS: Migration[] = [
   { name: '004_feed_cache', sql: M004_FEED_CACHE },
   { name: '005_watch_outputs', sql: M005_WATCH_OUTPUTS },
   { name: '006_ai_runtime', sql: M006_AI_RUNTIME },
-  { name: '007_search_fill', sql: M007_SEARCH_FILL }
+  { name: '007_search_fill', sql: M007_SEARCH_FILL },
+  { name: '008_report_conversations', sql: M008_REPORT_CONVERSATIONS }
 ];

@@ -11,6 +11,7 @@ import { Watches } from './components/Watches.tsx';
 import { Settings } from './components/Settings.tsx';
 import { Flashes } from './components/Flashes.tsx';
 import { BackgroundPrompt } from './components/BackgroundPrompt.tsx';
+import { ReportDivider, ReportPanel, type ReportAnchor } from './components/ReportPanel.tsx';
 import { useTranslation } from 'react-i18next';
 
 export type Filter = 'all' | 'unread' | 'starred';
@@ -39,9 +40,13 @@ export default function App() {
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [aiReady, setAiReady] = useState(false);
+  const [outputLang, setOutputLang] = useState('zh-CN');
   const [query, setQuery] = useState('');
   const [revision, setRevision] = useState(0);
   const [askBackground, setAskBackground] = useState(false);
+  const [reportAnchor, setReportAnchor] = useState<ReportAnchor | null>(null);
+  const [reportWidth, setReportWidth] = useState(() => Math.max(340, Math.min(640, Number(localStorage.getItem('pnr.reportWidth')) || 420)));
+  const reportReturnFocus = useRef<HTMLElement | null>(null);
   const requestId = useRef(0);
   const operation = useRef(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -60,7 +65,7 @@ export default function App() {
   };
   const loadAi = useCallback(async () => {
     const s = await window.pnr.aiStatus();
-    setAiReady(s.available);
+    setAiReady(s.available); setOutputLang(s.outputLang);
     return s.available;
   }, []);
 
@@ -149,6 +154,8 @@ export default function App() {
     setTab('read');
     void onSelect(id);
   };
+  const openReport = (anchor: ReportAnchor): void => { reportReturnFocus.current = document.activeElement as HTMLElement | null; setReportAnchor(anchor); };
+  const closeReport = (): void => { setReportAnchor(null); requestAnimationFrame(() => reportReturnFocus.current?.focus()); };
 
   const visibleItems = items.filter(i => `${i.title} ${i.sourceName} ${i.snippet ?? ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const title = t(`tabs.${tab}`);
@@ -178,7 +185,7 @@ export default function App() {
           <button onClick={() => setShowSettings(true)}><SettingsIcon size={18} />{t('app.settings')}<span className="connection">{aiReady ? t('common.aiConnected') : t('common.readingMode')}</span></button>
         </div>
       </aside>
-      <main className="workspace">
+      <div className="workspace-shell"><main className="workspace">
         <header className="titlebar">
           <div className="window-heading">{!sidebarVisible && <button aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌘⌃S)`} onClick={() => setSidebarVisible(true)}><PanelLeft size={18} /></button>}<h1>{tab === 'read' ? (sources.find(s => s.id === sourceId)?.name ?? t('tabs.read')) : title}</h1>{tab === 'read' && <span className="toolbar-subtitle">{t('app.articleCount', { count: total })}</span>}</div>
           <div className="titlebar-actions">
@@ -194,13 +201,13 @@ export default function App() {
             selected={selected} onSelect={onSelect} onStar={onStar}
             query={query} onQuery={setQuery} filter={filter} onManage={() => setShowCatalogue(true)} />
           <SplitDivider width={listWidth} onChange={setListWidth} />
-          <Reader id={selected} onStar={onStar} aiReady={aiReady} revision={revision} onBack={() => setSelected(null)} />
+          <Reader id={selected} onStar={onStar} aiReady={aiReady} revision={revision} onBack={() => setSelected(null)} onReport={openReport} reportLang={outputLang} />
         </div>}
-        {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRun={() => void runWatches()} onOpen={openItem} running={busy} />}
-        {tab === 'flashes' && <Flashes aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onOpen={openItem} running={busy} />}
-        {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} onOpen={openItem} />}
+        {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRun={() => void runWatches()} onOpen={openItem} onReport={openReport} reportLang={outputLang} running={busy} />}
+        {tab === 'flashes' && <Flashes aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onOpen={openItem} onReport={openReport} reportLang={outputLang} running={busy} />}
+        {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} onOpen={openItem} onReport={openReport} reportLang={outputLang} />}
         <footer className="window-status" role="status"><span className={busy ? 'busy-dot' : 'status-dot'} />{note || (tab === 'read' ? t('app.statusLine', { count: sources.length, filter: t(`filters.${filter}`) }) : '所闻')}<span className="grow" /><span>{aiReady ? t('common.aiConnected') : t('common.readingMode')}</span></footer>
-      </main>
+      </main>{reportAnchor && <><ReportDivider width={reportWidth} onChange={setReportWidth} /><div style={{ width: reportWidth }} className="report-slot"><ReportPanel anchor={reportAnchor} onClose={closeReport} /></div></>}</div>
       {showCatalogue && <Catalogue onClose={() => { setShowCatalogue(false); void loadSources(); void loadItems(); }} />}
       {askBackground && <BackgroundPrompt onDone={() => setAskBackground(false)} />}
       {showSettings && <Settings onClose={() => setShowSettings(false)} onChanged={() => { void loadAi(); void loadItems(); }} />}

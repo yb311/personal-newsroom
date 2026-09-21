@@ -21,11 +21,6 @@ for (const it of items) {
 const api = createApi(db, DIR);
 const ws = api.watches() as { id: string }[];
 const flashes = api.flashes(48);
-const deeps: any = {};
-for (const r of q('SELECT item_id itemId, body_json b, sources_json s FROM deep_summaries')) {
-  const parsed = JSON.parse(r.b);
-  deeps[r.itemId] = { blocks: parsed.blocks, milestones: parsed.milestones ?? [], sources: JSON.parse(r.s) };
-}
 const timelines: any = {}; for (const w of ws) timelines[w.id] = api.watchTimeline(w.id);
 const watchItems: any = {}; for (const w of ws) watchItems[w.id] = api.watchItems(w.id, 80);
 writeFileSync(new URL('../apps/desktop/dist/renderer/mock.json', import.meta.url), JSON.stringify({
@@ -33,7 +28,7 @@ writeFileSync(new URL('../apps/desktop/dist/renderer/mock.json', import.meta.url
   cat: q('SELECT id,name,kind,category,country,domain,enabled,NULL lastError,0 unread,0 total FROM sources ORDER BY enabled DESC,name LIMIT 300'),
   watches: ws, presets: api.presets(), presetsEn: api.presets('en'),
   today: api.today(), headlines: api.headlines(24, 4),
-  timelines, watchItems, flashes, deeps, ai: { available: true, provider: 'gemini', outputLang: 'zh-CN' }
+  timelines, watchItems, flashes, ai: { available: true, provider: 'gemini', outputLang: 'zh-CN', searchFillEnabled: true }
 }));
-console.log(`导出：${items.length} 条 · ${flashes.length} 快讯 · ${Object.keys(deeps).length} 篇深度 · ${ws.length} 关注`);
+console.log(`导出：${items.length} 条 · ${flashes.length} 快讯 · ${ws.length} 关注`);
 db.close();

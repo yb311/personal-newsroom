@@ -5,8 +5,8 @@ import { Cites } from './Cites.tsx';
 import { useTranslation } from 'react-i18next';
 import { ago, dateTime } from '../i18n.ts';
 
-export function Flashes({ aiReady, onSetup, onRead, onOpen, running }:
-  { aiReady: boolean; onSetup: () => void; onRead: () => void; onOpen: (id: string) => void; running: boolean }) {
+export function Flashes({ aiReady, onSetup, onRead, onOpen, onReport, reportLang, running }:
+  { aiReady: boolean; onSetup: () => void; onRead: () => void; onOpen: (id: string) => void; onReport: (a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string; running: boolean }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<FlashRow[]>([]);
   const [onlyImportant, setOnlyImportant] = useState(false);
@@ -75,6 +75,7 @@ export function Flashes({ aiReady, onSetup, onRead, onOpen, running }:
                 </li>)}</ul>
               </details>}
               <Cites ids={f.itemIds} refs={refs} onOpen={onOpen} />
+              {aiReady && f.itemIds[0] && <button className="report-open" onClick={() => onReport({anchorItemId:f.itemIds[0]!,itemIds:f.itemIds,topic:`${f.title}\n${f.body}`,lang:reportLang})}><Sparkles size={12}/>{t('report.open')}</button>}
             </li>
           ))}
         </ul>

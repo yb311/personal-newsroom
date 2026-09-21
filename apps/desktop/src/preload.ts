@@ -27,7 +27,15 @@ contextBridge.exposeInMainWorld('pnr', {
   runWatches: () => ipcRenderer.invoke('app:runWatches'),
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),
   runWatch: (id: string) => ipcRenderer.invoke('app:runWatch', id),
-  deepSummary: (id: string) => ipcRenderer.invoke('app:deepSummary', id),
+  reportGet: (selector: unknown) => ipcRenderer.invoke('report:get', selector),
+  reportStart: (input: unknown) => ipcRenderer.invoke('report:start', input),
+  reportAsk: (input: unknown) => ipcRenderer.invoke('report:ask', input),
+  reportCancel: (requestId: string) => ipcRenderer.invoke('report:cancel', requestId),
+  onReportEvent: (cb: (p: unknown) => void) => {
+    const fn = (_e: unknown, p: unknown): void => cb(p);
+    ipcRenderer.on('report:event', fn);
+    return () => ipcRenderer.off('report:event', fn);
+  },
   scheduleState: () => ipcRenderer.invoke('app:scheduleState'),
   socialStatus: () => ipcRenderer.invoke('social:status'),
   socialSetInstance: (url: string) => ipcRenderer.invoke('social:setInstance', url),

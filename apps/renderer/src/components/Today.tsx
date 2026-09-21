@@ -12,8 +12,8 @@ import { clock } from '../i18n.ts';
  * day from every subscribed source — rather than a request to set something up.
  * Every AI-written sentence links back to the articles it came from.
  */
-export function Today({ aiReady, onSetup, onRun, onOpen, running }:
-  { aiReady: boolean; onSetup: () => void; onRun: () => void; onOpen: (id: string) => void; running: boolean }) {
+export function Today({ aiReady, onSetup, onRun, onOpen, onReport, reportLang, running }:
+  { aiReady: boolean; onSetup: () => void; onRun: () => void; onOpen: (id: string) => void; onReport: (a: {anchorItemId:string;itemIds:string[];topic:string;lang:string}) => void; reportLang: string; running: boolean }) {
   const { t } = useTranslation();
   const [data, setData] = useState<TodayData | null>(null);
   const [headlines, setHeadlines] = useState<HeadlineGroup[]>([]);
@@ -38,7 +38,8 @@ export function Today({ aiReady, onSetup, onRun, onOpen, running }:
                 <h3>{c.label}</h3>
                 <ul>
                   {c.milestones.map((m) => (
-                    <li key={m.id}><time>{m.occurredOn}</time><span>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></span></li>
+                    <li key={m.id}><time>{m.occurredOn}</time><span>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} />
+                      {aiReady && m.itemIds[0] && <button className="report-open" onClick={() => onReport({anchorItemId:m.itemIds[0]!,itemIds:m.itemIds,topic:m.summary,lang:reportLang})}><Sparkles size={12}/>{t('report.open')}</button>}</span></li>
                   ))}
                 </ul>
               </div>
@@ -50,6 +51,7 @@ export function Today({ aiReady, onSetup, onRun, onOpen, running }:
           <article className="digest">
             <div className="digest-meta">{t('today.generatedAt', { date: data?.date, time: clock(digest.generatedAt) })}</div>
             <h1>{digest.title}</h1>
+            {aiReady && data?.refs[0] && <button className="report-open" onClick={() => onReport({anchorItemId:data.refs[0]!.id,itemIds:data.refs.map(r=>r.id),topic:digest.title,lang:reportLang})}><Sparkles size={13}/>{t('report.open')}</button>}
             <div className="prose"><Blocks blocks={digest.blocks} refs={refs} onOpen={onOpen} /></div>
           </article>
         ) : aiReady ? (
@@ -74,6 +76,7 @@ export function Today({ aiReady, onSetup, onRun, onOpen, running }:
                 {g.items.map((it) => (
                   <li key={it.id}>
                     <button className="headline" onClick={() => onOpen(it.id)}>{it.title}</button>
+                    {aiReady && <button className="report-open" title={t('report.open')} onClick={() => onReport({anchorItemId:it.id,itemIds:[it.id],topic:it.title,lang:reportLang})}><Sparkles size={12}/></button>}
                     <time>{clock(it.publishedAt)}</time>
                   </li>
                 ))}

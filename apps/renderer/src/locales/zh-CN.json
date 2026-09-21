@@ -2,6 +2,7 @@
   "common": {
     "loading": "载入中…",
     "cancel": "取消",
+    "close": "关闭",
     "done": "完成",
     "save": "保存",
     "saving": "保存中…",
@@ -130,6 +131,12 @@
       "too_thin": "页面里的正文太少，可能需要在浏览器里查看。",
       "encoding": "网页编码无法识别。"
     }
+  },
+  "report": {
+    "title": "深度报道", "open": "深入报道", "restart": "重新开始", "resize": "调整深度报道宽度", "gathering": "正在收集并核对完整材料…",
+    "writing": "正在组织报道…", "failed": "这次没有生成完成，可以重试。", "needAi": "连接 AI 后才能开始新报道。",
+    "askPlaceholder": "继续追问…", "ask": "提问", "research": "再找资料", "cancel": "停止生成", "sources": "依据的材料（{{count}}）",
+    "basis": { "article": "出版方原文", "snippet": "来源摘要", "search": "搜索补全" }
   },
   "today": {
     "changes": "昨天到今天",

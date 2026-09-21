@@ -6,7 +6,7 @@ import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_
 import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr/ai';
-import { runDaily, runFlashCheck, runWatch, generateDeepSummary, type RunOptions, type RunResult } from '@pnr/generate';
+import { runDaily, runFlashCheck, runWatch, getReport, startReport, askReport, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
@@ -274,14 +274,24 @@ ipcMain.handle('app:runWatches', () => run('daily', 'daily', (p, o) => runDaily(
 ipcMain.handle('app:runFlashes', () => run('flashes', 'flashes', (p, o) => runFlashCheck(db, p, o)));
 ipcMain.handle('app:runWatch', (_e, id: string) => run('daily', 'daily', (p, o) => runWatch(db, p, id, o)));
 
-ipcMain.handle('app:deepSummary', async (_e, itemId: string) => {
-  const provider = await resolveProvider(db);
-  if (!provider) return { noProvider: true };
-  const lang = readSettings(db).outputLang ?? 'zh-CN';
-  try {
-    return { summary: await generateDeepSummary(db, provider, DATA_DIR, itemId, lang) };
-  } catch (e) { return { error: String(e).slice(0, 120) }; }
+const reportRequests = new Map<string, AbortController>();
+const reportEvent = (event: ReportEvent): void => { if (!win?.isDestroyed()) win?.webContents.send('report:event', event); };
+ipcMain.handle('report:get', (_e, selector: { conversationId?: string; anchorItemId?: string; lang?: string }) => getReport(db, selector));
+ipcMain.handle('report:start', async (_e, input: ReportStartInput) => {
+  const provider = await resolveProvider(db); if (!provider) return { noProvider: true };
+  const controller = new AbortController(); reportRequests.set(input.requestId, controller);
+  try { return { conversation: await startReport(db, provider, DATA_DIR, input, reportEvent, controller.signal) }; }
+  catch (error) { return { error: String(error).slice(0, 160) }; }
+  finally { reportRequests.delete(input.requestId); }
 });
+ipcMain.handle('report:ask', async (_e, input: { conversationId: string; question: string; requestId: string; research?: boolean }) => {
+  const provider = await resolveProvider(db); if (!provider) return { noProvider: true };
+  const controller = new AbortController(); reportRequests.set(input.requestId, controller);
+  try { return { conversation: await askReport(db, provider, DATA_DIR, input.conversationId, input.question, input.requestId, Boolean(input.research), reportEvent, controller.signal) }; }
+  catch (error) { return { error: String(error).slice(0, 160) }; }
+  finally { reportRequests.delete(input.requestId); }
+});
+ipcMain.handle('report:cancel', (_e, requestId: string) => { reportRequests.get(requestId)?.abort(); return true; });
 
 // ── background schedule ────────────────────────────────────────────────────
 ipcMain.handle('app:scheduleState', () => ({ ...scheduleState(db), runs: recentRuns(db) }));

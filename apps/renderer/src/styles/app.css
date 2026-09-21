@@ -49,6 +49,7 @@ h1, h2, h3, h4, p { overflow-wrap: anywhere; }
 .sidebar-footer { padding: 12px 0; margin-top: 10px; border-top: 1px solid var(--border); display: grid; gap: 3px; }
 .sidebar-footer button { justify-content: flex-start; color: var(--fg2); font-size: 12px; padding: 9px 10px; }
 .connection { margin-left: auto; color: var(--secondary); font-size: 10px; }
+.workspace-shell { display: flex; min-width: 0; flex: 1; overflow: hidden; }
 .workspace { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .titlebar { min-height: 84px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 30px; border-bottom: 1px solid var(--border); -webkit-app-region: drag; flex: none; }
 .titlebar h1 { margin: 0; font-size: 16px; font-weight: 650; }
@@ -507,6 +508,33 @@ button, summary { cursor: default; }
 .cite-chip { font-size: 10.5px; line-height: 1.6; padding: 0 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--secondary); background: transparent; }
 .cite-chip:hover { color: var(--accent); border-color: var(--accent); }
 .flash-list .cites { margin: 8px 0 0; }
+
+/* Persistent app-level investigation panel. */
+.report-slot { flex: none; min-width: 340px; max-width: 640px; overflow: hidden; }
+.report-divider { width: 1px; flex: none; position: relative; background: var(--chrome-line); cursor: col-resize; z-index: 5; }
+.report-divider::after { content: ''; position: absolute; inset: 0 -3px; }
+.report-divider:hover, .report-divider:focus-visible { background: var(--accent); }
+.report-panel { height: 100%; display: flex; flex-direction: column; background: var(--bg); border-left: 1px solid var(--chrome-line); }
+.report-panel > header { height: 56px; flex: none; display: flex; align-items: center; padding: 0 10px 0 16px; border-bottom: 1px solid var(--chrome-line); background: var(--chrome); }
+.report-panel > header button { padding: 5px; color: var(--chrome-secondary); }
+.report-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 22px; }
+.report-question { margin: 18px 0 10px 32px; padding: 9px 12px; border-radius: 12px 12px 3px 12px; background: var(--bg2); font-size: 12px; }
+.report-answer h2 { font: 600 20px/1.35 var(--serif); margin: 8px 0 15px; }
+.report-answer p { font: 14px/1.72 var(--serif); margin: 0 0 13px; }
+.report-answer .listItem { padding-left: 15px; position: relative; }
+.report-answer .listItem::before { content: '•'; position: absolute; left: 2px; color: var(--accent); }
+.report-answer.streaming { opacity: .6; }
+.report-sources { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 12px; }
+.report-sources summary { font-size: 11px; color: var(--secondary); cursor: pointer; }
+.report-sources ol { list-style: none; padding: 0; }
+.report-sources li { display: grid; grid-template-columns: 24px 1fr; gap: 2px 6px; padding: 5px 0; }
+.report-sources li button { justify-content: flex-start; text-align: left; padding: 0; font-size: 11px; }
+.report-sources li small { grid-column: 2; color: var(--secondary); }
+.report-panel > footer { flex: none; display: flex; gap: 5px; padding: 10px; border-top: 1px solid var(--chrome-line); background: var(--chrome); }
+.report-panel > footer input { flex: 1; padding: 7px 9px; font-size: 12px; }
+.report-panel > footer button { padding: 6px 8px; font-size: 11px; }
+.report-open { color: var(--accent); padding: 3px 6px; font-size: 10px; }
+@media (max-width: 940px) { .report-slot { width: min(420px, 48vw) !important; min-width: 320px; } .body .list { display: none; } .body { grid-template-columns: minmax(0, 1fr); } .body > .split-divider { display: none; } }
 
 /* 今日要闻 */
 .today-note { display: flex; align-items: center; gap: 6px; margin: 0 0 28px; }

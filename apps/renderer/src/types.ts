@@ -64,6 +64,12 @@ export interface FlashRow {
   sources: ItemRef[];
   searchSources: { refId: string; url: string; title: string | null; publisher: string | null }[];
 }
+export interface ReportUnit { kind: 'paragraph'|'listItem'|'timeline'|'tableRow'; text: string; sourceRefIds: string[]; supported: boolean }
+export interface ReportAnswer { title: string; units: ReportUnit[] }
+export interface ReportSource { refId: string; itemId: string|null; basis: 'article'|'snippet'|'search'; title: string; url: string; publisher: string|null; publishedAt: number|null; materialText: string }
+export interface ReportMessage { id: string; sequence: number; role: 'user'|'assistant'; question: string|null; answer: ReportAnswer|null; status: 'pending'|'complete'|'cancelled'|'failed'; model: string|null }
+export interface ReportConversation { id: string; anchorItemId: string; lang: string; topic: string; initialItemIds: string[]; messages: ReportMessage[]; sources: ReportSource[]; createdAt: number; updatedAt: number }
+export interface ReportEvent { requestId: string; conversationId: string; messageId: string; sequence: number; type: 'partial'|'complete'|'cancelled'|'error'; value?: Partial<ReportAnswer>; error?: string }
 export interface OpenQuestion { id: number; question: string; askedAt: number }
 export interface RunResult {
   busy?: boolean; error?: string; fetched?: number; watches?: number; failed?: number;
@@ -143,7 +149,11 @@ export interface Pnr {
   runWatches(): Promise<RunResult>;
   runFlashes(): Promise<RunResult>;
   flashes(hours?: number, watchId?: string): Promise<FlashRow[]>;
-  deepSummary(itemId: string): Promise<{ noProvider?: boolean; error?: string; summary?: unknown }>;
+  reportGet(selector: { conversationId?: string; anchorItemId?: string; lang?: string }): Promise<ReportConversation|null>;
+  reportStart(input: { anchorItemId: string; itemIds: string[]; topic: string; lang: string; restart?: boolean; requestId: string }): Promise<{ noProvider?: boolean; error?: string; conversation?: ReportConversation }>;
+  reportAsk(input: { conversationId: string; question: string; requestId: string; research?: boolean }): Promise<{ noProvider?: boolean; error?: string; conversation?: ReportConversation }>;
+  reportCancel(requestId: string): Promise<boolean>;
+  onReportEvent(cb: (event: ReportEvent) => void): () => void;
   scheduleState(): Promise<ScheduleState>;
   setSchedule(on: boolean, hour?: number): Promise<ScheduleState>;
   socialStatus(): Promise<SocialStatus>;

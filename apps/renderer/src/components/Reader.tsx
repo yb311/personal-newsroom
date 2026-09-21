@@ -1,6 +1,6 @@
 import { BookOpen, ArrowLeft, Star, ExternalLink, Sparkles } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import type { Block, ItemBody, ItemRow } from '../types.ts';
+import { useEffect, useState } from 'react';
+import type { ItemBody, ItemRow } from '../types.ts';
 import { useTranslation } from 'react-i18next';
 import { dateTime } from '../i18n.ts';
 
@@ -10,27 +10,16 @@ type Full = ItemRow & { body: ItemBody | null; bodyError: string | null };
  *  stub); the reader says so rather than looking truncated. */
 const SHORT_WORDS = 120;
 
-interface Deep {
-  blocks: Block[];
-  sources: { refId: string; title: string; url: string; domain: string | null }[];
-  milestones: { date: string; text: string; refIds: string[] }[];
-}
-
-export function Reader({ id, onStar, aiReady, revision, onBack }:
-  { id: string | null; onStar: (id: string) => void; aiReady: boolean; revision: number; onBack: () => void }) {
+export function Reader({ id, onStar, aiReady, revision, onBack, onReport, reportLang }:
+  { id: string | null; onStar: (id: string) => void; aiReady: boolean; revision: number; onBack: () => void; onReport: (anchor: { anchorItemId: string; itemIds: string[]; topic: string; lang: string }) => void; reportLang: string }) {
   const { t } = useTranslation();
   const [item, setItem] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
-  const [deep, setDeep] = useState<Deep | null>(null);
-  const [deepBusy, setDeepBusy] = useState(false);
   const [deepErr, setDeepErr] = useState('');
-  const activeId = useRef(id);
-  activeId.current = id;
-
   useEffect(() => {
     if (!id) { setItem(null); return; }
     let live = true;
-    setItem(null); setDeep(null); setDeepErr(''); setDeepBusy(false);
+    setItem(null); setDeepErr('');
     void (async () => {
       setLoading(true);
       try {
@@ -63,30 +52,14 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
 
   const open = (): void => { void window.pnr.openExternal(item.url); };
 
-  const goDeep = async (): Promise<void> => {
-    setDeepBusy(true); setDeepErr('');
-    const requestedId = item.id;
-    try {
-      const r = await window.pnr.deepSummary(requestedId);
-      if (activeId.current !== requestedId) return;
-      if (r.noProvider) setDeepErr(t('reader.needAi'));
-      else if (r.error) setDeepErr(r.error);
-      else setDeep(r.summary as Deep);
-    } catch { if (activeId.current === requestedId) setDeepErr(t('reader.deepFailed')); }
-    finally { if (activeId.current === requestedId) setDeepBusy(false); }
-  };
-
   return (
     <section className="reader" key={id}>
       <button className="reader-back" onClick={onBack}><ArrowLeft size={16} />{t('reader.back')}</button>
       <div className="reader-actions">
           <button aria-pressed={Boolean(item.starredAt)} onClick={() => onStar(item.id)}><Star size={15} fill={item.starredAt ? 'currentColor' : 'none'} />{item.starredAt ? t('reader.starred') : t('reader.star')}</button>
           <button onClick={open}><ExternalLink size={15} />{t('reader.original')}</button>
-          {aiReady && !deep && (
-            <button onClick={() => void goDeep()} disabled={deepBusy}>
-              <Sparkles size={15} />{deepBusy ? t('reader.deepBusy') : t('reader.deep')}
-            </button>
-          )}
+          {aiReady && <button onClick={() => onReport({ anchorItemId: item.id, itemIds: [item.id], topic: item.title, lang: reportLang })}>
+            <Sparkles size={15} />{t('reader.deep')}</button>}
           {item.body ? <span className="words">{t('reader.words', { count: item.body.words })}{item.body.words < SHORT_WORDS ? t('reader.short') : ''}</span> : null}
         </div>
       <article>
@@ -101,8 +74,6 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
         <h1>{item.title}</h1>
 
         {deepErr && <p className="muted warn">{deepErr}</p>}
-        {deep && <DeepView deep={deep} />}
-
         {item.body
           // Sanitised by the reader core (Miniflux's allow-list sanitiser): no
           // scripts, styles or event handlers survive, and links open outside.
@@ -110,62 +81,6 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
           : <Unavailable state={item.bodyState} error={item.bodyError} snippet={item.snippet} onOpen={open} />}
       </article>
     </section>
-  );
-}
-
-/** The on-demand summary. Every paragraph carries the reference ids it was
- *  written from, and those map to the source list below, so any sentence can be
- *  traced back to the article it came from. */
-function DeepView({ deep }: { deep: Deep }) {
-  const { t } = useTranslation();
-  const byRef = new Map(deep.sources.map((s) => [s.refId, s]));
-  return (
-    <div className="deep">
-      <div className="prose">
-        {deep.blocks.map((b, i) => {
-          if (b.type === 'heading') return <h2 key={i}>{b.text}</h2>;
-          if (b.type !== 'paragraph') return null;
-          const refs = (b as { sourceRefIds?: string[] }).sourceRefIds ?? [];
-          return (
-            <p key={i}>
-              {b.text}
-              {refs.map((r) => {
-                const s = byRef.get(r);
-                return s ? (
-                  <button key={r} className="cite" title={s.title}
-                          onClick={() => void window.pnr.openExternal(s.url)}>{r}</button>
-                ) : null;
-              })}
-            </p>
-          );
-        })}
-      </div>
-
-      {deep.milestones.length > 0 && (
-        <div className="timeline">
-          <h4>{t('reader.background')}</h4>
-          <ul>
-            {deep.milestones.map((m, i) => (
-              <li key={i}><time>{m.date}</time><span>{m.text}</span></li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="deep-sources">
-        <h4>{t('reader.materials')}</h4>
-        <ol>
-          {deep.sources.map((s) => (
-            <li key={s.refId}>
-              <span className="ref">{s.refId}</span>
-              <button className="link" onClick={() => void window.pnr.openExternal(s.url)}>{s.title}</button>
-              {s.domain && <span className="muted"> · {s.domain}</span>}
-            </li>
-          ))}
-        </ol>
-      </div>
-      <hr className="deep-sep" />
-    </div>
   );
 }
 
