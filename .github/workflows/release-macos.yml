@@ -1,0 +1,132 @@
+name: Release macOS
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Sign, notarize, and publish
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.16.0
+          cache: npm
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.0
+          cache-dependency-path: native/reader/go.sum
+
+      - name: Verify tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag $RELEASE_TAG is not a supported semantic version"
+            exit 1
+          fi
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$RELEASE_TAG" != "v$package_version" ]]; then
+            echo "::error::Tag $RELEASE_TAG does not match package.json version $package_version"
+            exit 1
+          fi
+
+      - name: Check release credentials
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          for secret_name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $secret_name"
+              exit 1
+            fi
+          done
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Run offline test suite
+        run: npm run test:ci
+
+      - name: Build, sign, and notarize
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: PR3596G4YB
+        run: npm run package:mac
+
+      - name: Verify signed and notarized application
+        run: |
+          app_path="release/mac-arm64/所闻.app"
+          reader_path="$app_path/Contents/Resources/bin/pnr-reader"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          codesign --verify --strict --verbose=2 "$reader_path"
+          xcrun stapler validate "$app_path"
+          spctl --assess --type execute --verbose=4 "$app_path"
+          printf '%s\n' '{"id":1,"method":"ping","params":{}}' | "$reader_path" | grep '"result":"pong"'
+
+      - name: Verify application inside DMG
+        run: |
+          mount_dir="$(mktemp -d /tmp/pnr-release.XXXXXX)"
+          cleanup() {
+            hdiutil detach "$mount_dir" -quiet 2>/dev/null || true
+            rmdir "$mount_dir" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" release/*.dmg -quiet
+          codesign --verify --deep --strict --verbose=2 "$mount_dir/所闻.app"
+          xcrun stapler validate "$mount_dir/所闻.app"
+          spctl --assess --type execute --verbose=4 "$mount_dir/所闻.app"
+
+      - name: Create checksums
+        run: shasum -a 256 release/*.dmg release/*.zip > release/SHA256SUMS.txt
+
+      - name: Preserve release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: 所闻-${{ github.ref_name }}-macOS
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release/*.dmg \
+            release/*.zip \
+            release/SHA256SUMS.txt \
+            --verify-tag \
+            --title "所闻 ${GITHUB_REF_NAME#v}" \
+            --generate-notes

@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --build",
+    "test:ci": "npm run reader:test && npm run test:schema && npm run test:ai && npm run test:watch && npm run test:today && npm run test:catalogue && npm run test:watches && npm run test:i18n && npm run test:resolve",
     "reader:build": "scripts/build-reader.sh",
     "reader:test": "cd native/reader && go test ./...",
     "doctor": "node --experimental-strip-types dev/doctor.ts",

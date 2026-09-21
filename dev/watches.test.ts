@@ -38,6 +38,9 @@ const back = api.watchItems('p-ai') as { verdict: string }[];
 check(back.length === 1 && back[0]!.verdict === 'wanted', '改成「要」后回来了，并标着你的选择');
 
 console.log('\n=== 改原话 ===');
+// This test exercises watch invalidation, not provider selection. Seed the
+// active vector identity that production establishes after checking a provider.
+db.prepare("UPDATE ai_runtime SET vector_profile='test', vector_generation=1, updated_at=? WHERE id=1").run(now);
 upsertWatchVector(db, 'p-ai', new Float32Array(768).fill(0.1));
 db.prepare("UPDATE watches SET recall_aids_json = '{}' WHERE id = 'p-ai'").run();
 api.editWatch('p-ai', { label: '人工智能', intent: '我只想看人工智能芯片的出口管制' });

@@ -11,6 +11,8 @@ apps/desktop/packaging/
 .env
 .env.*
 !.env.example
+*.p12
+*.p8
 
 # Local user data: the SQLite database, extracted article bodies, images.
 # Anchored to the root — an unanchored `data/` also matches catalogs/data,
