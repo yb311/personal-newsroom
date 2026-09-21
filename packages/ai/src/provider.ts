@@ -23,10 +23,17 @@ export interface GenerateResult<T> {
   usage?: { input: number; output: number };
 }
 
+/** Why a provider cannot be used right now, in terms the settings screen can
+ *  turn into a sentence. A wrong key and a dropped network need different advice. */
+export type ProviderProblem = 'no_key' | 'invalid_key' | 'network' | 'unreachable' | 'model_missing';
+
+export interface ProviderCheck { ok: boolean; problem?: ProviderProblem }
+
 export interface Provider {
   readonly id: ProviderId;
   readonly name: string;
   isAvailable(): Promise<boolean>;
+  check(): Promise<ProviderCheck>;
   /** Cheap model, for high-volume relevance judging. */
   readonly fastModel: string;
   /** Capable model, for writing. */

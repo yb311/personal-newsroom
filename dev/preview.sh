@@ -32,7 +32,7 @@ cat > "$OUT/preview.html" <<'HTML'
     stats: async () => ({items: d.items.length, sources: d.sources.length, unread: d.items.length, lastRun: Date.now()}),
     refresh: async () => ({busy:false, inserted:0}), enrichOne: async () => null,
     openExternal: async () => {}, onProgress: () => () => {},
-    aiStatus: async () => d.ai, saveAiSettings: async () => true,
+    aiStatus: async () => d.ai, saveAiSettings: async () => ({ mode: 'none', connected: false }),
     presets: async () => d.presets, watches: async () => d.watches,
     addWatch: async () => d.watches[0], editWatch: async () => d.watches[0],
     removeWatch: async () => {}, togglePreset: async () => {}, correct: async () => {},

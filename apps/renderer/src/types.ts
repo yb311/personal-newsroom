@@ -36,6 +36,11 @@ export interface Today {
   digest: { id: string; title: string; blocks: Block[]; generatedAt: number } | null;
   changes: { watchId: string; label: string; milestones: Milestone[] }[];
 }
+export interface AiConnection {
+  mode: 'gemini' | 'ollama' | 'none';
+  connected: boolean;
+  problem?: 'no_key' | 'invalid_key' | 'network' | 'unreachable' | 'model_missing';
+}
 export interface AiStatus { available: boolean; provider: string; outputLang: string }
 export interface SocialStatus {
   mode: 'off' | 'http' | 'library';
@@ -69,7 +74,7 @@ export interface Pnr {
   openExternal(url: string): Promise<void>;
   onProgress(cb: (p: unknown) => void): () => void;
   aiStatus(): Promise<AiStatus>;
-  saveAiSettings(patch: Record<string, string>): Promise<boolean>;
+  saveAiSettings(patch: Record<string, string>): Promise<AiConnection>;
   presets(): Promise<PresetRow[]>;
   watches(): Promise<WatchRow[]>;
   addWatch(i: { label: string; intent: string; outputLang?: string }): Promise<WatchRow>;

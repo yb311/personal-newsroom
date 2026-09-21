@@ -1,4 +1,4 @@
-import type { EmbedKind, GenerateOptions, GenerateResult, Provider } from './provider.ts';
+import type { EmbedKind, GenerateOptions, GenerateResult, Provider, ProviderCheck } from './provider.ts';
 import { parseLoose } from './provider.ts';
 
 /**
@@ -31,15 +31,23 @@ export class OllamaProvider implements Provider {
     this.#embedModel = embedModel; this.embeddingDims = dims;
   }
 
-  async isAvailable(): Promise<boolean> {
+  async isAvailable(): Promise<boolean> { return (await this.check()).ok; }
+
+  async check(): Promise<ProviderCheck> {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 2000);
     try {
-      const ctl = new AbortController();
-      const t = setTimeout(() => ctl.abort(), 2000);
-      try {
-        const r = await fetch(`${this.#host}/api/tags`, { signal: ctl.signal });
-        return r.ok;
-      } finally { clearTimeout(t); }
-    } catch { return false; }
+      const r = await fetch(`${this.#host}/api/tags`, { signal: ctl.signal });
+      if (!r.ok) return { ok: false, problem: 'unreachable' };
+      // Ollama answers even with none of our models pulled; every call would
+      // then fail, so a missing model is reported here rather than later.
+      const j = (await r.json()) as { models?: { name?: string }[] };
+      const have = new Set((j.models ?? []).map((m) => String(m.name ?? '')));
+      const has = (m: string): boolean => have.has(m) || have.has(`${m}:latest`);
+      return [this.writeModel, this.fastModel, this.#embedModel].every(has)
+        ? { ok: true } : { ok: false, problem: 'model_missing' };
+    } catch { return { ok: false, problem: 'unreachable' }; }
+    finally { clearTimeout(t); }
   }
 
   async generate<T>(prompt: string, opts: GenerateOptions & { model?: string }): Promise<GenerateResult<T>> {

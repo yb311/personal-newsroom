@@ -1,6 +1,18 @@
 import { Dialog } from './Dialog.tsx';
 import { useEffect, useState } from 'react';
-import type { AiStatus, ScheduleState, SocialStatus } from '../types.ts';
+import type { AiConnection, AiStatus, ScheduleState, SocialStatus } from '../types.ts';
+
+const connectionMessage = (c: AiConnection): string => {
+  if (c.mode === 'none') return '已切换到阅读模式，不使用 AI';
+  if (c.connected) return c.mode === 'ollama' ? '已保存，已连接本机 Ollama' : '已保存，已连接 Gemini';
+  switch (c.problem) {
+    case 'no_key': return '已保存。还没有填写 API Key，AI 功能暂不可用';
+    case 'invalid_key': return '已保存，但这个 API Key 无效，请检查后重试';
+    case 'network': return '已保存，但连不上 Google，请检查网络后重试';
+    case 'model_missing': return '已连接 Ollama，但缺少所需模型，请先下载模型';
+    default: return '已保存，但连不上 Ollama，请确认它已经启动';
+  }
+};
 
 /** Keys live on this machine only. The app is deliberately usable without one. */
 export function Settings({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
@@ -55,10 +67,10 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
     const patch: Record<string, string> = { provider, outputLang: lang };
     if (key.trim()) patch['geminiApiKey'] = key.trim();
     try {
-      const ok = await window.pnr.saveAiSettings(patch);
-      setMsg(ok ? provider === 'none' ? '已保存 · 阅读模式' : '已保存并连接' : provider === 'ollama' ? '无法连接 Ollama，请确认已启动' : '无法验证密钥，请检查后重试');
+      const result = await window.pnr.saveAiSettings(patch);
+      setMsg(connectionMessage(result));
       setStatus(await window.pnr.aiStatus());
-      if (ok) setKey('');
+      if (result.connected) setKey('');
       onChanged();
     } catch { setMsg('保存失败，请重试。'); }
     finally { setSaving(false); }

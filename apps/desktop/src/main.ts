@@ -16,6 +16,19 @@ import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './sc
 // showing the workspace package name in the menu bar and About panel.
 app.setName('所闻');
 
+// One app, one window. A second launch hands focus to the running instance and
+// exits before it can open the database or start fetching on its own.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+app.on('second-instance', () => {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+});
+
 const DATA_DIR = process.env['PNR_DATA_DIR'] ?? defaultDataDir();
 const db = openDb(join(DATA_DIR, 'newsroom.db'));
 const api = createApi(db);

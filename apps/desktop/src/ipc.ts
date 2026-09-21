@@ -1,6 +1,6 @@
 import type { Db } from '@pnr/store';
 import { readFileSync, existsSync } from 'node:fs';
-import { aiAvailable, readSettings, writeSetting, invalidateProvider } from '@pnr/ai';
+import { aiAvailable, checkConnection, readSettings, writeSetting, invalidateProvider, type AiConnection } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, addCorrection } from '@pnr/watch';
 import { newSinceYesterday, timeline, getDigest, recentFlashes } from '@pnr/generate';
 import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, SUGGESTED_ROUTES,
@@ -113,12 +113,12 @@ export function createApi(db: Db) {
       };
     },
 
-    async saveAiSettings(patch: Record<string, string>): Promise<boolean> {
+    async saveAiSettings(patch: Record<string, string>): Promise<AiConnection> {
       for (const [k, v] of Object.entries(patch)) {
         writeSetting(db, k === 'outputLang' ? 'outputLang' : `ai.${k}`, v);
       }
       invalidateProvider();
-      return aiAvailable(db);
+      return checkConnection(db);
     },
 
     presets(): { id: string; label: string; intent: string; enabled: boolean }[] {

@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import type { EmbedKind, GenerateOptions, GenerateResult, Provider } from './provider.ts';
+import type { EmbedKind, GenerateOptions, GenerateResult, Provider, ProviderCheck } from './provider.ts';
 import { parseLoose } from './provider.ts';
 
 /**
@@ -53,9 +53,17 @@ export class GeminiProvider implements Provider {
     return this.#client;
   }
 
-  async isAvailable(): Promise<boolean> {
-    if (!this.#apiKey) return false;
-    try { await this.#ai().models.list(); return true; } catch { return false; }
+  async isAvailable(): Promise<boolean> { return (await this.check()).ok; }
+
+  async check(): Promise<ProviderCheck> {
+    if (!this.#apiKey) return { ok: false, problem: 'no_key' };
+    try { await this.#ai().models.list(); return { ok: true }; }
+    catch (e) {
+      // The SDK's ApiError carries the HTTP status; a rejected key comes back
+      // as 400/401/403. Anything without a status never reached Google.
+      const status = Number((e as { status?: unknown })?.status);
+      return { ok: false, problem: status >= 400 && status < 500 ? 'invalid_key' : 'network' };
+    }
   }
 
   async generate<T>(prompt: string, opts: GenerateOptions & { model?: string }): Promise<GenerateResult<T>> {
