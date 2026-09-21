@@ -13,6 +13,7 @@
     "@pnr/ai": "*",
     "@pnr/watch": "*",
     "@pnr/recall": "*",
-    "@pnr/reader": "*"
+    "@pnr/reader": "*",
+    "@pnr/feed": "*"
   }
 }

@@ -1,9 +1,10 @@
+import { Inbox, Circle, Star, ChevronRight } from 'lucide-react';
 import { categoryLabel } from '../categories.ts';
 import type { SourceRow } from '../types.ts';
 import type { Filter } from '../App.tsx';
 
 interface Props {
-  sources: SourceRow[]; sourceId: string | undefined; filter: Filter;
+  active: boolean; sources: SourceRow[]; sourceId: string | undefined; filter: Filter;
   onPickSource: (id: string | undefined) => void;
   onPickFilter: (f: Filter) => void;
   onManage: () => void;
@@ -14,10 +15,10 @@ const STALE_DAYS = 45;
 const isStale = (s: SourceRow): boolean =>
   Boolean(s.total && s.newest && Date.now() - s.newest > STALE_DAYS * 864e5);
 
-export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter, onManage }: Props) {
+export function Sidebar({ active, sources, sourceId, filter, onPickSource, onPickFilter, onManage }: Props) {
   const totalUnread = sources.reduce((a, s) => a + (s.unread ?? 0), 0);
   const filters: [Filter, string, number | null][] = [
-    ['all', '全部', null], ['unread', '未读', totalUnread], ['starred', '收藏', null]
+    ['all', '全部文章', null], ['unread', '未读文章', totalUnread], ['starred', '我的收藏', null]
   ];
   const byCategory = new Map<string, SourceRow[]>();
   for (const s of sources) {
@@ -27,11 +28,12 @@ export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter,
 
   return (
     <nav className="sidebar" aria-label="阅读筛选">
+      <div className="sidebar-section-label">资料库</div>
       <ul className="filters">
         {filters.map(([f, label, count]) => (
           <li key={f}>
-            <button aria-pressed={filter === f} className={filter === f ? 'active' : ''} onClick={() => onPickFilter(f)}>
-              <span>{label}</span>
+            <button aria-pressed={active && !sourceId && filter === f} className={active && !sourceId && filter === f ? 'active' : ''} onClick={() => onPickFilter(f)}>
+              {f === 'all' ? <Inbox size={16} /> : f === 'unread' ? <Circle size={15} /> : <Star size={16} />}<span>{label}</span>
               {count ? <em>{count}</em> : null}
             </button>
           </li>
@@ -44,19 +46,14 @@ export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter,
       </div>
 
       <ul className="sources">
-        <li>
-          <button aria-pressed={!sourceId} className={!sourceId ? 'active' : ''} onClick={() => onPickSource(undefined)}>
-            <span>所有源</span><em>{sources.length}</em>
-          </button>
-        </li>
         {[...byCategory.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([cat, list]) => (
           <li key={cat} className="group">
-            <div className="group-label">{categoryLabel(cat)}</div>
+            <details open><summary className="group-label"><ChevronRight size={12} />{categoryLabel(cat)}</summary>
             <ul>
               {list.map((s) => (
                 <li key={s.id}>
                   <button
-                    aria-pressed={sourceId === s.id} className={sourceId === s.id ? 'active' : ''}
+                    aria-pressed={active && sourceId === s.id} className={active && sourceId === s.id ? 'active' : ''}
                     onClick={() => onPickSource(s.id)}
                     title={s.lastError ? '上次更新失败' : isStale(s) ? `已经 ${STALE_DAYS} 天以上没有新文章` : s.domain ?? s.name}
                   >
@@ -65,7 +62,7 @@ export function Sidebar({ sources, sourceId, filter, onPickSource, onPickFilter,
                   </button>
                 </li>
               ))}
-            </ul>
+            </ul></details>
           </li>
         ))}
       </ul>

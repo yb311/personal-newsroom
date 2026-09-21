@@ -2,7 +2,8 @@ import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
 import { aiAvailable, checkConnection, readSettings, writeSetting, invalidateProvider, type AiConnection } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, addCorrection } from '@pnr/watch';
-import { newSinceYesterday, timeline, getDigest, recentFlashes } from '@pnr/generate';
+import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions } from '@pnr/generate';
+import { localDateKey } from '@pnr/core';
 import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, SUGGESTED_ROUTES,
          packState, installPack, removePack, type PackManifest } from '@pnr/feed';
 
@@ -39,6 +40,9 @@ const READING_LANGS_KEY = 'reader.languages';
 
 export interface ItemBody { html: string; words: number; source: 'feed' | 'page' }
 
+/** What a citation needs to be shown and opened. */
+export interface ItemRef { id: string; title: string; url: string; publishedAt: number; sourceName: string | null }
+
 export interface ItemQuery { sourceId?: string; filter?: 'all' | 'unread' | 'starred' }
 
 export function createApi(db: Db, dataDir: string) {
@@ -61,6 +65,15 @@ export function createApi(db: Db, dataDir: string) {
       params.push(...langs);
     }
     return { where: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
+  };
+
+  const refsFor = (ids: string[]): ItemRef[] => {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return [];
+    return db.prepare(
+      `SELECT i.id, i.title, i.url, i.published_at AS publishedAt, s.name AS sourceName
+       FROM items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id IN (${unique.map(() => '?').join(',')})`
+    ).all(...unique) as ItemRef[];
   };
 
   return {
@@ -198,25 +211,58 @@ export function createApi(db: Db, dataDir: string) {
 
     flashes(hours = 24, watchId?: string): unknown[] {
       const labels = new Map(listWatches(db).map((w) => [w.id, w.label]));
-      return recentFlashes(db, hours, watchId).map((f) => ({ ...f, watchLabel: labels.get(f.watchId ?? '') ?? null }));
+      return recentFlashes(db, hours, watchId).map((f) => ({
+        ...f,
+        watchLabels: f.watchIds.map((id) => labels.get(id)).filter(Boolean),
+        sources: refsFor(f.itemIds)
+      }));
     },
 
     today(date?: string): unknown {
-      const d = date ?? new Date().toISOString().slice(0, 10);
+      const d = date ?? localDateKey();
       const digest = getDigest(db, d);
       const changes = listWatches(db, true).map((w) => ({
         watchId: w.id, label: w.label, milestones: newSinceYesterday(db, w.id)
       })).filter((x) => x.milestones.length > 0);
-      return { date: d, digest, changes };
+      const cited = [
+        ...(digest?.blocks ?? []).flatMap((b) => ('sourceRefIds' in b ? b.sourceRefIds ?? [] : [])),
+        ...changes.flatMap((c) => c.milestones.flatMap((m) => m.itemIds))
+      ];
+      return { date: d, digest, changes, refs: refsFor(cited) };
     },
+
+    /**
+     * 今日要闻 — the newest headlines of the last day from each subscribed
+     * source. Needs no AI: it is what 今日 shows when none is connected, and
+     * what follows the brief when one is.
+     */
+    headlines(hours = 24, perSource = 4): { sourceId: string; sourceName: string; items: ItemRow[] }[] {
+      const langs = readingLangs();
+      const langWhere = langs.length ? `AND (i.lang IS NULL OR i.lang IN (${langs.map(() => '?').join(',')}))` : '';
+      const rows = db.prepare(`
+        SELECT * FROM (
+          SELECT ${ITEM_COLS},
+                 ROW_NUMBER() OVER (PARTITION BY i.source_id ORDER BY i.published_at DESC) AS rank
+          FROM items i JOIN sources s ON s.id = i.source_id
+          LEFT JOIN reading_state r ON r.item_id = i.id
+          WHERE s.enabled = 1 AND i.published_at >= ? ${langWhere}
+        ) WHERE rank <= ? ORDER BY sourceName, publishedAt DESC`)
+        .all(Date.now() - hours * 3600_000, ...langs, perSource) as (ItemRow & { rank: number })[];
+      const groups = new Map<string, { sourceId: string; sourceName: string; items: ItemRow[] }>();
+      for (const { rank: _rank, ...it } of rows) {
+        const g = groups.get(it.sourceId) ?? { sourceId: it.sourceId, sourceName: it.sourceName, items: [] };
+        g.items.push(it);
+        groups.set(it.sourceId, g);
+      }
+      return [...groups.values()];
+    },
+
+    /** Titles and sources for cited item ids, so every citation can be opened. */
+    itemRefs(ids: string[]): ItemRef[] { return refsFor(ids); },
 
     watchTimeline(id: string): unknown {
       const ms = timeline(db, id);
-      const ids = [...new Set(ms.flatMap((m) => m.itemIds))];
-      const items = ids.length
-        ? db.prepare(`SELECT id, title, url FROM items WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids)
-        : [];
-      return { milestones: ms, items };
+      return { milestones: ms, refs: refsFor(ms.flatMap((m) => m.itemIds)), questions: openQuestions(db, id) };
     },
 
     watchItems(id: string, limit = 60): unknown[] {

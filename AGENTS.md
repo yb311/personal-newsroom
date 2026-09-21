@@ -87,7 +87,9 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 
 ## 视觉
 
-直接用 daily-brief 的 `app/globals.css` 设计 token，报纸美学，深浅两套都现成：
+**先把它当作 macOS 软件设计，不是套壳网页。** 窗口工具栏、系统侧栏、可调整分栏、固定的上下文操作和键盘导航是基础；不要用网页页头、营销卡片或手机网页式跳转替代桌面交互。软件控件使用系统字体和中性色，下面的报纸色彩与衬线字体主要用于正文阅读区域。
+
+正文阅读区域沿用 daily-brief 的 `app/globals.css` 设计 token，报纸美学，深浅两套都现成：
 `--bg: #f5f2eb`（米白）· `--fg: #1a1a1a` · `--accent: #c0392b`（砖红）·
 `--card-radius: 2px` · `--serif: 'Noto Serif SC', 'Playfair Display'` · `--mono: 'JetBrains Mono'`
 
@@ -201,7 +203,6 @@ M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签�
 | 缺口 | 影响 | 属于哪个里程碑 |
 |---|---|---|
 | **首次运行同意流缺失** | 计划要求装后台任务前明确征询、给「现在装/以后再说」。renderer 和 main 都没有这个界面，后台调度是静默注册的 | M6 |
-| **`openQuestions` 不持久化** | `packages/generate/src/progress.ts` 生成了这个字段但没存，等于每次都是一次性输出，攒不成「明天优先找」的线索——`WatchState` 设计里这是「进展」功能的一部分 | M4 |
 | **每 Watch 输出语言，UI 未暴露** | `watches.output_lang` 字段和 `watch.ts` 的读写都有，但 `Watches.tsx` 里没有让用户单独设置某个 Watch 输出语言的控件，目前只有全局一个 | M2 |
 | **UI 文案没有 i18n 框架** | 渲染层字符串硬编码中文，没有字符串表。计划要求「先出中文英文两套」——这里说的是界面本身，跟按 Watch 设置的*内容*输出语言是两回事，内容那条是做了的 | M1 |
 | **「召回体检」工具缺失** | 计划要求一个工具汇总 R1/R2/R3 各自召回率、记录真实 token 用量，用来修正成本模型。现在只有 `judge.ts` 里按次记的日志，没有汇总脚本 | M3 |
@@ -251,6 +252,16 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
   （`constructor(private x: T)`），也不支持 enum / namespace / 装饰器。用显式字段
 - **`import.meta.url` 在 esbuild 打成 CJS 后是 undefined**。主进程要用的资源
   （迁移 SQL 等）一律嵌进代码，不要在运行时读源码旁边的文件
+- **每日流程必须先进展、后摘要**。摘要会把内容记进 `told_records`；先写摘要，
+  进展判断就会把今天的新事全当成「已告诉」。进展另外只读本次运行开始之前的记录
+  （`generateProgress` 的 `toldBefore`）。流程在 `packages/generate/src/pipeline.ts`，
+  app 和 worker 共用，别再各写一份
+- **「今天」一律用 `localDateKey()`（本地日期）**，不要 `toISOString().slice(0,10)`：
+  北京时间 7:15 的每日任务是 UTC 前一天 23:15
+- **milestone 的 id 要带运行时间**。只用「关注+日期+序号」时，同一天第二次运行的新节点
+  会和早上的撞 id，被 `ON CONFLICT DO NOTHING` 静默丢掉
+- **离线跑流程**：`PNR_DISABLE_FETCH/EXTRACT/SEARCH=1`（`@pnr/core` 的 `flags`），
+  `dev/today.test.ts` 用脚本化的假模型验证今日/快讯的全部逻辑，不联网、不花钱
 - **Miniflux 的 reader 包在 `internal/` 下，Go 不许跨模块 import**，所以是拷进
   `native/reader/third_party/miniflux` 的（`scripts/sync-miniflux.sh`，只改 import 路径）。
   `config`/`locale`/`mediaproxy` 是手写替身，给它加导出用 `native/reader/_overlay`，

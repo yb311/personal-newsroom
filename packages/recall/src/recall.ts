@@ -1,11 +1,11 @@
 import type { Db } from '@pnr/store';
 import type { Provider } from '@pnr/ai';
-import { embedItems, nearestItems } from '@pnr/ai';
+import { embedItems } from '@pnr/ai';
 import type { Watch } from '@pnr/watch';
 import { ensureIntentVector, getWatch } from '@pnr/watch';
 import { adapterFor, storeItems } from '@pnr/feed';
 import type { SourceRecord } from '@pnr/core';
-import { log } from '@pnr/core';
+import { log, flags } from '@pnr/core';
 
 export type RecallArm = 'r1_vector' | 'r2_alias' | 'r3_search';
 
@@ -67,12 +67,20 @@ export async function recallForWatch(
   ).all(since) as any[];
   const byId = new Map(recent.map((r) => [r.id, r]));
 
-  await embedItems(db, provider, recent.map((r) => ({
+  const vectors = await embedItems(db, provider, recent.map((r) => ({
     id: r.id, text: `${r.title}\n${(r.snippet ?? '').slice(0, 500)}`
   })));
 
-  for (const n of nearestItems(db, intentVec, opts.vectorTopN ?? 80)) {
-    const row = byId.get(n.itemId);
+  // Nearest items within the window only. A global nearest-neighbour search
+  // followed by a date filter lets old items crowd out new ones as the store
+  // grows; comparing against the window's few thousand vectors directly is
+  // both correct and fast.
+  const nearest = [...vectors.entries()]
+    .map(([id, v]) => ({ id, distance: 1 - cosine(intentVec, v) }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, opts.vectorTopN ?? 80);
+  for (const n of nearest) {
+    const row = byId.get(n.id);
     if (row) add(row, 'r1_vector', n.distance);
   }
 
@@ -81,6 +89,7 @@ export async function recallForWatch(
   // prepareWatch, so a caller's in-memory object can be one step behind.
   const aids = watch.recallAids ?? getWatch(db, watch.id)?.recallAids ?? null;
   const terms = [
+    ...(watch.keywords ?? []),
     ...(aids?.aliases ?? []),
     ...(aids?.relatedTerms ?? [])
   ].filter((t) => t.length >= 2).slice(0, 40);
@@ -97,9 +106,13 @@ export async function recallForWatch(
   }
 
   // ── R3: query search engines that return real URLs ───────────────────────
-  if (opts.useSearch !== false) {
-    const fetched = await searchDiscovery(db, watch);
-    for (const id of fetched) {
+  if (opts.useSearch !== false && !flags.disableSearch) {
+    // The watch's own query, then the questions the last progress pass left
+    // open — the "look for this tomorrow" list.
+    const queries = [buildQuery(watch), ...openQuestionTexts(db, watch.id).slice(0, 2)].filter(Boolean);
+    const fetched: string[] = [];
+    for (const q of queries) fetched.push(...(await searchDiscovery(db, watch, q)));
+    for (const id of new Set(fetched)) {
       const row = db.prepare(
         `SELECT i.id, i.title, i.snippet, i.published_at, s.name AS sourceName
          FROM items i JOIN sources s ON s.id = i.source_id WHERE i.id = ?`
@@ -125,9 +138,7 @@ export async function recallForWatch(
  * Google Search grounding: that returns the model's retelling, which cannot be
  * cited back to a source.
  */
-async function searchDiscovery(db: Db, watch: Watch): Promise<string[]> {
-  const query = buildQuery(watch);
-  if (!query) return [];
+async function searchDiscovery(db: Db, watch: Watch, query: string): Promise<string[]> {
   const lang = watch.outputLang ?? 'en-US';
   const src: SourceRecord = {
     id: `search:${watch.id}`, kind: 'googlenews', name: '搜索发现', domain: null,
@@ -154,6 +165,19 @@ async function searchDiscovery(db: Db, watch: Watch): Promise<string[]> {
     log({ event: 'recall.search', phase: 'failed', entityId: watch.id, reasonCode: String((e as Error)?.message).slice(0, 40) });
     return [];
   }
+}
+
+const cosine = (a: Float32Array, b: Float32Array): number => {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]!; }
+  return na && nb ? dot / Math.sqrt(na * nb) : 0;
+};
+
+/** Questions a progress pass left unanswered, newest first. */
+export function openQuestionTexts(db: Db, watchId: string): string[] {
+  return (db.prepare(
+    'SELECT question FROM open_questions WHERE watch_id = ? AND resolved_at IS NULL ORDER BY asked_at DESC'
+  ).all(watchId) as { question: string }[]).map((r) => r.question);
 }
 
 /** A compact query for the search engines. Uses the user's own words plus the

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Search, Star, Inbox } from 'lucide-react';
 import type { Filter } from '../App.tsx';
 import type { ItemRow } from '../types.ts';
@@ -28,8 +29,18 @@ interface Props {
 }
 
 export function ItemList({ items, total, onMore, selected, onSelect, onStar, query, onQuery, filter, onManage }: Props) {
+  const list = useRef<HTMLElement>(null);
+  useEffect(() => { list.current?.querySelector('.selected')?.scrollIntoView({ block: 'nearest' }); }, [selected]);
   return (
-    <section className="list" aria-label="文章列表">
+    <section ref={list} className="list" aria-label="文章列表" tabIndex={0} onKeyDown={e => {
+      if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      e.currentTarget.focus({ preventScroll: true });
+      const index = items.findIndex(it => it.id === selected);
+      const next = items[index < 0 ? 0 : Math.max(0, Math.min(items.length - 1, index + (e.key === 'ArrowDown' ? 1 : -1)))];
+      if (next) onSelect(next.id);
+    }}>
       <div className="list-toolbar">
         <div className="list-heading"><h2>{filter === 'unread' ? '未读文章' : filter === 'starred' ? '我的收藏' : '全部文章'}</h2><span>{total} 篇</span></div>
         <label className="search-field"><Search size={16} /><input type="search" aria-label="搜索当前列表" placeholder="搜索当前列表" value={query} onChange={e => onQuery(e.target.value)} /></label>
@@ -42,7 +53,7 @@ export function ItemList({ items, total, onMore, selected, onSelect, onStar, que
         <article
           key={it.id}
           className={[ 'card', selected === it.id ? 'selected' : '', it.readAt ? 'read' : '' ].join(' ').trim()}
-          onClick={() => onSelect(it.id)}
+          onClick={() => { list.current?.focus({ preventScroll: true }); onSelect(it.id); }}
         >
           <div className="card-meta">
             <span className="src">{it.sourceName}</span>

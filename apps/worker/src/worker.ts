@@ -12,9 +12,7 @@ import { openDb, defaultDataDir, acquireLock, renewLock, releaseLock, HEARTBEAT_
 import { ingestAll } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, pruneVectors } from '@pnr/ai';
-import { listWatches, prepareWatch } from '@pnr/watch';
-import { recallForWatch, judgeAll, gateWatch } from '@pnr/recall';
-import { generateDigest, generateProgress, generateFlashes } from '@pnr/generate';
+import { runDaily, runFlashCheck } from '@pnr/generate';
 import { setSink, log } from '@pnr/core';
 
 type Mode = 'daily' | 'flashes' | 'fetch';
@@ -82,61 +80,20 @@ async function main(): Promise<void> {
   try {
     const stats: Record<string, unknown> = { mode };
 
-    if (mode === 'fetch' || mode === 'daily') {
+    if (mode === 'fetch') {
       const ing = await ingestAll(db, 8, { dataDir });
-      stats['fetched'] = ing.inserted;
-      const en = await enrichPending(db, dataDir, mode === 'daily' ? 60 : 25, 5);
-      stats['extracted'] = en.ok;
+      const en = await enrichPending(db, dataDir, 25, 5);
+      finish('ok', { ...stats, fetched: ing.inserted, extracted: en.ok });
+      return;
     }
-    if (mode === 'fetch') { finish('ok', stats); return; }
 
     const provider = await resolveProvider(db);
-    if (!provider) {
-      // Not an error: the app is perfectly usable as an RSS reader with no key.
-      log({ event: 'worker.no_provider', phase: 'skipped' });
-      finish('ok', { ...stats, ai: 'not_configured' });
-      return;
-    }
-
-    const lang = readSettings(db).outputLang ?? 'zh-CN';
-    const watches = listWatches(db, true);
-    stats['watches'] = watches.length;
-    if (watches.length === 0) { finish('ok', stats); return; }
-
-    if (mode === 'flashes') {
-      let published = 0;
-      for (const w of watches) {
-        try { published += (await generateFlashes(db, provider, w, w.outputLang ?? lang)).length; }
-        catch (e) { log({ event: 'worker.flash', phase: 'failed', entityId: w.id, reasonDetail: String(e).slice(0, 120) }); }
-      }
-      finish('ok', { ...stats, published });
-      return;
-    }
-
-    // daily
-    const ready = [];
-    let failed = 0;
-    for (const w of watches) {
-      try {
-        const prepared = await prepareWatch(db, provider, w);
-        const cands = await recallForWatch(db, provider, prepared, { windowHours: 72, maxJudged: 40 });
-        await judgeAll(db, provider, prepared, cands);
-        gateWatch(db, prepared, 'balanced');
-        ready.push(prepared);
-      } catch (e) {
-        failed++;
-        log({ event: 'worker.watch', phase: 'failed', entityId: w.id, reasonDetail: String(e).slice(0, 120) });
-      }
-    }
-    const digest = ready.length ? await generateDigest(db, provider, ready, lang) : null;
-    for (const w of ready) {
-      try { await generateProgress(db, provider, w, w.outputLang ?? lang); }
-      catch (e) { log({ event: 'worker.progress', phase: 'failed', entityId: w.id, reasonDetail: String(e).slice(0, 120) }); }
-    }
-
+    const opts = { dataDir, lang: readSettings(db).outputLang ?? 'zh-CN' };
+    // Same runs as the app's buttons. With no AI they match watches by keywords.
+    const result = mode === 'flashes' ? await runFlashCheck(db, provider, opts) : await runDaily(db, provider, opts);
     // Vectors are the one thing that grows without bound (~3.2 KB each).
-    const pruned = pruneVectors(db, 180);
-    finish(failed > 0 ? 'partial' : 'ok', { ...stats, processed: ready.length, failed, digest: Boolean(digest), pruned });
+    const pruned = mode === 'daily' && provider ? pruneVectors(db, 180) : 0;
+    finish(result.failed > 0 ? 'partial' : 'ok', { ...stats, ...result, pruned });
   } catch (e) {
     log({ event: 'worker.failed', reasonDetail: String(e).slice(0, 200) });
     finish('failed', { mode, error: String(e).slice(0, 200) });

@@ -1,7 +1,7 @@
 import type { Db } from '@pnr/store';
 import { writeBody } from '@pnr/store';
 import type { DiscoveredItem, SourceRecord } from '@pnr/core';
-import { canonicalDedupKey, log } from '@pnr/core';
+import { canonicalDedupKey, log, flags } from '@pnr/core';
 import { cleanHtml, plainText } from '@pnr/reader-core';
 import { adapterFor } from './adapters/index.ts';
 import { createHash } from 'node:crypto';
@@ -131,6 +131,10 @@ export async function ingestSource(db: Db, source: SourceRecord, opts: IngestOpt
 
 /** Runs enabled sources with bounded concurrency. */
 export async function ingestAll(db: Db, concurrency = 8, opts: IngestOptions = {}): Promise<{ sources: number; inserted: number }> {
+  if (flags.disableFetch) {
+    log({ event: 'feed.ingest', phase: 'skipped', reasonCode: 'PNR_DISABLE_FETCH' });
+    return { sources: 0, inserted: 0 };
+  }
   const sources = db.prepare(
     `SELECT id, kind, name, domain, url, category, lang, country, trust, enabled,
             date_hydration AS dateHydration, config_json AS configJson,

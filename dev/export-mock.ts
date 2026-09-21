@@ -1,6 +1,6 @@
 import { openDb, readBody } from '../packages/store/src/index.ts';
-import { listWatches, PRESETS } from '../packages/watch/src/index.ts';
-import { newSinceYesterday, timeline, getDigest, recentFlashes } from '../packages/generate/src/index.ts';
+import { PRESETS } from '../packages/watch/src/index.ts';
+import { createApi } from '../apps/desktop/src/ipc.ts';
 import { writeFileSync } from 'node:fs';
 const DIR = process.env.PNR_DATA_DIR!;
 const db = openDb(`${DIR}/newsroom.db`);
@@ -18,23 +18,21 @@ for (const it of items) {
   const b = readBody(it.bodyPath);
   if (b) bodies[it.id] = { html: b.html, words: b.words, source: b.source };
 }
-const ws = listWatches(db).map(w => ({ ...w, newCount: newSinceYesterday(db,w.id).length,
-  timelineCount: timeline(db,w.id).length,
-  passed: (db.prepare('SELECT COUNT(*) c FROM matches WHERE watch_id=? AND passed_gate=1').get(w.id) as any).c }));
-const labels = new Map(ws.map(w=>[w.id,w.label]));
-const flashes = recentFlashes(db, 48).map(f=>({...f, watchLabel: labels.get(f.watchId ?? '') ?? null}));
+// The app's own IPC layer, so the preview shows exactly what the app would.
+const api = createApi(db, DIR);
+const ws = api.watches() as { id: string }[];
+const flashes = api.flashes(48);
 const deeps: any = {};
 for (const r of q('SELECT item_id itemId, body_json b, sources_json s FROM deep_summaries')) {
   const parsed = JSON.parse(r.b);
   deeps[r.itemId] = { blocks: parsed.blocks, milestones: parsed.milestones ?? [], sources: JSON.parse(r.s) };
 }
-const d = new Date().toISOString().slice(0,10);
-const timelines: any = {}; for (const w of ws) timelines[w.id] = { milestones: timeline(db,w.id), items: [] };
+const timelines: any = {}; for (const w of ws) timelines[w.id] = api.watchTimeline(w.id);
 writeFileSync(new URL('../apps/desktop/dist/renderer/mock.json', import.meta.url), JSON.stringify({
   sources, items, bodies,
   cat: q('SELECT id,name,kind,category,country,domain,enabled,NULL lastError,0 unread,0 total FROM sources ORDER BY enabled DESC,name LIMIT 300'),
   watches: ws, presets: PRESETS.map(p=>({...p, enabled: ws.some(w=>w.id===p.id)})),
-  today: { date: d, digest: getDigest(db, d), changes: ws.filter(w=>w.active).map(w=>({watchId:w.id,label:w.label,milestones:newSinceYesterday(db,w.id)})).filter(x=>x.milestones.length>0) },
+  today: api.today(), headlines: api.headlines(24, 4),
   timelines, flashes, deeps, ai: { available: true, provider: 'gemini', outputLang: 'zh-CN' }
 }));
 console.log(`导出：${items.length} 条 · ${flashes.length} 快讯 · ${Object.keys(deeps).length} 篇深度 · ${ws.length} 关注`);

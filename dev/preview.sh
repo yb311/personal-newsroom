@@ -38,7 +38,7 @@ cat > "$OUT/preview.html" <<'HTML'
     presets: async () => d.presets, watches: async () => d.watches,
     addWatch: async () => d.watches[0], editWatch: async () => d.watches[0],
     removeWatch: async () => {}, togglePreset: async () => {}, correct: async () => {},
-    today: async () => d.today,
+    today: async () => d.today, headlines: async () => d.headlines, itemRefs: async () => [],
     watchTimeline: async (id) => d.timelines[id] ?? {milestones:[],items:[]},
     watchItems: async () => [],
     runWatches: async () => ({busy:false, watches:d.watches.length, digest:true}),

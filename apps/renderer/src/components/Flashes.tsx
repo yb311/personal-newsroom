@@ -1,35 +1,30 @@
 import { Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { FlashRow, ItemRef } from '../types.ts';
+import { Cites } from './Cites.tsx';
 
-interface FlashRow {
-  id: string; watchId: string | null; watchLabel: string | null;
-  publishedAt: number; title: string; body: string;
-  importance: number; importanceReason: string | null;
-  category: string | null; basis: 'article' | 'search'; followUpOf: string | null;
-}
-
-const when = (ts: number): string => {
+const ago = (ts: number): string => {
   const m = Math.round((Date.now() - ts) / 60000);
   if (m < 60) return `${Math.max(1, m)} 分钟前`;
   const h = Math.round(m / 60);
   return h < 24 ? `${h} 小时前` : new Date(ts).toLocaleDateString('zh-CN');
 };
 
-export function Flashes({ aiReady, onSetup, onRead, onRun, running }:
-  { aiReady: boolean; onSetup: () => void; onRead: () => void; onRun: () => void; running: boolean }) {
+export function Flashes({ aiReady, onSetup, onRead, onOpen, running }:
+  { aiReady: boolean; onSetup: () => void; onRead: () => void; onOpen: (id: string) => void; running: boolean }) {
   const [rows, setRows] = useState<FlashRow[]>([]);
   const [onlyImportant, setOnlyImportant] = useState(false);
 
-  useEffect(() => { void window.pnr.flashes(24).then((r) => setRows(r as FlashRow[])); }, [running]);
+  useEffect(() => { void window.pnr.flashes(24).then(setRows); }, [running]);
+  const refs = useMemo(() => new Map<string, ItemRef>(rows.flatMap((f) => f.sources).map((r) => [r.id, r])), [rows]);
 
   if (!aiReady && rows.length === 0) {
     return (
       <section className="pane center">
         <div className="setup-card"><div className="feature-icon"><Sparkles size={27} /></div>
-          <h2>尚未启用快讯</h2>
-          <p>在设置中连接 AI，检查关注的新进展。</p>
+          <h2>快讯需要 AI</h2>
+          <p>快讯会从你关注的事里挑出最新进展，写成一两句话。连接 AI 后可用。</p>
           <div className="setup-actions"><button className="primary" onClick={onSetup}>连接 AI</button><button onClick={onRead}>先去阅读</button></div>
-          <p className="muted">阅读和收藏无需 AI，随时可用。</p>
         </div>
       </section>
     );
@@ -47,7 +42,6 @@ export function Flashes({ aiReady, onSetup, onRead, onRun, running }:
             <input type="checkbox" checked={onlyImportant} onChange={(e) => setOnlyImportant(e.target.checked)} />
             只看重要的
           </label>
-
         </div>
 
         {shown.length === 0 && (
@@ -62,17 +56,21 @@ export function Flashes({ aiReady, onSetup, onRead, onRun, running }:
             <li key={f.id}>
               <div className="flash-meta">
                 <em className={`imp ${f.importance >= 8 ? 'high' : ''}`}>{f.importance >= 8 ? '重要' : '进展'}</em>
-                {f.watchLabel && <span className="src">{f.watchLabel}</span>}
+                {f.watchLabels.map((l) => <span key={l} className="src">{l}</span>)}
                 <span className="dot">·</span>
-                <time>{when(f.publishedAt)}</time>
+                <time title={`整理于 ${new Date(f.publishedAt).toLocaleString('zh-CN')}`}>
+                  {f.itemPublishedAt ? `新闻发布于 ${ago(f.itemPublishedAt)}` : `整理于 ${ago(f.publishedAt)}`}
+                </time>
                 {f.followUpOf && <span className="tag">后续</span>}
-                {/* Honest about provenance: written from the article, or filled
-                    in by search because the body could not be fetched. */}
+                {/* Honest about provenance: written from the article, or only
+                    from the summary the source provided. */}
+                {f.basis === 'snippet' && <span className="tag" title="没能抓到原文，这条只依据来源提供的摘要">仅依据摘要</span>}
                 {f.basis === 'search' && <span className="tag" title="正文抓不到，内容由搜索补全">搜索补全</span>}
               </div>
               <h3>{f.title}</h3>
               <p>{f.body}</p>
               {f.importanceReason && <p className="why">{f.importanceReason}</p>}
+              <Cites ids={f.itemIds} refs={refs} onOpen={onOpen} />
             </li>
           ))}
         </ul>

@@ -1,13 +1,11 @@
-import { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import { openDb, defaultDataDir, acquireLock, releaseLock } from '@pnr/store';
+import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_MS } from '@pnr/store';
 import { ingestAll } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
-import { resolveProvider, readSettings } from '@pnr/ai';
-import { listWatches, prepareWatch } from '@pnr/watch';
-import { recallForWatch, judgeAll, gateWatch } from '@pnr/recall';
-import { generateDigest, generateProgress, generateFlashes, generateDeepSummary } from '@pnr/generate';
+import { resolveProvider, readSettings, type Provider } from '@pnr/ai';
+import { runDaily, runFlashCheck, runWatch, generateDeepSummary, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
@@ -43,7 +41,9 @@ function createWindow(): void {
     width: 1180, height: 820, minWidth: 720, minHeight: 520,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 18 },
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f0f0f' : '#f5f2eb',
+    backgroundColor: '#00000000',
+    vibrancy: 'sidebar',
+    visualEffectState: 'followWindow',
     webPreferences: { preload: join(__dirname, 'preload.cjs'), sandbox: false, contextIsolation: true }
   });
   const built = join(__dirname, 'renderer', 'index.html');
@@ -106,6 +106,8 @@ function installApplicationMenu(): void {
     { label: '显示', submenu: [
       ...(['今日', '快讯', '阅读', '关注'] as const).map((label, i) => ({ label, accelerator: `CmdOrCtrl+${i + 1}`, click: () => win?.webContents.send('app:command', ['today', 'flashes', 'read', 'watches'][i]) })),
       { type: 'separator' as const },
+      { label: '显示或隐藏侧边栏', accelerator: 'CmdOrCtrl+Ctrl+S', click: () => win?.webContents.send('app:command', 'sidebar') },
+      { label: '搜索文章', accelerator: 'CmdOrCtrl+F', click: () => win?.webContents.send('app:command', 'search') },
       { label: '更新订阅', accelerator: 'CmdOrCtrl+R', click: () => win?.webContents.send('app:command', 'refresh') },
       { role: 'togglefullscreen', label: '进入全屏幕' }
     ] },
@@ -191,52 +193,37 @@ ipcMain.handle('app:enrichOne', async (_e, id: string) => {
 });
 
 /**
- * The AI pass: recall → judge → gate per watch, then ONE digest call covering
- * all of them, then per-watch progress.
- *
- * Merging the digest across watches is structural, not an optimisation: writing
- * dominates cost, so one call per watch would multiply the daily bill by the
- * number of watches.
+ * The runs behind 今日, 快讯 and a single watch's "立即更新". They live in
+ * @pnr/generate so the background worker runs exactly the same thing; this
+ * only adds locking, run bookkeeping and progress messages for the window.
+ * With no AI connected they still run, matching watches by their keywords.
  */
-let running = false;
-ipcMain.handle('app:runWatches', async () => {
-  if (running) return { busy: true };
-  const provider = await resolveProvider(db);
-  if (!provider) return { noProvider: true };
-  if (!acquireLock(db, 'watches')) return { busy: true };
-  running = true;
-  const runId = `watch-${Date.now()}`;
-  db.prepare('INSERT INTO runs (id, kind, started_at) VALUES (?, ?, ?)').run(runId, 'daily', Date.now());
-  const lang = readSettings(db).outputLang ?? 'zh-CN';
+async function run(kind: 'daily' | 'flashes', lock: string, task: (provider: Provider | null, opts: RunOptions) => Promise<RunResult>) {
+  if (!acquireLock(db, lock)) return { busy: true };
+  const beat = setInterval(() => renewLock(db, lock), HEARTBEAT_MS);
+  const runId = `${kind}-${Date.now()}`;
+  db.prepare('INSERT INTO runs (id, kind, started_at) VALUES (?, ?, ?)').run(runId, kind, Date.now());
   try {
-    const watches = listWatches(db, true);
-    if (watches.length === 0) return { busy: false, watches: 0 };
-
-    const ready = [];
-    for (const w of watches) {
-      win?.webContents.send('app:progress', { phase: 'watch', label: w.label });
-      const prepared = await prepareWatch(db, provider, w);
-      const candidates = await recallForWatch(db, provider, prepared, { windowHours: 72, maxJudged: 40 });
-      await judgeAll(db, provider, prepared, candidates);
-      gateWatch(db, prepared, 'balanced');
-      ready.push(prepared);
-    }
-
-    win?.webContents.send('app:progress', { phase: 'writing' });
-    const digest = await generateDigest(db, provider, ready, lang);
-    for (const w of ready) {
-      await generateProgress(db, provider, w, w.outputLang ?? lang);
-    }
-
-    db.prepare("UPDATE runs SET finished_at = ?, outcome = 'ok', stats_json = ? WHERE id = ?")
-      .run(Date.now(), JSON.stringify({ watches: ready.length, digest: Boolean(digest) }), runId);
-    return { busy: false, watches: ready.length, digest: Boolean(digest) };
+    const provider = await resolveProvider(db);
+    const result = await task(provider, {
+      dataDir: DATA_DIR,
+      lang: readSettings(db).outputLang ?? 'zh-CN',
+      onProgress: (p) => win?.webContents.send('app:progress', p)
+    });
+    db.prepare('UPDATE runs SET finished_at = ?, outcome = ?, stats_json = ? WHERE id = ?')
+      .run(Date.now(), result.failed ? 'partial' : 'ok', JSON.stringify(result), runId);
+    return { busy: false, ...result };
   } catch (err) {
     db.prepare("UPDATE runs SET finished_at = ?, outcome = 'failed', stats_json = ? WHERE id = ?")
       .run(Date.now(), JSON.stringify({ error: String(err) }), runId);
-    return { busy: false, error: String(err) };
-  } finally { running = false; releaseLock(db, 'watches'); }
-});
+    return { busy: false, error: String(err).slice(0, 160) };
+  } finally { clearInterval(beat); releaseLock(db, lock); }
+}
+
+// Lock names match the worker's, so the app and a scheduled run never do the same job at once.
+ipcMain.handle('app:runWatches', () => run('daily', 'daily', (p, o) => runDaily(db, p, o)));
+ipcMain.handle('app:runFlashes', () => run('flashes', 'flashes', (p, o) => runFlashCheck(db, p, o)));
+ipcMain.handle('app:runWatch', (_e, id: string) => run('daily', 'daily', (p, o) => runWatch(db, p, id, o)));
 
 ipcMain.handle('app:deepSummary', async (_e, itemId: string) => {
   const provider = await resolveProvider(db);
@@ -245,23 +232,6 @@ ipcMain.handle('app:deepSummary', async (_e, itemId: string) => {
   try {
     return { summary: await generateDeepSummary(db, provider, DATA_DIR, itemId, lang) };
   } catch (e) { return { error: String(e).slice(0, 120) }; }
-});
-
-/** Flashes run far more often than the daily pass, so they skip the search arm
- *  and reuse whatever recall already produced. */
-ipcMain.handle('app:runFlashes', async () => {
-  const provider = await resolveProvider(db);
-  if (!provider) return { noProvider: true };
-  if (!acquireLock(db, 'flashes', process.pid, 30 * 60_000)) return { busy: true };
-  const lang = readSettings(db).outputLang ?? 'zh-CN';
-  try {
-    let published = 0;
-    for (const w of listWatches(db, true)) {
-      published += (await generateFlashes(db, provider, w, w.outputLang ?? lang)).length;
-    }
-    return { published };
-  } catch (e) { return { error: String(e).slice(0, 120) }; }
-  finally { releaseLock(db, 'flashes'); }
 });
 
 // ── background schedule ────────────────────────────────────────────────────

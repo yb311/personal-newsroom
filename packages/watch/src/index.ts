@@ -1,4 +1,4 @@
-export type { Watch, WatchOrigin, RecallAids, Correction } from './watch.ts';
+export type { Watch, WatchOrigin, RecallAids, Correction, Sensitivity } from './watch.ts';
 export {
   listWatches, getWatch, createWatch, updateWatch, deleteWatch,
   saveRecallAids, addCorrection, recentCorrections

@@ -108,8 +108,14 @@ export async function judgeAll(
   db: Db, provider: Provider, watch: Watch, candidates: Candidate[]
 ): Promise<Map<string, Judgement>> {
   const results = new Map<string, Judgement>();
-  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-    const batch = candidates.slice(i, i + BATCH_SIZE);
+  // A verdict stands until the user's sentence changes (editing it clears
+  // judged_at), so every run pays only for items it has not seen before.
+  const judged = new Set((db.prepare(
+    'SELECT item_id AS id FROM matches WHERE watch_id = ? AND judged_at IS NOT NULL'
+  ).all(watch.id) as { id: string }[]).map((r) => r.id));
+  const fresh = candidates.filter((c) => !judged.has(c.itemId));
+  for (let i = 0; i < fresh.length; i += BATCH_SIZE) {
+    const batch = fresh.slice(i, i + BATCH_SIZE);
     try {
       for (const j of await judgeBatch(db, provider, watch, batch)) results.set(j.itemId, j);
     } catch (e) {
@@ -122,14 +128,18 @@ export async function judgeAll(
      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
      ON CONFLICT(watch_id, item_id) DO UPDATE SET
        recalled_by = excluded.recalled_by, vector_score = excluded.vector_score,
-       intent_score = excluded.intent_score, reason = excluded.reason, judged_at = excluded.judged_at`
+       intent_score = COALESCE(excluded.intent_score, matches.intent_score),
+       reason = COALESCE(excluded.reason, matches.reason),
+       judged_at = COALESCE(excluded.judged_at, matches.judged_at)`
   );
   const now = Date.now();
   db.transaction(() => {
     for (const c of candidates) {
+      // A batch that failed leaves its items unjudged, so the next run retries
+      // them instead of treating the silence as a verdict.
       const j = results.get(c.itemId);
       ins.run(watch.id, c.itemId, [...c.arms].join(','), c.vectorScore ?? null,
-              j?.score ?? null, j?.reason ?? null, now, now);
+              j?.score ?? null, j?.reason ?? null, j ? now : null, now);
     }
   })();
   return results;

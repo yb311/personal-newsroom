@@ -1,5 +1,6 @@
-import { Sun, Zap, BookOpen, Bookmark, Settings as SettingsIcon, Plus, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { SplitDivider } from './components/SplitDivider.tsx';
+import { Sun, Zap, BookOpen, Bookmark, Settings as SettingsIcon, Plus, RefreshCw, PanelLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { ItemRow, SourceRow } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { ItemList } from './components/ItemList.tsx';
@@ -19,6 +20,10 @@ type Tab = 'today' | 'flashes' | 'read' | 'watches';
 const TABS = [{ id: 'today', label: '今日', icon: Sun }, { id: 'flashes', label: '快讯', icon: Zap }, { id: 'read', label: '阅读', icon: BookOpen }, { id: 'watches', label: '关注', icon: Bookmark }] as const;
 
 export default function App() {
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [listWidth, setListWidth] = useState(() => {
+    try { return Math.max(250, Math.min(440, Number(localStorage.getItem('pnr.listWidth')) || 310)); } catch { return 310; }
+  });
   const [tab, setTab] = useState<Tab>('read');
   const [sources, setSources] = useState<SourceRow[]>([]);
   const [items, setItems] = useState<ItemRow[]>([]);
@@ -95,16 +100,23 @@ export default function App() {
   });
   const runFlashes = (): Promise<void> => perform('正在检查新进展…', async () => {
     const r = await window.pnr.runFlashes();
-    return r.noProvider ? '请先连接 AI 服务' : r.busy ? '正在检查，请稍候' : r.error ? `检查失败：${r.error.slice(0, 70)}` : `新增 ${r.published ?? 0} 条快讯`;
+    void loadItems(); void loadSources();
+    return r.busy ? '正在检查，请稍候' : r.error ? `检查失败：${r.error.slice(0, 70)}`
+      : `新抓到 ${r.fetched ?? 0} 篇，新增 ${r.flashes ?? 0} 条快讯${r.failed ? `（${r.failed} 项没有完成）` : ''}`;
   });
   const runWatches = (): Promise<void> => perform('正在整理你的关注…', async () => {
     const r = await window.pnr.runWatches();
-    return r.noProvider ? '请先连接 AI 服务' : r.busy ? '正在整理，请稍候' : r.error ? `更新失败：${r.error.slice(0, 70)}` : `已更新 ${r.watches ?? 0} 个关注`;
+    void loadItems(); void loadSources();
+    return r.busy ? '正在整理，请稍候' : r.error ? `更新失败：${r.error.slice(0, 70)}`
+      : r.mode === 'keywords' ? `已按关键词更新 ${r.watches ?? 0} 个关注`
+      : `已更新 ${r.watches ?? 0} 个关注${r.digest ? '，今日摘要已生成' : ''}${r.failed ? `（${r.failed} 项没有完成）` : ''}`;
   });
 
   useEffect(() => window.pnr.onCommand?.(command => {
     if (document.querySelector('dialog[open]')) return;
     if (command === 'settings') setShowSettings(true);
+    else if (command === 'sidebar') setSidebarVisible(v => !v);
+    else if (command === 'search') { setTab('read'); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[aria-label="搜索当前列表"]')?.focus()); }
     else if (command === 'subscribe') setShowCatalogue(true);
     else if (command === 'refresh') void refresh();
     else if (TABS.some(t => t.id === command)) setTab(command as Tab);
@@ -125,23 +137,34 @@ export default function App() {
 
   const goSetup = (): void => setShowSettings(true);
 
+  /** Opens one article in the reader, from a citation, a headline or a flash. */
+  const openItem = (id: string): void => {
+    setTab('read');
+    void onSelect(id);
+  };
+
   const visibleItems = items.filter(i => `${i.title} ${i.sourceName} ${i.snippet ?? ''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const title = TABS.find(t => t.id === tab)!.label;
-  const pickSource = (id: string | undefined): void => { setSourceId(id); setSelected(null); setQuery(''); };
-  const pickFilter = (value: Filter): void => { setFilter(value); setSelected(null); setQuery(''); };
+  const pickSource = (id: string | undefined): void => { setTab('read'); setFilter('all'); setSourceId(id); setSelected(null); setQuery(''); };
+  const pickFilter = (value: Filter): void => { setTab('read'); setSourceId(undefined); setFilter(value); setSelected(null); setQuery(''); };
+
+  const selectedIndex = visibleItems.findIndex(i => i.id === selected);
+  const stepArticle = (delta: number): void => {
+    const next = visibleItems[selectedIndex < 0 ? 0 : selectedIndex + delta];
+    if (next) void onSelect(next.id);
+  };
 
   return (
-    <div className="app">
-      <aside className="app-sidebar">
-        <div className="sidebar-brand" aria-hidden="true" />
+    <div className={`app ${sidebarVisible ? '' : 'sidebar-hidden'}`} style={{ '--list-width': `${listWidth}px` } as CSSProperties}>
+      <aside className="app-sidebar" hidden={!sidebarVisible}>
+        <div className="sidebar-brand"><button className="sidebar-toggle" title="隐藏侧边栏（⌘⌃S）" aria-label="隐藏侧边栏" onClick={() => setSidebarVisible(false)}><PanelLeft size={18} /></button></div>
         <nav className="main-nav" aria-label="主导航">
           {TABS.map(({ id, label, icon: Icon }) => <button key={id} aria-current={tab === id ? 'page' : undefined}
-            className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={19} /><span>{label}</span></button>)}
+            className={tab === id && id !== 'read' ? 'active' : ''} onClick={() => setTab(id)}><Icon size={19} /><span>{label}</span></button>)}
         </nav>
         <div className="sidebar-content">
-          {tab === 'read' ? <Sidebar sources={sources} sourceId={sourceId} filter={filter}
-            onPickSource={pickSource} onPickFilter={pickFilter} onManage={() => setShowCatalogue(true)} />
-            : null}
+          <Sidebar sources={sources} sourceId={sourceId} filter={filter}
+            onPickSource={pickSource} onPickFilter={pickFilter} onManage={() => setShowCatalogue(true)} active={tab === 'read'} />
         </div>
         <div className="sidebar-footer">
           <button onClick={() => setShowCatalogue(true)}><Plus size={18} />添加订阅</button>
@@ -150,24 +173,26 @@ export default function App() {
       </aside>
       <main className="workspace">
         <header className="titlebar">
-          <h1>{tab === 'read' ? (sources.find(s => s.id === sourceId)?.name ?? '阅读') : title}</h1>
+          <div className="window-heading">{!sidebarVisible && <button aria-label="显示侧边栏" title="显示侧边栏（⌘⌃S）" onClick={() => setSidebarVisible(true)}><PanelLeft size={18} /></button>}<h1>{tab === 'read' ? (sources.find(s => s.id === sourceId)?.name ?? '阅读') : title}</h1>{tab === 'read' && <span className="toolbar-subtitle">{total.toLocaleString()} 篇文章</span>}</div>
           <div className="titlebar-actions">
+            {tab === 'read' && <div className="article-navigation"><button aria-label="上一篇文章" title="上一篇文章" disabled={selectedIndex <= 0} onClick={() => stepArticle(-1)}><ChevronLeft size={17} /></button><button aria-label="下一篇文章" title="下一篇文章" disabled={!visibleItems.length || selectedIndex === visibleItems.length - 1} onClick={() => stepArticle(1)}><ChevronRight size={17} /></button></div>}
             {tab === 'flashes' && aiReady && <button onClick={() => void runFlashes()} disabled={busy}>检查新进展</button>}
             {(tab === 'today' || tab === 'watches') && aiReady && <button onClick={() => void runWatches()} disabled={busy}>更新关注</button>}
-            <button onClick={() => void refresh()} disabled={busy} title="更新订阅"><RefreshCw size={16} className={busy ? 'spinning' : ''} /><span>刷新</span></button>
+            <button onClick={() => void refresh()} disabled={busy} title="更新订阅（⌘R）" aria-label="更新订阅"><RefreshCw size={16} className={busy ? 'spinning' : ''} /></button>
           </div>
         </header>
-        {note && <div className="status-note" role="status">{note}</div>}
         {tab === 'read' && <div className={`body ${selected ? 'has-selection' : ''}`}>
           <ItemList items={visibleItems} total={query ? visibleItems.length : total}
             onMore={items.length < total && !query ? () => void loadMore() : undefined}
             selected={selected} onSelect={onSelect} onStar={onStar}
             query={query} onQuery={setQuery} filter={filter} onManage={() => setShowCatalogue(true)} />
+          <SplitDivider width={listWidth} onChange={setListWidth} />
           <Reader id={selected} onStar={onStar} aiReady={aiReady} revision={revision} onBack={() => setSelected(null)} />
         </div>}
-        {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onRun={() => void runWatches()} running={busy} />}
-        {tab === 'flashes' && <Flashes aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onRun={() => void runFlashes()} running={busy} />}
+        {tab === 'today' && <Today aiReady={aiReady} onSetup={goSetup} onRun={() => void runWatches()} onOpen={openItem} running={busy} />}
+        {tab === 'flashes' && <Flashes aiReady={aiReady} onSetup={goSetup} onRead={() => setTab('read')} onOpen={openItem} running={busy} />}
         {tab === 'watches' && <Watches aiReady={aiReady} onSetup={goSetup} />}
+        <footer className="window-status" role="status"><span className={busy ? 'busy-dot' : 'status-dot'} />{note || (tab === 'read' ? `${sources.length} 个订阅源 · ${filter === 'unread' ? '未读文章' : filter === 'starred' ? '我的收藏' : '全部文章'}` : '所闻')}<span className="grow" /><span>{aiReady ? 'AI 已连接' : '阅读模式'}</span></footer>
       </main>
       {showCatalogue && <Catalogue onClose={() => { setShowCatalogue(false); void loadSources(); void loadItems(); }} />}
       {showSettings && <Settings onClose={() => setShowSettings(false)} onChanged={() => { void loadAi(); void loadItems(); }} />}

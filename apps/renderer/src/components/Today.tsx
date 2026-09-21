@@ -1,29 +1,28 @@
 import { Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import type { Today as TodayData } from '../types.ts';
+import { useEffect, useMemo, useState } from 'react';
+import type { HeadlineGroup, ItemRef, Today as TodayData } from '../types.ts';
 import { Blocks } from './Blocks.tsx';
+import { Cites } from './Cites.tsx';
 
-/** The 今日 tab: the "since yesterday" panel on top, then the brief itself.
- *  Both are rendered from the same milestone data (see progress.ts). */
-export function Today({ aiReady, onSetup, onRead, onRun, running }:
-  { aiReady: boolean; onSetup: () => void; onRead: () => void; onRun: () => void; running: boolean }) {
+const clock = (ts: number): string => new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+/**
+ * The 今日 tab. With AI: 昨天到今天 on top, then the brief, then the day's
+ * headlines. Without AI it is still a front page — the headlines of the last
+ * day from every subscribed source — rather than a request to set something up.
+ * Every AI-written sentence links back to the articles it came from.
+ */
+export function Today({ aiReady, onSetup, onRun, onOpen, running }:
+  { aiReady: boolean; onSetup: () => void; onRun: () => void; onOpen: (id: string) => void; running: boolean }) {
   const [data, setData] = useState<TodayData | null>(null);
+  const [headlines, setHeadlines] = useState<HeadlineGroup[]>([]);
 
-  useEffect(() => { void window.pnr.today().then(setData); }, [running]);
+  useEffect(() => {
+    void window.pnr.today().then(setData);
+    void window.pnr.headlines(24, 4).then(setHeadlines);
+  }, [running]);
 
-  if (!aiReady && !data?.digest && !data?.changes.length) {
-    return (
-      <section className="pane center">
-        <div className="setup-card"><div className="feature-icon"><Sparkles size={27} /></div>
-          <h2>尚未启用今日摘要</h2>
-          <p>在设置中连接 AI，生成关注摘要和进展。</p>
-          <div className="setup-actions"><button className="primary" onClick={onSetup}>连接 AI</button><button onClick={onRead}>先去阅读</button></div>
-          <p className="muted">阅读和收藏无需 AI，随时可用。</p>
-        </div>
-      </section>
-    );
-  }
-
+  const refs = useMemo(() => new Map<string, ItemRef>((data?.refs ?? []).map((r) => [r.id, r])), [data]);
   const changes = data?.changes ?? [];
   const digest = data?.digest ?? null;
 
@@ -38,7 +37,7 @@ export function Today({ aiReady, onSetup, onRead, onRun, running }:
                 <h3>{c.label}</h3>
                 <ul>
                   {c.milestones.map((m) => (
-                    <li key={m.id}><time>{m.occurredOn}</time><span>{m.summary}</span></li>
+                    <li key={m.id}><time>{m.occurredOn}</time><span>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></span></li>
                   ))}
                 </ul>
               </div>
@@ -48,20 +47,39 @@ export function Today({ aiReady, onSetup, onRead, onRun, running }:
 
         {digest ? (
           <article className="digest">
-            <div className="digest-meta">
-              {data?.date} · 生成于 {new Date(digest.generatedAt).toLocaleTimeString('zh-CN')}
-            </div>
+            <div className="digest-meta">{data?.date} · 生成于 {clock(digest.generatedAt)}</div>
             <h1>{digest.title}</h1>
-            <div className="prose"><Blocks blocks={digest.blocks} /></div>
+            <div className="prose"><Blocks blocks={digest.blocks} refs={refs} onOpen={onOpen} /></div>
           </article>
-        ) : (
+        ) : aiReady ? (
           <div className="empty-block">
             <p>今天还没有生成摘要。</p>
-            <button className="primary" onClick={onRun} disabled={running}>
-              {running ? '正在生成…' : '现在生成'}
-            </button>
+            <button className="primary" onClick={onRun} disabled={running}>{running ? '正在生成…' : '现在生成'}</button>
           </div>
+        ) : (
+          <p className="muted today-note">
+            <Sparkles size={14} /> 连接 AI 后，这里会先显示按你的关注写的今日摘要。
+            <button className="link" onClick={onSetup}>去设置</button>
+          </p>
         )}
+
+        <div className="headlines">
+          <h2>今日要闻</h2>
+          {headlines.length === 0 && <p className="muted">最近 24 小时还没有新文章，刷新订阅试试。</p>}
+          {headlines.map((g) => (
+            <div key={g.sourceId} className="headline-group">
+              <h3>{g.sourceName}</h3>
+              <ul>
+                {g.items.map((it) => (
+                  <li key={it.id}>
+                    <button className="headline" onClick={() => onOpen(it.id)}>{it.title}</button>
+                    <time>{clock(it.publishedAt)}</time>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

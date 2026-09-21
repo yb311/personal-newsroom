@@ -93,8 +93,18 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
   };
 
   return (
-    <section className="reader">
+    <section className="reader" key={id}>
       <button className="reader-back" onClick={onBack}><ArrowLeft size={16} />返回列表</button>
+      <div className="reader-actions">
+          <button aria-pressed={Boolean(item.starredAt)} onClick={() => onStar(item.id)}><Star size={15} fill={item.starredAt ? 'currentColor' : 'none'} />{item.starredAt ? '已收藏' : '收藏'}</button>
+          <button onClick={open}><ExternalLink size={15} />查看原文</button>
+          {aiReady && !deep && (
+            <button onClick={() => void goDeep()} disabled={deepBusy}>
+              <Sparkles size={15} />{deepBusy ? '正在整理…' : '深入了解'}
+            </button>
+          )}
+          {item.body ? <span className="words">{item.body.words} 词{item.body.words < SHORT_WORDS ? ' · 正文较短' : ''}</span> : null}
+        </div>
       <article>
         <div className="reader-meta">
           <span className="src">{item.sourceName}</span>
@@ -105,16 +115,6 @@ export function Reader({ id, onStar, aiReady, revision, onBack }:
           {item.author && <><span className="dot">·</span><span>{item.author}</span></>}
         </div>
         <h1>{item.title}</h1>
-        <div className="reader-actions">
-          <button aria-pressed={Boolean(item.starredAt)} onClick={() => onStar(item.id)}><Star size={15} fill={item.starredAt ? 'currentColor' : 'none'} />{item.starredAt ? '已收藏' : '收藏'}</button>
-          <button onClick={open}><ExternalLink size={15} />查看原文</button>
-          {aiReady && !deep && (
-            <button onClick={() => void goDeep()} disabled={deepBusy}>
-              <Sparkles size={15} />{deepBusy ? '正在整理…' : '深入了解'}
-            </button>
-          )}
-          {item.body ? <span className="words">{item.body.words} 词{item.body.words < SHORT_WORDS ? ' · 正文较短' : ''}</span> : null}
-        </div>
 
         {deepErr && <p className="muted warn">{deepErr}</p>}
         {deep && <DeepView deep={deep} />}

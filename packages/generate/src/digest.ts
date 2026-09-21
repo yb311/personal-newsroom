@@ -1,8 +1,15 @@
 import type { Db } from '@pnr/store';
 import type { Provider } from '@pnr/ai';
 import type { RichBlock } from '@pnr/core';
-import { log } from '@pnr/core';
+import { log, localDateKey } from '@pnr/core';
 import type { Watch } from '@pnr/watch';
+import { MATERIAL_COLS, materialBlock, type Material } from './material.ts';
+
+/** Today's brief is about the last day and a bit. When nothing that recent
+ *  passed for a watch, it falls back to the last three days rather than
+ *  resurfacing whatever scored highest last week. */
+const DIGEST_WINDOW_HOURS = 30;
+const DIGEST_FALLBACK_HOURS = 72;
 
 export interface Digest {
   id: string;
@@ -54,19 +61,21 @@ const SCHEMA = {
 export async function generateDigest(
   db: Db, provider: Provider, watches: Watch[], lang: string, editionDate?: string
 ): Promise<Digest | null> {
-  const date = editionDate ?? new Date().toISOString().slice(0, 10);
+  const date = editionDate ?? localDateKey();
 
-  const perWatch = watches.map((w) => ({
-    watch: w,
-    items: db.prepare(
-      `SELECT i.id, i.title, i.snippet, i.published_at AS publishedAt,
-              s.name AS sourceName, m.intent_score AS score, m.reason
-       FROM matches m JOIN items i ON i.id = m.item_id
-       LEFT JOIN sources s ON s.id = i.source_id
-       WHERE m.watch_id = ? AND m.passed_gate = 1
-       ORDER BY m.intent_score DESC, i.published_at DESC LIMIT 8`
-    ).all(w.id) as any[]
-  })).filter((x) => x.items.length > 0);
+  const pick = db.prepare(
+    `SELECT ${MATERIAL_COLS}, m.intent_score AS score
+     FROM matches m JOIN items i ON i.id = m.item_id
+     LEFT JOIN sources s ON s.id = i.source_id
+     WHERE m.watch_id = ? AND m.passed_gate = 1 AND i.published_at >= ?
+     ORDER BY m.intent_score DESC, i.published_at DESC LIMIT 8`
+  );
+  const now = Date.now();
+  const perWatch = watches.map((w) => {
+    let items = pick.all(w.id, now - DIGEST_WINDOW_HOURS * 3600_000) as Material[];
+    if (items.length === 0) items = pick.all(w.id, now - DIGEST_FALLBACK_HOURS * 3600_000) as Material[];
+    return { watch: w, items };
+  }).filter((x) => x.items.length > 0);
 
   if (perWatch.length === 0) return null;
 
@@ -84,6 +93,8 @@ export async function generateDigest(
     '- 材料里没确认的事要写明是未确认的。',
     '- 不写社论口吻，不做预测，不用煽情词。',
     '- 每个关注写 1-3 段，每段 2-4 句。没什么可说的就少写，不要凑字数。',
+    '- 同一件事只写一次：几个关注都涉及同一事件时，写在最相关的那个关注下，其他关注里不再重复。',
+    '  某个关注的材料全都已经写在别处了，就不输出这个关注的 section。',
     '- title 是整份摘要的标题，一句话概括今天他最该知道的事。',
     '',
     'WATCHES'
@@ -92,10 +103,7 @@ export async function generateDigest(
   for (const { watch, items } of perWatch) {
     lines.push('', `## watchId=${watch.id}  ${watch.label}`);
     lines.push(`他的原话：${watch.intent}`);
-    for (const it of items) {
-      const d = new Date(it.publishedAt).toISOString().slice(0, 16).replace('T', ' ');
-      lines.push(`${it.id} | ${d} | ${it.sourceName} | ${it.title}${it.snippet ? ` | ${String(it.snippet).slice(0, 220)}` : ''}`);
-    }
+    for (const it of items) lines.push(materialBlock(it, 600));
   }
 
   const t0 = Date.now();
@@ -105,7 +113,7 @@ export async function generateDigest(
     temperature: 0.3
   });
 
-  const validIds = new Set(perWatch.flatMap((x) => x.items.map((i: any) => i.id)));
+  const validIds = new Set(perWatch.flatMap((x) => x.items.map((i) => i.id)));
   const labelOf = new Map(perWatch.map((x) => [x.watch.id, x.watch.label]));
   const blocks: RichBlock[] = [];
   let kept = 0, dropped = 0;
@@ -139,11 +147,14 @@ export async function generateDigest(
        body_json = excluded.body_json, generated_at = excluded.generated_at, model = excluded.model`
   ).run(digest.id, date, lang, digest.title, JSON.stringify(blocks), digest.generatedAt, res.model);
 
-  // Record what was said, so tomorrow's progress pass knows.
+  // Record what was said, so tomorrow's progress pass knows. Regenerating
+  // today's digest replaces today's record instead of adding a second copy
+  // that would crowd older narratives out of the progress window.
   const insTold = db.prepare(
     'INSERT INTO told_records (watch_id, narrative, surface, surface_id, told_at) VALUES (?, ?, ?, ?, ?)'
   );
   db.transaction(() => {
+    db.prepare("DELETE FROM told_records WHERE surface = 'digest' AND surface_id = ?").run(digest.id);
     for (const sec of res.data.sections ?? []) {
       const wid = String(sec.watchId ?? '');
       if (!labelOf.has(wid)) continue;

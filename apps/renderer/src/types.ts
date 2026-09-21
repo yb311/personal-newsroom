@@ -16,7 +16,7 @@ export interface SourceRow {
   newest?: number | null;
 }
 export type Block =
-  | { type: 'paragraph'; text: string }
+  | { type: 'paragraph'; text: string; sourceRefIds?: string[] }
   | { type: 'heading'; level: 2 | 3; text: string }
   | { type: 'list'; ordered?: boolean; items: string[] }
   | { type: 'quote'; text: string; attribution?: string }
@@ -35,10 +35,26 @@ export interface WatchRow {
   newCount: number; timelineCount: number; passed: number;
 }
 export interface PresetRow { id: string; label: string; intent: string; enabled: boolean }
+/** What a citation needs to be shown and opened. */
+export interface ItemRef { id: string; title: string; url: string; publishedAt: number; sourceName: string | null }
 export interface Today {
   date: string;
   digest: { id: string; title: string; blocks: Block[]; generatedAt: number } | null;
   changes: { watchId: string; label: string; milestones: Milestone[] }[];
+  refs: ItemRef[];
+}
+export interface HeadlineGroup { sourceId: string; sourceName: string; items: ItemRow[] }
+export interface FlashRow {
+  id: string; watchIds: string[]; watchLabels: string[];
+  publishedAt: number; itemPublishedAt: number | null; itemIds: string[];
+  title: string; body: string; importance: number; importanceReason: string | null;
+  category: string | null; basis: 'article' | 'snippet' | 'search'; followUpOf: string | null;
+  sources: ItemRef[];
+}
+export interface OpenQuestion { id: number; question: string; askedAt: number }
+export interface RunResult {
+  busy?: boolean; error?: string; fetched?: number; watches?: number; failed?: number;
+  mode?: 'ai' | 'keywords'; digest?: boolean; milestones?: number; flashes?: number;
 }
 export interface AiConnection {
   mode: 'gemini' | 'ollama' | 'none';
@@ -90,11 +106,14 @@ export interface Pnr {
   togglePreset(id: string, on: boolean): Promise<void>;
   correct(watchId: string, itemId: string, verdict: 'wanted' | 'not_wanted', note?: string): Promise<void>;
   today(date?: string): Promise<Today>;
-  watchTimeline(id: string): Promise<{ milestones: Milestone[]; items: { id: string; title: string; url: string }[] }>;
+  watchTimeline(id: string): Promise<{ milestones: Milestone[]; refs: ItemRef[]; questions: OpenQuestion[] }>;
+  headlines(hours?: number, perSource?: number): Promise<HeadlineGroup[]>;
+  itemRefs(ids: string[]): Promise<ItemRef[]>;
+  runWatch(id: string): Promise<RunResult>;
   watchItems(id: string, limit?: number): Promise<(ItemRow & { score: number; reason: string; arms: string })[]>;
-  runWatches(): Promise<{ busy?: boolean; noProvider?: boolean; watches?: number; digest?: boolean; error?: string }>;
-  runFlashes(): Promise<{ busy?: boolean; noProvider?: boolean; published?: number; error?: string }>;
-  flashes(hours?: number, watchId?: string): Promise<unknown[]>;
+  runWatches(): Promise<RunResult>;
+  runFlashes(): Promise<RunResult>;
+  flashes(hours?: number, watchId?: string): Promise<FlashRow[]>;
   deepSummary(itemId: string): Promise<{ noProvider?: boolean; error?: string; summary?: unknown }>;
   scheduleState(): Promise<ScheduleState>;
   setSchedule(on: boolean, hour?: number): Promise<ScheduleState>;

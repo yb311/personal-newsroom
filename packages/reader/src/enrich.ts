@@ -1,6 +1,6 @@
 import type { Db } from '@pnr/store';
 import { writeBody } from '@pnr/store';
-import { log, domainOf } from '@pnr/core';
+import { log, domainOf, flags } from '@pnr/core';
 import { extractArticle } from '@pnr/reader-core';
 import { fetchPage, PAYWALLED } from './fetch.ts';
 
@@ -25,6 +25,8 @@ export async function enrichItem(
     ).run(state, path ?? null, words || null, engine ?? null, now, reason ?? null, item.id);
     return { state, words, ...(engine ? { engine } : {}), ...(reason ? { reason } : {}) };
   };
+
+  if (flags.disableExtract) return { state: 'pending', words: 0, reason: 'PNR_DISABLE_EXTRACT' };
 
   if (PAYWALLED.has(domainOf(item.url))) {
     // Do not spend a request or pretend: the reader shows the snippet and an
