@@ -17,6 +17,9 @@ export default {
     { from: 'node_modules', to: 'node_modules', filter: ['**/*'] }
   ],
   npmRebuild: false,
+  // A distributable build must fail instead of silently falling back to an
+  // unsigned app. `package:dir` remains available for unsigned local checks.
+  forceCodeSigning: process.env.PNR_RELEASE_SIGN === '1',
   afterPack: async ({ appOutDir, packager }) => {
     const info = join(appOutDir, `${packager.appInfo.productFilename}.app`, 'Contents', 'Info.plist');
     // Electron's template advertises camera, microphone, Bluetooth and audio
@@ -43,6 +46,7 @@ export default {
     hardenedRuntime: true,
     entitlements: resolve(root, 'packaging/entitlements.mac.plist'),
     entitlementsInherit: resolve(root, 'packaging/entitlements.mac.inherit.plist'),
+    binaries: ['Contents/Resources/bin/pnr-reader'],
     extraResources: [
       { from: resolve(root, 'assets/Assets.car'), to: 'Assets.car' },
       { from: resolve(root, 'apps/desktop/packaging/bin/pnr-reader'), to: 'bin/pnr-reader' }
