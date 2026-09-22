@@ -1,61 +1,42 @@
 /*
- * 所闻 window styles, built to macOS metrics rather than web conventions.
+ * 所闻 window styles: macOS layout and metrics, daily-brief colours.
  *
- * Controls (sidebar, toolbar, lists, buttons, forms) use system greys and the
- * accent colour the person chose in System Settings (--system-accent, set by
- * main.tsx). The newsprint palette from tokens.css is kept for what is read:
- * articles, 今日, 快讯 and deep reports.
+ * Every colour comes from the daily-brief palette in tokens.css (newsprint
+ * --bg, ink --fg, brick-red --accent, warm --border), so chrome and reading
+ * surfaces are one piece. Nothing here uses system greys or the system accent.
  *
- * Deliberately native: no hover highlight on list rows, selection is grey
- * until the list has focus and then takes the accent colour, push buttons are
- * 22px, toggles are switches, forms are grouped boxes as in System Settings.
+ * Native behaviour kept: no hover highlight on list rows, selection is a quiet
+ * tint until the list has focus and then takes the accent, 22px push buttons,
+ * switches for toggles, grouped forms as in System Settings.
  */
 
-/* ── tokens ─────────────────────────────────────────────────────────────── */
+/* ── tokens (all derived from tokens.css, so light and dark follow it) ──── */
 :root {
   --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', sans-serif;
-  --control-accent: var(--system-accent, #007aff);
+  --control-accent: var(--accent);
   --on-accent: #fff;
-  --label: rgb(0 0 0 / .85);
-  --label-2: rgb(0 0 0 / .5);
-  --label-3: rgb(0 0 0 / .26);
-  --separator: rgb(0 0 0 / .1);
-  --surface: #ffffff;
-  --window: #f3f3f3;
-  --fill: rgb(0 0 0 / .05);
-  --fill-strong: rgb(0 0 0 / .09);
-  --unemphasized: rgb(0 0 0 / .08);
-  --control: #ffffff;
-  --control-edge: rgb(0 0 0 / .14);
-  --group: rgb(0 0 0 / .03);
-  --red: #ff3b30;
-  --green: #34c759;
+  --label: var(--fg);
+  --label-2: var(--fg3);
+  --label-3: color-mix(in srgb, var(--fg3) 60%, transparent);
+  --separator: var(--border);
+  --surface: var(--bg);
+  --window: var(--bg2);
+  --fill: color-mix(in srgb, var(--fg) 5%, transparent);
+  --fill-strong: color-mix(in srgb, var(--fg) 10%, transparent);
+  --unemphasized: color-mix(in srgb, var(--fg) 8%, transparent);
+  --control: var(--bg3);
+  --control-edge: var(--border);
+  --group: var(--bg3);
+  --red: var(--accent);
+  --green: #2ca95c;
   --toolbar-h: 52px;
   color-scheme: light dark;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --label: rgb(255 255 255 / .86);
-    --label-2: rgb(255 255 255 / .55);
-    --label-3: rgb(255 255 255 / .25);
-    --separator: rgb(255 255 255 / .1);
-    --surface: #1e1e1e;
-    --window: #282828;
-    --fill: rgb(255 255 255 / .07);
-    --fill-strong: rgb(255 255 255 / .12);
-    --unemphasized: rgb(255 255 255 / .1);
-    --control: rgb(255 255 255 / .14);
-    --control-edge: rgb(255 255 255 / .06);
-    --group: rgb(255 255 255 / .04);
-    --red: #ff453a;
-    --green: #30d158;
-  }
 }
 
 /* ── base ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-body { background: transparent; color: var(--label); font: 13px/1.4 var(--sans); -webkit-font-smoothing: antialiased; cursor: default; }
+body { background: var(--bg); color: var(--label); font: 13px/1.4 var(--sans); -webkit-font-smoothing: antialiased; cursor: default; }
 h1, h2, h3, h4, p { margin: 0; overflow-wrap: anywhere; }
 ul, ol { margin: 0; padding: 0; }
 code { font: 11px var(--mono); overflow-wrap: anywhere; }
@@ -128,7 +109,7 @@ input[type=checkbox], input[type=radio] { width: 14px; height: 14px; accent-colo
 .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 8px; background: var(--fill-strong); color: var(--label-2); font: 600 11px/16px var(--sans); text-align: center; font-style: normal; font-variant-numeric: tabular-nums; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { height: 22px; padding: 0 9px; border-radius: 11px; font-size: 12px; box-shadow: inset 0 0 0 .5px var(--control-edge); background: var(--control); }
-.chip.active, .chip[aria-checked='true'], .chip[aria-pressed='true'] { background: var(--control-accent); color: var(--on-accent); box-shadow: none; }
+.chip.active, .chip[aria-checked='true'], .chip[aria-pressed='true'] { background: var(--tag-bg); color: var(--tag-fg); box-shadow: none; }
 .chip.static { height: 18px; padding: 0 7px; background: var(--fill); box-shadow: none; color: var(--label-2); font-size: 11px; }
 
 .section-hint { font-size: 12px; line-height: 1.5; color: var(--label-2); }
@@ -157,7 +138,7 @@ input[type=checkbox], input[type=radio] { width: 14px; height: 14px; accent-colo
 /* Grouped forms, as in System Settings. */
 .group { margin: 0 0 20px; }
 .group-title { margin: 0 0 6px 10px; font-size: 13px; font-weight: 600; }
-.group-box { border-radius: 10px; background: var(--group); box-shadow: inset 0 0 0 .5px var(--separator); }
+.group-box { border-radius: 10px; background: var(--group); box-shadow: inset 0 0 0 .5px var(--separator), 0 1px 2px var(--shadow); }
 .group-footer { margin: 6px 10px 0; font-size: 11px; line-height: 1.5; color: var(--label-2); }
 .row { display: flex; align-items: center; gap: 16px; min-height: 40px; padding: 8px 12px; }
 .row + .row { box-shadow: 0 -.5px 0 var(--separator); }
@@ -180,8 +161,7 @@ input[type=checkbox], input[type=radio] { width: 14px; height: 14px; accent-colo
 
 /* ── window shell ───────────────────────────────────────────────────────── */
 .app { height: 100%; display: flex; overflow: hidden; user-select: none; }
-/* Transparent so the window's own vibrancy shows through, as in Finder and Mail. */
-.sidebar { width: 220px; flex: none; display: flex; flex-direction: column; background: transparent; border-right: .5px solid var(--separator); }
+.sidebar { width: 220px; flex: none; display: flex; flex-direction: column; background: var(--bg2); border-right: .5px solid var(--separator); }
 .sidebar-top { height: var(--toolbar-h); flex: none; display: flex; align-items: center; justify-content: flex-end; padding: 0 10px; -webkit-app-region: drag; }
 .sidebar-top button { -webkit-app-region: no-drag; }
 .sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 12px; }
@@ -230,9 +210,8 @@ input[type=checkbox], input[type=radio] { width: 14px; height: 14px; accent-colo
 .row-item.selected { background: var(--unemphasized); border-radius: 6px; margin: 0 6px; padding-left: 16px; }
 .row-item.selected.unread::before { left: 2px; }
 .row-item.selected::after, .row-item:has(+ .selected)::after { display: none; }
-.list:focus-within .row-item.selected { background: var(--control-accent); color: var(--on-accent); }
-.list:focus-within .row-item.selected :is(.src, time, p, .star, .lang-tag) { color: rgb(255 255 255 / .82); }
-.list:focus-within .row-item.selected.unread::before { background: #fff; }
+.list:focus-within .row-item.selected { background: color-mix(in srgb, var(--accent) 13%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--accent) 35%, transparent); }
+.list:focus-within .row-item.selected .src { color: var(--accent); }
 .row-head { display: flex; align-items: baseline; gap: 5px; }
 .row-head .src { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .row-head time { flex: none; font-size: 12px; color: var(--label-2); }
@@ -375,8 +354,8 @@ button.ref:hover { background: var(--accent); color: #fff; }
 .watch-row strong { font-size: 13px; font-weight: 600; }
 .watch-row small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; line-height: 1.4; color: var(--label-2); }
 .watch-row.selected { background: var(--unemphasized); }
-.watch-rows:focus-within .watch-row.selected { background: var(--control-accent); color: var(--on-accent); }
-.watch-rows:focus-within .watch-row.selected small, .watch-rows:focus-within .watch-row.selected .badge { color: rgb(255 255 255 / .85); background: rgb(255 255 255 / .2); }
+.watch-rows:focus-within .watch-row.selected { background: color-mix(in srgb, var(--accent) 13%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--accent) 35%, transparent); }
+.watch-rows:focus-within .watch-row.selected strong { color: var(--accent); }
 .watch-row.paused strong, .watch-row.paused small { opacity: .55; }
 .watch-detail { min-width: 0; overflow-y: auto; padding: 22px 28px 48px; background: var(--surface); user-select: text; }
 .watch-detail > * { max-width: 720px; }
@@ -412,7 +391,7 @@ button.ref:hover { background: var(--accent); color: #fff; }
 .suggestions { display: grid; gap: 6px; margin-top: 10px; }
 .suggestions button { height: auto; min-height: 28px; padding: 6px 10px; justify-content: flex-start; white-space: normal; text-align: left; }
 .assistant-thread { padding: 16px 14px 8px; display: grid; gap: 14px; align-content: start; }
-.bubble { justify-self: end; max-width: 86%; padding: 6px 11px; border-radius: 16px; background: var(--control-accent); color: var(--on-accent); font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
+.bubble { justify-self: end; max-width: 86%; padding: 6px 11px; border-radius: 16px; background: var(--bg2); box-shadow: inset 0 0 0 .5px var(--border); color: var(--fg); font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
 .answer { display: grid; gap: 7px; font-size: 13px; line-height: 1.6; }
 .answer ul { padding-left: 1.2em; display: grid; gap: 3px; }
 .answer .ref { background: var(--fill-strong); color: var(--label-2); }
@@ -527,5 +506,4 @@ button.ref:hover { background: var(--accent); color: #fff; }
   .split-divider:has(+ .assistant) { display: none; }
   .assistant { position: fixed; top: 0; right: 0; bottom: 0; z-index: 20; width: min(var(--panel-width), calc(100vw - 80px)); box-shadow: 0 0 0 .5px var(--separator), -10px 0 40px rgb(0 0 0 / .18); }
 }
-@media (prefers-reduced-transparency: reduce) { .sidebar { background: var(--window); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }

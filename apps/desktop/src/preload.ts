@@ -38,12 +38,6 @@ contextBridge.exposeInMainWorld('pnr', {
   },
   openSettings: (section?: string) => ipcRenderer.invoke('app:openSettings', section),
   broadcast: (command: string) => ipcRenderer.invoke('app:broadcast', command),
-  accentColor: () => ipcRenderer.invoke('app:accent'),
-  onAccentColor: (cb: (hex: string) => void) => {
-    const fn = (_e: unknown, hex: string): void => cb(hex);
-    ipcRenderer.on('app:accent', fn);
-    return () => ipcRenderer.off('app:accent', fn);
-  },
   onUiLanguage: (cb: (lang: string) => void) => {
     const fn = (_e: unknown, lang: string): void => cb(lang);
     ipcRenderer.on('app:uiLanguage', fn);

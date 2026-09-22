@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, shell, Menu, systemPreferences, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, clipboard, ipcMain, shell, Menu, nativeTheme, type MenuItemConstructorOptions } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { setSink, withRunContext } from '@pnr/core';
@@ -75,6 +75,8 @@ function load(target: BrowserWindow, view?: string): void {
   });
 }
 const preload = { preload: join(__dirname, 'preload.cjs'), sandbox: false, contextIsolation: true };
+/** The daily-brief paper colour (tokens.css --bg), so no grey shows while a window loads. */
+const paper = (): string => (nativeTheme.shouldUseDarkColors ? '#0f0f0f' : '#f5f2eb');
 /** Sends to every open window, e.g. a setting changed in the Settings window. */
 const broadcast = (channel: string, ...args: unknown[]): void => {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, ...args);
@@ -85,9 +87,7 @@ function createWindow(): void {
     width: 1180, height: 820, minWidth: 760, minHeight: 520,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
-    backgroundColor: '#00000000',
-    vibrancy: 'sidebar',
-    visualEffectState: 'followWindow',
+    backgroundColor: paper(),
     webPreferences: preload
   });
   load(win);
@@ -108,7 +108,7 @@ function openSettings(section?: string): void {
     width: 720, height: 580, minWidth: 620, minHeight: 440,
     titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 18, y: 18 },
     minimizable: false, fullscreenable: false, show: false,
-    backgroundColor: '#00000000', vibrancy: 'sidebar', visualEffectState: 'followWindow',
+    backgroundColor: paper(),
     webPreferences: preload
   });
   load(settingsWin, section ? `settings:${section}` : 'settings');
@@ -120,9 +120,6 @@ ipcMain.handle('app:broadcast', (e, command: string) => {
   for (const w of BrowserWindow.getAllWindows()) if (w.webContents !== e.sender) w.webContents.send('app:command', command);
 });
 
-// The system accent colour, so controls follow what the person chose in System Settings.
-ipcMain.handle('app:accent', () => systemPreferences.getAccentColor?.() ?? null);
-systemPreferences.on?.('accent-color-changed', () => broadcast('app:accent', systemPreferences.getAccentColor()));
 
 ipcMain.handle('app:copyText', (_e, text: string) => clipboard.writeText(String(text)));
 

@@ -178,8 +178,6 @@ export interface Pnr {
   onReportEvent(cb: (event: ReportEvent) => void): () => void;
   openSettings(section?: string): Promise<void>;
   broadcast(command: string): Promise<void>;
-  accentColor(): Promise<string | null>;
-  onAccentColor(cb: (hex: string) => void): () => void;
   onUiLanguage(cb: (lang: string) => void): () => void;
   contextMenu(items: MenuEntry[]): Promise<string | null>;
   copyText(text: string): Promise<void>;

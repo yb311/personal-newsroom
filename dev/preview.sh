@@ -53,7 +53,7 @@ cat > "$OUT/preview.html" <<'HTML'
     flashes: async () => d.flashes,
     setAiOption: async () => {},
     openSettings: async (section) => { window.open('./preview.html#settings' + (section ? ':' + section : ''), '_blank', 'width=720,height=580'); },
-    broadcast: async () => {}, copyText: async () => {}, accentColor: async () => null, onAccentColor: () => () => {}, onUiLanguage: () => () => {},
+    broadcast: async () => {}, copyText: async () => {}, onUiLanguage: () => () => {},
     contextMenu: async (items) => { console.log('menu', items.map(i => i.label).filter(Boolean).join(' | ')); return null; },
     reportGet: async () => null, reportCancel: async () => true, onReportEvent: () => () => {}, reportAsk: async () => ({ error: 'preview' }),
     reportStart: async (input) => { await new Promise(r => setTimeout(r, 600)); const it = d.items.find(i => i.id === input.anchorItemId) ?? d.items[0];
