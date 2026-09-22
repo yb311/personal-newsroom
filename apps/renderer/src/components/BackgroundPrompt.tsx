@@ -42,7 +42,7 @@ export function BackgroundPrompt({ onDone }: { onDone: () => void }) {
         {note
           ? <button className="primary" onClick={onDone}>{t('background.ok')}</button>
           : <>
-              <button className="secondary" disabled={busy} onClick={() => void answer(false)}>{t('background.later')}</button>
+              <button className="push" disabled={busy} onClick={() => void answer(false)}>{t('background.later')}</button>
               <button className="primary" disabled={busy} onClick={() => void answer(true)}>{t('background.enable')}</button>
             </>}
       </footer>

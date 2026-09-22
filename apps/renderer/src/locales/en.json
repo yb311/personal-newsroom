@@ -24,7 +24,8 @@
     "justNow": "just now",
     "seenAt": "Seen {{when}}",
     "noDateHint": "The source gave no publication time; this is when it was first seen",
-    "loginItemsHint": "Allow 所闻 to run in the background in System Settings → General → Login Items."
+    "loginItemsHint": "Allow 所闻 to run in the background in System Settings → General → Login Items.",
+    "back": "Back"
   },
   "tabs": {
     "today": "Today",
@@ -90,7 +91,9 @@
     "lastFailed": "The last update failed",
     "failed": "Failed",
     "staleTitle": "No new articles for more than {{days}} days",
-    "stale": "Inactive"
+    "stale": "Inactive",
+    "unsubscribe": "Unsubscribe",
+    "library": "Reading"
   },
   "list": {
     "label": "Articles",
@@ -230,10 +233,6 @@
   "flashes": {
     "needAiTitle": "Flashes need AI",
     "needAiBody": "Flashes pick the latest developments from your watches, one or two sentences each.",
-    "last24h": "Last 24 Hours",
-    "count_one": "1 flash",
-    "count_other": "{{count}} flashes",
-    "onlyImportant": "Important only",
     "empty": "Nothing worth interrupting you for in this period.",
     "emptyFiltered": "No important flashes. Turn off the filter to see all.",
     "important": "Important",
@@ -245,7 +244,16 @@
     "searchFilled": "Search-filled",
     "searchFilledHint": "The article couldn't be fetched; details were verified by search",
     "verifiedSources_one": "1 verified source",
-    "verifiedSources_other": "{{count}} verified sources"
+    "verifiedSources_other": "{{count}} verified sources",
+    "subtitle_one": "Last 24 hours · 1 flash",
+    "subtitle_other": "Last 24 hours · {{count}} flashes",
+    "filter": "Filter flashes",
+    "show": {
+      "all": "All",
+      "important": "Important"
+    },
+    "emptyTitle": "No New Flashes",
+    "emptyFilteredTitle": "No Important Flashes"
   },
   "background": {
     "title": "Background Updates",
@@ -365,7 +373,11 @@
       "failed": "Failed"
     },
     "neverRun": "Hasn't run yet.",
-    "plistPath": "Task file (development): "
+    "plistPath": "Task file (development): ",
+    "noLanguages": "Article languages appear here once subscriptions update.",
+    "articles_one": "1 article",
+    "articles_other": "{{count}} articles",
+    "lastRunLabel": "Last Run"
   },
   "catalogue": {
     "title": "Subscriptions",
@@ -568,7 +580,6 @@
       "less": "Strict",
       "lessHint": "Keep only clearly relevant coverage."
     },
-    "activeLabel": "Active (paused watches keep their content but stop updating)",
     "aids": "AI search terms",
     "aidsHint": "Only widen the candidates; relevance is still judged against your description.",
     "aliases": "Aliases",
@@ -577,7 +588,13 @@
     "savedIntentChanged": "Saved. The next update judges against the new description.",
     "discard": "Discard unsaved changes?",
     "confirmDelete": "Delete “{{label}}” and its progress?",
-    "delete": "Delete Watch"
+    "delete": "Delete Watch",
+    "count_one": "1 watch",
+    "count_other": "{{count}} watches",
+    "pauseAction": "Pause",
+    "resumeAction": "Resume",
+    "active": "Keep updating",
+    "activeHint": "When off, the watch stops updating and keeps what it has."
   },
   "menu": {
     "about": "About 所闻",
@@ -606,6 +623,41 @@
     "window": "Window",
     "minimize": "Minimize",
     "zoom": "Zoom",
-    "front": "Bring All to Front"
+    "front": "Bring All to Front",
+    "openOriginal": "Open Original in Browser",
+    "openInReader": "Open in Reader",
+    "copyLink": "Copy Link",
+    "copyText": "Copy Text",
+    "manageSubscriptions": "Manage Subscriptions…"
+  },
+  "report": {
+    "title": "Deep Report",
+    "open": "Deep Report",
+    "restart": "Write Again",
+    "needAi": "Deep reports need AI",
+    "gathering": "Gathering related coverage and reading it in full…",
+    "writing": "Writing…",
+    "failed": "The report didn't finish.",
+    "stopped": "Stopped.",
+    "meta_one": "From 1 source · {{date}}",
+    "meta_other": "From {{count}} sources · {{date}}",
+    "sources": "Sources ({{count}})",
+    "askPlaceholder": "Ask a follow-up about this story",
+    "ask": "Ask",
+    "research": "Find more",
+    "researchHint": "Search for more related coverage before answering",
+    "cancel": "Stop",
+    "basis": {
+      "article": "Full text",
+      "snippet": "Summary only",
+      "search": "Verified by search"
+    },
+    "errors": {
+      "failed": "The report didn't finish.",
+      "conversation_busy": "The previous follow-up is still being written.",
+      "uncited_report": "The model gave nothing it could cite. Try again.",
+      "empty_report": "The model returned nothing. Try again.",
+      "conversation_context_exceeded": "The conversation is longer than the model allows. Write it again."
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
-/** Native modal semantics include focus containment, Escape, and focus restoration. */
+/** A sheet: focus containment, Escape to dismiss, focus restored after. Like a
+ *  macOS sheet it does not close on a click outside, so typed input is never lost. */
 export function Dialog({ title, onClose, children, className = '' }: {
   title: string; onClose: () => void; children: ReactNode; className?: string;
 }) {
@@ -12,11 +13,7 @@ export function Dialog({ title, onClose, children, className = '' }: {
     return () => { dialog.close(); previous?.focus(); };
   }, []);
   return <dialog ref={ref} className={`modal ${className}`} aria-label={title}
-    onCancel={(e) => { e.preventDefault(); onClose(); }}
-    onClick={(e) => { if (e.target === e.currentTarget) {
-      const r = e.currentTarget.getBoundingClientRect();
-      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) onClose();
-    } }}>
+    onCancel={(e) => { e.preventDefault(); onClose(); }}>
     {children}
   </dialog>;
 }

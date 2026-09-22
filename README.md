@@ -35,6 +35,7 @@ personalization.
 | **Read** | A real reader. Article text extracted and shown in-app, so you don't bounce out to a browser |
 | **Watches** | Tick a preset topic, or write a sentence. Either way you can see and edit exactly how it's searching |
 | *Any time* | The **News Assistant** side panel: ask about any story or anything in your subscriptions, optionally searching online; every answer line carries a numbered source you can open |
+| *On demand* | Open a **deep report** from any story: related coverage read in full, written up with follow-ups, every fact traceable to its source |
 
 **Three things that make it different:**
 

@@ -14,7 +14,7 @@ class Boundary extends Component<WithTranslation & { children: ReactNode }, { fa
     if (!this.state.failed) return children;
     return <div className="empty-state" role="alert">
       <h3>{t('app.crashed')}</h3>
-      <button className="secondary" onClick={() => this.setState({ failed: false })}>{t('common.retry')}</button>
+      <button className="push" onClick={() => this.setState({ failed: false })}>{t('common.retry')}</button>
     </div>;
   }
 }

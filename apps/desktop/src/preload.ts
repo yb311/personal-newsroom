@@ -27,6 +27,30 @@ contextBridge.exposeInMainWorld('pnr', {
   runWatches: () => ipcRenderer.invoke('app:runWatches'),
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),
   runWatch: (id: string) => ipcRenderer.invoke('app:runWatch', id),
+  reportGet: (selector: unknown) => ipcRenderer.invoke('report:get', selector),
+  reportStart: (input: unknown) => ipcRenderer.invoke('report:start', input),
+  reportAsk: (input: unknown) => ipcRenderer.invoke('report:ask', input),
+  reportCancel: (requestId: string) => ipcRenderer.invoke('report:cancel', requestId),
+  onReportEvent: (cb: (p: unknown) => void) => {
+    const fn = (_e: unknown, p: unknown): void => cb(p);
+    ipcRenderer.on('report:event', fn);
+    return () => ipcRenderer.off('report:event', fn);
+  },
+  openSettings: (section?: string) => ipcRenderer.invoke('app:openSettings', section),
+  broadcast: (command: string) => ipcRenderer.invoke('app:broadcast', command),
+  accentColor: () => ipcRenderer.invoke('app:accent'),
+  onAccentColor: (cb: (hex: string) => void) => {
+    const fn = (_e: unknown, hex: string): void => cb(hex);
+    ipcRenderer.on('app:accent', fn);
+    return () => ipcRenderer.off('app:accent', fn);
+  },
+  onUiLanguage: (cb: (lang: string) => void) => {
+    const fn = (_e: unknown, lang: string): void => cb(lang);
+    ipcRenderer.on('app:uiLanguage', fn);
+    return () => ipcRenderer.off('app:uiLanguage', fn);
+  },
+  contextMenu: (items: unknown) => ipcRenderer.invoke('app:contextMenu', items),
+  copyText: (text: string) => ipcRenderer.invoke('app:copyText', text),
   assistantList: () => ipcRenderer.invoke('assistant:list'),
   assistantGet: (id: string) => ipcRenderer.invoke('assistant:get', id),
   assistantDelete: (id: string) => ipcRenderer.invoke('assistant:delete', id),

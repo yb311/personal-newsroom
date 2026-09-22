@@ -339,7 +339,7 @@ personal-newsroom/
 │   ├── ai/                 Provider 抽象（Gemini / OpenAI / Claude / 兼容接口 / Ollama）+ 统一生成、流式、向量与搜索取证
 │   │                         + 移植 semantic-embeddings
 │   ├── store/              【全新】SQLite schema、迁移、sqlite-vec、locks、runs/events
-│   ├── generate/           摘要、进展、快讯、搜索补全、新闻助手与视野补充
+│   ├── generate/           摘要、进展、快讯、搜索补全、深度报道、新闻助手与视野补充
 │   └── core/               ← 移植 schemas / retry / logging / config / debug-artifacts
 └── catalogs/               内置源目录 + NOTICE + 许可证归属
 ```
@@ -350,7 +350,7 @@ personal-newsroom/
 
 `sources` · `items`（原始条目 + 正文指针 + 抽取状态）· `watches` · `matches`（item × watch 的分数与 AI 给的理由）· `digests` · `flashes` · `milestones` · `search_materials` · `assistant_chats` / `assistant_messages` / `assistant_sources` · `outside_picks` · `translations` · `reading_state` · `embeddings`（sqlite-vec）· `ai_requests` · `runs` / `events` · `locks`。
 
-迁移 006–010 分别负责多厂商 AI 运行态、可溯源搜索补全、深度报道会话（已停用）、视野补充和新闻助手。新闻助手保存每一轮实际使用的完整材料快照；旧 `deep_summaries` 在发现演示库仍有数据后改名为 `legacy_deep_summaries` 备份，不参与新功能。
+迁移 006–010 分别负责多厂商 AI 运行态、可溯源搜索补全、深度报道会话、视野补充和新闻助手。新闻助手保存每一轮实际使用的完整材料快照；旧 `deep_summaries` 在发现演示库仍有数据后改名为 `legacy_deep_summaries` 备份，不参与新功能。
 
 这张表单覆盖 v1 全部内容加 v2 的翻译，不留「以后再加表」的坑。
 

@@ -129,7 +129,7 @@ export function RssHubPicker({ describe, onAdded }: { describe: (reason?: string
       <div className="paste-row">
         <input value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={t('rsshub.pastePlaceholder')}
                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void recognise(); }} />
-        <button className="secondary" onClick={() => void recognise()} disabled={!pasted.trim()}>{t('rsshub.recognise')}</button>
+        <button className="push" onClick={() => void recognise()} disabled={!pasted.trim()}>{t('rsshub.recognise')}</button>
       </div>
 
       <div className="picker-body">
@@ -169,7 +169,7 @@ export function RssHubPicker({ describe, onAdded }: { describe: (reason?: string
               {route.sources.length > 0 && <p className="section-hint">{t('rsshub.pasteHint', { example: route.sources[0] })}</p>}
               <p className="section-hint">{t('rsshub.route')}<code>{path ?? t('rsshub.missing')}</code></p>
               <div className="form-actions">
-                <button className="secondary" disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void tryIt()}>{busy ? t('common.pleaseWait') : t('rsshub.try')}</button>
+                <button className="push" disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void tryIt()}>{busy ? t('common.pleaseWait') : t('rsshub.try')}</button>
                 <button className="primary" disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void add()}>{t('common.add')}</button>
               </div>
               {preview && (preview.ok

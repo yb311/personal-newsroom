@@ -72,7 +72,9 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 阅读核心 | **Go 程序 `native/reader`（`pnr-reader`）**：Miniflux 的解析/编码/清洗/站点规则 + go-trafilatura 抽正文。**全 TS 决策的唯一例外** | Trafilatura 没有 JS 版；新闻文章 F1：Trafilatura 0.926 vs Readability 0.825（WCXB）。Miniflux 的 reader 包带大量测试。见下文「阅读核心」 |
 | 下载在哪 | **一律在 Node（`@pnr/core` 的 `download`）**，Go 只处理字节，不联网 | France 24 等按 TLS 指纹拦截：Go 客户端和 curl 403，Node fetch 200 |
 | 进展形态 | 顶部「昨天到今天」板块 **+** Watch 页完整时间线 | 共用 `WatchState.timeline` 的 `firstSeenAt`，一份数据两种渲染，判断只做一次 |
-| 右侧分栏 | **新闻助手**：通用问答，不绑定文章，可联网（本地订阅 + Google News + 厂商网页搜索） | 取代原来从每条新闻进入的「深度报道」分栏（迁移 008 的 `conversations` 表保留但不再使用） |
+| 右侧分栏 | **新闻助手**：通用问答，不绑定文章，可联网（本地订阅 + Google News + 厂商网页搜索） | 侧栏只放助手 |
+| 深度报道 | 保留，但**不在侧栏**：从文章/快讯/进展进入，在主区域以文档视图打开，工具栏返回 | 绑定一条新闻，材料快照存 `conversations` 表；失败的首稿不会被当成已存报道恢复 |
+| 界面形态 | **按 macOS 应用做**：设置是独立窗口（⌘,，System Settings 式分组）、控件跟随系统强调色、侧栏透出窗口 vibrancy、原生右键菜单、状态写在工具栏副标题 | 不要加网页式状态栏、卡片、悬停高亮 |
 
 ## 从 daily-brief 移植什么
 

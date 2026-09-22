@@ -115,7 +115,7 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
         <li key={c.id} className={c.id === chat?.id ? 'selected' : ''}>
           <button className="history-open" onClick={() => void window.pnr.assistantGet(c.id).then(open)}>
             <strong>{c.title}</strong><small>{ago(c.updatedAt)}</small></button>
-          <button className="icon" title={t('assistant.deleteChat')} aria-label={t('assistant.deleteChat')} onClick={() => void remove(c.id)}><Trash2 size={13} /></button>
+          <button className="tool" title={t('assistant.deleteChat')} aria-label={t('assistant.deleteChat')} onClick={() => void remove(c.id)}><Trash2 size={13} /></button>
         </li>
       ))}</ul>
     </div>
@@ -124,7 +124,7 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
       <h3>{t('assistant.welcomeTitle')}</h3>
       <p>{t('assistant.welcomeBody')}</p>
       <div className="suggestions">
-        {SUGGESTIONS.map((k) => <button key={k} className="secondary" onClick={() => void ask(t(`assistant.suggest.${k}`))}>{t(`assistant.suggest.${k}`)}</button>)}
+        {SUGGESTIONS.map((k) => <button key={k} className="push" onClick={() => void ask(t(`assistant.suggest.${k}`))}>{t(`assistant.suggest.${k}`)}</button>)}
       </div>
     </div>
   ) : (
@@ -137,7 +137,7 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
         <div className="bubble">{pending.question}</div>
         <div className="answer">
           {pending.units.length > 0 && <Units units={pending.units} sources={new Map()} onSource={openSource} />}
-          <p className="working"><span className="dot busy" />{t(`assistant.phase.${pending.phase ?? 'library'}`)}</p>
+          <p className="working"><span className="spinner" aria-hidden />{t(`assistant.phase.${pending.phase ?? 'library'}`)}</p>
         </div>
       </>}
     </div>
@@ -149,17 +149,17 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
         <strong>{showHistory ? t('assistant.history') : t('assistant.title')}</strong>
         <span className="grow" />
         {ai?.available && <>
-          <button className="icon" aria-pressed={showHistory} title={t('assistant.history')} aria-label={t('assistant.history')} onClick={() => setShowHistory((v) => !v)}><History size={15} /></button>
-          <button className="icon" title={t('assistant.newChat')} aria-label={t('assistant.newChat')} disabled={Boolean(pending) || (!chat && !showHistory)} onClick={() => open(null)}><Plus size={16} /></button>
+          <button className="tool" aria-pressed={showHistory} title={t('assistant.history')} aria-label={t('assistant.history')} onClick={() => setShowHistory((v) => !v)}><History size={15} /></button>
+          <button className="tool" title={t('assistant.newChat')} aria-label={t('assistant.newChat')} disabled={Boolean(pending) || (!chat && !showHistory)} onClick={() => open(null)}><Plus size={16} /></button>
         </>}
-        <button className="icon" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}><X size={16} /></button>
+        <button className="tool" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}><X size={16} /></button>
       </header>
       <div className="assistant-scroll" ref={scroller}>{body}</div>
       {ai?.available && !showHistory && (
         <footer className="composer">
           {error && <p role="alert" className="error-text">{error}</p>}
           <div className="composer-box">
-            <textarea ref={input} rows={1} value={draft} autoFocus placeholder={t('assistant.placeholder')} aria-label={t('assistant.placeholder')}
+            <textarea ref={input} rows={1} value={draft} placeholder={t('assistant.placeholder')} aria-label={t('assistant.placeholder')}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void ask(draft); } }} />
             <div className="composer-actions">

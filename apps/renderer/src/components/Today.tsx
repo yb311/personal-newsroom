@@ -1,6 +1,7 @@
 import { Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import type { HeadlineGroup, ItemRef, OutsidePick, Today as TodayData } from '../types.ts';
+import type { OpenReport } from '../App.tsx';
 import { Blocks } from './Blocks.tsx';
 import { Cites } from './Cites.tsx';
 import { useTranslation } from 'react-i18next';
@@ -12,9 +13,9 @@ import { clock } from '../i18n.ts';
  * day from every subscribed source — rather than a request to set something up.
  * Every AI-written sentence links back to the articles it came from.
  */
-export function Today({ aiReady, revision, running, onSetup, onRun, onOpen, onFollow, onAddWatch }: {
+export function Today({ aiReady, revision, running, onSetup, onRun, onOpen, onReport, onFollow, onAddWatch }: {
   aiReady: boolean; revision: number; running: boolean; onSetup: () => void; onRun: () => void;
-  onOpen: (id: string) => void; onFollow: (draft: OutsidePick['suggestion']) => void; onAddWatch: () => void;
+  onOpen: (id: string) => void; onReport: OpenReport; onFollow: (draft: OutsidePick['suggestion']) => void; onAddWatch: () => void;
 }) {
   const { t } = useTranslation();
   const [data, setData] = useState<TodayData | null>(null);
@@ -31,6 +32,19 @@ export function Today({ aiReady, revision, running, onSetup, onRun, onOpen, onFo
   const changes = data?.changes ?? [];
   const digest = data?.digest ?? null;
   const outside = data?.outside ?? [];
+  /** Right-click on a headline or a development: read it, or dig into it. */
+  const menu = async (e: MouseEvent, itemIds: string[], topic: string, url?: string): Promise<void> => {
+    e.preventDefault();
+    if (!itemIds[0]) return;
+    const choice = await window.pnr.contextMenu([
+      { id: 'read', label: t('menu.openInReader') },
+      ...(url ? [{ id: 'original', label: t('menu.openOriginal') }] : []),
+      { separator: true }, { id: 'report', label: t('report.open'), enabled: aiReady }
+    ]);
+    if (choice === 'read') onOpen(itemIds[0]);
+    else if (choice === 'original' && url) void window.pnr.openExternal(url);
+    else if (choice === 'report') onReport({ anchorItemId: itemIds[0], itemIds, topic });
+  };
 
   return (
     <section className="page">
@@ -43,7 +57,7 @@ export function Today({ aiReady, revision, running, onSetup, onRun, onOpen, onFo
                 <h3>{c.label}</h3>
                 <ul className="timeline-list">
                   {c.milestones.map((m) => (
-                    <li key={m.id}><time>{m.occurredOn}</time><p>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></p></li>
+                    <li key={m.id} onContextMenu={(e) => void menu(e, m.itemIds, m.summary)}><time>{m.occurredOn}</time><p>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></p></li>
                   ))}
                 </ul>
               </div>
@@ -58,15 +72,15 @@ export function Today({ aiReady, revision, running, onSetup, onRun, onOpen, onFo
             <div className="prose"><Blocks blocks={digest.blocks} refs={refs} onOpen={onOpen} /></div>
           </article>
         ) : data && (
-          <div className="callout">
-            <Sparkles size={16} className="accent" />
+          <div className="banner">
+            <Sparkles size={15} className="banner-icon" />
             <div>
               <strong>{t(!aiReady ? 'today.noAiTitle' : data.watchCount === 0 ? 'today.noWatchesTitle' : 'today.noDigestTitle')}</strong>
               <p>{t(!aiReady ? 'today.noAiBody' : data.watchCount === 0 ? 'today.noWatchesBody' : 'today.noDigestBody')}</p>
             </div>
-            {!aiReady ? <button className="secondary" onClick={onSetup}>{t('common.connectAi')}</button>
-              : data.watchCount === 0 ? <button className="primary" onClick={onAddWatch}>{t('watches.add')}</button>
-              : <button className="primary" onClick={onRun} disabled={running}>{running ? t('today.generating') : t('today.generate')}</button>}
+            {!aiReady ? <button className="push" onClick={onSetup}>{t('common.connectAi')}</button>
+              : data.watchCount === 0 ? <button className="push" onClick={onAddWatch}>{t('watches.add')}</button>
+              : <button className="push" onClick={onRun} disabled={running}>{running ? t('today.generating') : t('today.generate')}</button>}
           </div>
         )}
 
@@ -76,7 +90,10 @@ export function Today({ aiReady, revision, running, onSetup, onRun, onOpen, onFo
           <ul>{outside.map((pick) => <li key={pick.id} className="panel">
             <h3>{pick.title}</h3>
             <p>{pick.reason}<Cites ids={pick.itemIds} refs={refs} onOpen={onOpen} /></p>
-            <button className="secondary small" onClick={() => onFollow(pick.suggestion)}>{t('outside.follow')}</button>
+            <div className="inline">
+              <button className="push small" onClick={() => onFollow(pick.suggestion)}>{t('outside.follow')}</button>
+              {aiReady && pick.itemIds[0] && <button className="push small" onClick={() => onReport({ anchorItemId: pick.itemIds[0]!, itemIds: pick.itemIds, topic: pick.title })}>{t('report.open')}</button>}
+            </div>
           </li>)}</ul>
         </section>}
 
@@ -89,7 +106,7 @@ export function Today({ aiReady, revision, running, onSetup, onRun, onOpen, onFo
                 <h3>{g.sourceName}</h3>
                 <ul>
                   {g.items.map((it) => (
-                    <li key={it.id}>
+                    <li key={it.id} onContextMenu={(e) => void menu(e, [it.id], it.title, it.url)}>
                       <button className="headline" onClick={() => onOpen(it.id)}>{it.title}</button>
                       <time>{clock(it.publishedAt)}</time>
                     </li>

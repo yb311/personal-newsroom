@@ -3,6 +3,7 @@ export { generateDigest, getDigest, DIGEST_WINDOW_HOURS, DIGEST_FALLBACK_HOURS, 
 export { generateFlashes, recentFlashes, DEDUP_WINDOW_HOURS, MIN_IMPORTANCE, FLASH_WINDOW_HOURS, type Flash, type SearchFillContext } from './flashes.ts';
 export { runDaily, runFlashCheck, runWatch, type RunOptions, type RunResult } from './pipeline.ts';
 export { fillFromSearch, type SearchFillInput, type SearchFillResult, type SearchFillSource } from './search-fill.ts';
+export { getReport, startReport, askReport, recoverReports, type ReportConversation, type ReportEvent, type ReportStartInput, type ReportAnswer, type ReportSource } from './report.ts';
 export { askAssistant, getChat, listChats, deleteChat, recoverAssistant, type AssistantChat, type AssistantChatSummary, type AssistantAskInput,
   type AssistantEvent, type AssistantAnswer, type AssistantSource, type AssistantMessage, type AssistantDeps, type NewsHit } from './assistant.ts';
 export { generateOutsidePicks, readOutsidePicks, outsideEnabled, type OutsidePick, type OutsideSuggestion } from './outside.ts';

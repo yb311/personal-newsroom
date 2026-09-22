@@ -5,11 +5,13 @@ import type { SourceRow } from '../types.ts';
 import type { Filter, Tab } from '../App.tsx';
 
 interface Props {
-  tab: Tab; onTab: (tab: Tab) => void;
+  /** null while a view outside the tabs (a deep report) is shown. */
+  tab: Tab | null; onTab: (tab: Tab) => void;
   sources: SourceRow[]; sourceId: string | undefined; filter: Filter;
   onPickSource: (id: string | undefined) => void;
   onPickFilter: (f: Filter) => void;
-  onManage: () => void; onSettings: () => void; onHide: () => void;
+  onSourceMenu: (s: SourceRow) => void;
+  onAdd: () => void; onSettings: () => void; onHide: () => void;
   aiReady: boolean;
 }
 
@@ -25,7 +27,7 @@ const FILTERS = [['all', Inbox], ['unread', Circle], ['starred', Star]] as const
  * The window's source list: the three AI views, then reading — the library
  * filters and every subscribed source. Exactly one row is selected at a time.
  */
-export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, onPickFilter, onManage, onSettings, onHide, aiReady }: Props) {
+export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, onPickFilter, onSourceMenu, onAdd, onSettings, onHide, aiReady }: Props) {
   const { t, i18n } = useTranslation();
   const reading = tab === 'read';
   const totalUnread = sources.reduce((a, s) => a + (s.unread ?? 0), 0);
@@ -40,7 +42,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
   return (
     <aside className="sidebar">
       <div className="sidebar-top">
-        <button className="icon" title={`${t('app.hideSidebar')} (⌘⌃S)`} aria-label={t('app.hideSidebar')} onClick={onHide}><PanelLeft size={17} /></button>
+        <button className="tool" title={`${t('app.hideSidebar')} (⌘⌃S)`} aria-label={t('app.hideSidebar')} onClick={onHide}><PanelLeft size={17} /></button>
       </div>
       <nav className="sidebar-scroll" aria-label={t('app.mainNav')}>
         <ul className="side-list">
@@ -50,7 +52,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
           ))}
         </ul>
 
-        <h2 className="side-heading">{t('tabs.read')}</h2>
+        <h2 className="side-heading">{t('sidebar.library')}</h2>
         <ul className="side-list">
           {FILTERS.map(([f, Icon]) => {
             const on = reading && !sourceId && filter === f;
@@ -61,7 +63,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
 
         <div className="side-heading with-action">
           <h2>{t('sidebar.sources')}</h2>
-          <button className="text-button" onClick={onManage}>{t('sidebar.manage')}</button>
+          <button className="text-button" onClick={onAdd}>{t('sidebar.manage')}</button>
         </div>
         {sources.length === 0 && <p className="side-empty">{t('sidebar.noSources')}</p>}
         {groups.map(([cat, list]) => (
@@ -73,6 +75,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
                 const stale = isStale(s);
                 return <li key={s.id}>
                   <button className={`side-row source ${on ? 'selected' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPickSource(s.id)}
+                    onContextMenu={(e) => { e.preventDefault(); onSourceMenu(s); }}
                     title={s.lastError ? t('sidebar.lastFailed') : stale ? t('sidebar.staleTitle', { days: STALE_DAYS }) : s.domain ?? s.name}>
                     <span>{s.name}</span>
                     {s.lastError ? <small className="flag warn">{t('sidebar.failed')}</small> : stale ? <small className="flag">{t('sidebar.stale')}</small> : null}
@@ -85,9 +88,11 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
         ))}
       </nav>
       <footer className="sidebar-footer">
-        <button className="side-row" onClick={onManage}><Plus size={15} /><span>{t('app.addSubscription')}</span></button>
-        <button className="side-row" onClick={onSettings}><Settings size={15} /><span>{t('app.settings')}</span>
-          <i className={`status-dot ${aiReady ? 'on' : ''}`} title={aiReady ? t('app.aiOn') : t('app.aiOff')} /></button>
+        <button className="tool" title={t('app.addSubscription')} aria-label={t('app.addSubscription')} onClick={onAdd}><Plus size={16} /></button>
+        <span className="grow" />
+        <button className="footer-status" onClick={onSettings} title={t('app.settings')}>
+          <i className={`status-dot ${aiReady ? 'on' : ''}`} />{aiReady ? t('app.aiOn') : t('app.aiOff')}</button>
+        <button className="tool" title={`${t('app.settings')} (⌘,)`} aria-label={t('app.settings')} onClick={onSettings}><Settings size={15} /></button>
       </footer>
     </aside>
   );

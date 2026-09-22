@@ -68,6 +68,15 @@ export interface FlashRow {
   sources: ItemRef[];
   searchSources: { refId: string; url: string; title: string | null; publisher: string | null }[];
 }
+export interface ReportUnit { kind: 'paragraph'|'listItem'|'timeline'|'tableRow'; text: string; sourceRefIds: string[]; supported: boolean }
+export interface ReportAnswer { title: string; units: ReportUnit[] }
+export interface ReportSource { refId: string; itemId: string|null; basis: 'article'|'snippet'|'search'; title: string; url: string; publisher: string|null; publishedAt: number|null; materialText: string }
+export interface ReportMessage { id: string; sequence: number; role: 'user'|'assistant'; question: string|null; answer: ReportAnswer|null; status: 'pending'|'complete'|'cancelled'|'failed'; model: string|null }
+export interface ReportConversation { id: string; anchorItemId: string; lang: string; topic: string; initialItemIds: string[]; messages: ReportMessage[]; sources: ReportSource[]; createdAt: number; updatedAt: number }
+export interface ReportEvent { requestId: string; conversationId: string; messageId: string; sequence: number; type: 'partial'|'complete'|'cancelled'|'error'; value?: Partial<ReportAnswer>; error?: string }
+/** What a deep report is about: the article it starts from and its companions. */
+export interface ReportAnchor { anchorItemId: string; itemIds: string[]; topic: string }
+export interface MenuEntry { id?: string; label?: string; enabled?: boolean; checked?: boolean; separator?: boolean }
 export type AssistantSourceKind = 'library' | 'news' | 'web';
 export interface AssistantUnit { kind: 'paragraph' | 'listItem'; text: string; sourceRefIds: string[]; supported: boolean }
 export interface AssistantAnswer { units: AssistantUnit[] }
@@ -162,6 +171,18 @@ export interface Pnr {
   runWatches(): Promise<RunResult>;
   runFlashes(): Promise<RunResult>;
   flashes(hours?: number, watchId?: string): Promise<FlashRow[]>;
+  reportGet(selector: { conversationId?: string; anchorItemId?: string; lang?: string }): Promise<ReportConversation | null>;
+  reportStart(input: { anchorItemId: string; itemIds: string[]; topic: string; lang: string; restart?: boolean; requestId: string }): Promise<{ noProvider?: boolean; error?: string; conversation?: ReportConversation }>;
+  reportAsk(input: { conversationId: string; question: string; requestId: string; research?: boolean }): Promise<{ noProvider?: boolean; error?: string; conversation?: ReportConversation }>;
+  reportCancel(requestId: string): Promise<boolean>;
+  onReportEvent(cb: (event: ReportEvent) => void): () => void;
+  openSettings(section?: string): Promise<void>;
+  broadcast(command: string): Promise<void>;
+  accentColor(): Promise<string | null>;
+  onAccentColor(cb: (hex: string) => void): () => void;
+  onUiLanguage(cb: (lang: string) => void): () => void;
+  contextMenu(items: MenuEntry[]): Promise<string | null>;
+  copyText(text: string): Promise<void>;
   assistantList(): Promise<AssistantChatSummary[]>;
   assistantGet(id: string): Promise<AssistantChat | null>;
   assistantDelete(id: string): Promise<boolean>;

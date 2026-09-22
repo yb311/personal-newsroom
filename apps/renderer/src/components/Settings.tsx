@@ -1,5 +1,6 @@
-import { Dialog } from './Dialog.tsx';
+import { Bot, Clock, Rss, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Group, Row, Switch } from './Form.tsx';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage, dateTime, languageName } from '../i18n.ts';
 import type { AiConnection, AiStatus, ScheduleState, SocialStatus } from '../types.ts';
@@ -7,7 +8,7 @@ import type { AiConnection, AiStatus, ScheduleState, SocialStatus } from '../typ
 type UiChoice = 'system' | 'zh-CN' | 'en';
 type Section = 'general' | 'ai' | 'sources' | 'background';
 type ProviderChoice = 'gemini' | 'openai' | 'anthropic' | 'openai-compatible' | 'ollama' | 'none';
-const SECTIONS: Section[] = ['general', 'ai', 'sources', 'background'];
+const SECTIONS = [['general', SlidersHorizontal], ['ai', Bot], ['sources', Rss], ['background', Clock]] as const;
 const PROVIDERS: ProviderChoice[] = ['gemini', 'openai', 'anthropic', 'openai-compatible', 'ollama', 'none'];
 const CLOUD = new Set<ProviderChoice>(['gemini', 'openai', 'anthropic', 'openai-compatible']);
 /** Output languages, each named in itself. */
@@ -16,38 +17,50 @@ const OUTPUT_LANGS: [string, string][] = [['zh-CN', '中文'], ['en-US', 'Englis
 /** Which message the settings screen shows after saving AI settings. */
 const connectionKey = (c: AiConnection): string =>
   c.mode === 'none' ? 'none' : c.connected ? 'connected' : c.problem ? c.problem : 'ollama_down';
-
-const hasKey = (s: AiStatus | null, p: ProviderChoice): boolean =>
-  p === 'gemini' ? Boolean(s?.hasGeminiKey) : p === 'openai' ? Boolean(s?.hasOpenAiKey)
-    : p === 'anthropic' ? Boolean(s?.hasAnthropicKey) : p === 'openai-compatible' ? Boolean(s?.hasCompatibleKey) : false;
+const hasKey = (s: AiStatus, p: ProviderChoice): boolean =>
+  p === 'gemini' ? s.hasGeminiKey : p === 'openai' ? s.hasOpenAiKey
+    : p === 'anthropic' ? s.hasAnthropicKey : p === 'openai-compatible' ? s.hasCompatibleKey : false;
+/** Tells the main window to reload what a setting affects. */
+const changed = (): void => { void window.pnr.broadcast('settingsChanged'); };
 
 /** Keys live on this machine only. The app is deliberately usable without one. */
-export function Settings({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+export function SettingsWindow({ initial }: { initial?: string | undefined }) {
   const { t } = useTranslation();
-  const [section, setSection] = useState<Section>('general');
-  const [status, setStatus] = useState<AiStatus | null>(null);
-
-  const reload = async (): Promise<void> => setStatus(await window.pnr.aiStatus());
-  useEffect(() => { void reload(); }, []);
+  const start = SECTIONS.some(([id]) => id === initial) ? initial as Section : 'general';
+  const [section, setSection] = useState<Section>(start);
+  useEffect(() => { document.title = t('settings.title'); }, [t]);
+  // Opening Settings for a particular section (e.g. "Connect AI") while it is already open.
+  useEffect(() => window.pnr.onCommand?.((c) => {
+    const s = c.startsWith('section:') ? c.slice(8) : '';
+    if (SECTIONS.some(([id]) => id === s)) setSection(s as Section);
+  }), []);
 
   return (
-    <Dialog title={t('settings.title')} onClose={onClose} className="settings-dialog">
-      <header><h2>{t('settings.title')}</h2><span className="grow" /><button className="secondary" onClick={onClose}>{t('common.done')}</button></header>
-      <nav className="settings-nav" aria-label={t('settings.title')}>
-        {SECTIONS.map((id) => <button key={id} aria-current={section === id ? 'page' : undefined} className={section === id ? 'selected' : ''}
-          onClick={() => setSection(id)}>{t(`settings.sections.${id}`)}</button>)}
-      </nav>
-      <div className="settings-body">
-        {section === 'general' && <General onChanged={onChanged} />}
-        {section === 'ai' && status && <Ai status={status} onSaved={async () => { await reload(); onChanged(); }} />}
-        {section === 'sources' && <Sources />}
-        {section === 'background' && <Background />}
-      </div>
-    </Dialog>
+    <div className="settings-window">
+      <aside className="sidebar settings-sidebar">
+        <div className="sidebar-top" />
+        <nav className="sidebar-scroll" aria-label={t('settings.title')}>
+          <ul className="side-list">
+            {SECTIONS.map(([id, Icon]) => <li key={id}>
+              <button className={`side-row ${section === id ? 'selected' : ''}`} aria-current={section === id ? 'page' : undefined} onClick={() => setSection(id)}>
+                <Icon size={16} className="accent" /><span>{t(`settings.sections.${id}`)}</span></button></li>)}
+          </ul>
+        </nav>
+      </aside>
+      <main className="settings-main">
+        <header className="toolbar"><div className="toolbar-title"><h1>{t(`settings.sections.${section}`)}</h1></div></header>
+        <div className="settings-body">
+          {section === 'general' && <General />}
+          {section === 'ai' && <Ai />}
+          {section === 'sources' && <Sources />}
+          {section === 'background' && <Background />}
+        </div>
+      </main>
+    </div>
   );
 }
 
-function General({ onChanged }: { onChanged: () => void }) {
+function General() {
   const { t } = useTranslation();
   const [uiChoice, setUiChoice] = useState<UiChoice>('system');
   const [langs, setLangs] = useState<{ available: { lang: string | null; count: number }[]; selected: string[] } | null>(null);
@@ -63,42 +76,45 @@ function General({ onChanged }: { onChanged: () => void }) {
   };
   // An empty selection means every language is shown.
   const known = (langs?.available ?? []).map((a) => a.lang).filter((l): l is string => Boolean(l));
-  const setSelection = async (next: string[]): Promise<void> => {
+  const shown = (lang: string): boolean => !langs?.selected.length || langs.selected.includes(lang);
+  const toggle = async (lang: string, on: boolean): Promise<void> => {
+    const current = langs?.selected.length ? langs.selected : known;
+    const next = on ? [...new Set([...current, lang])] : current.filter((l) => l !== lang);
     const value = next.length === 0 || known.every((l) => next.includes(l)) ? [] : next;
     await window.pnr.setReadingLanguages(value);
     setLangs((l) => l && { ...l, selected: value });
-    onChanged();
-  };
-  const toggleLang = (lang: string): void => {
-    const current = langs?.selected.length ? langs.selected : known;
-    void setSelection(current.includes(lang) ? current.filter((l) => l !== lang) : [...current, lang]);
+    changed();
   };
 
-  return <section>
-    <h3>{t('settings.uiLanguage')}</h3>
-    <label className="field">
-      <select value={uiChoice} onChange={(e) => void pickUi(e.target.value as UiChoice)} aria-label={t('settings.uiLanguage')}>
-        <option value="system">{t('settings.followSystem')}</option>
-        <option value="zh-CN">中文</option>
-        <option value="en">English</option>
-      </select>
-      <small>{t('settings.uiLanguageHint')}</small>
-    </label>
-    <h3>{t('settings.readingLanguages')}</h3>
-    <p className="section-hint">{t('settings.readingLanguagesHint')}</p>
-    <div className="check-grid">
-      <label className="check"><input type="checkbox" checked={!langs?.selected.length} onChange={() => void setSelection([])} />{t('settings.allLanguages')}</label>
+  return <>
+    <Group>
+      <Row label={t('settings.uiLanguage')} hint={t('settings.uiLanguageHint')}>
+        <select value={uiChoice} onChange={(e) => void pickUi(e.target.value as UiChoice)} aria-label={t('settings.uiLanguage')}>
+          <option value="system">{t('settings.followSystem')}</option>
+          <option value="zh-CN">中文</option>
+          <option value="en">English</option>
+        </select>
+      </Row>
+    </Group>
+    <Group title={t('settings.readingLanguages')} footer={t('settings.readingLanguagesHint')}>
+      {known.length === 0 && <Row label={t('settings.noLanguages')} />}
       {langs?.available.filter((a) => a.lang).map((a) => (
-        <label key={a.lang} className="check">
-          <input type="checkbox" checked={!langs.selected.length || langs.selected.includes(a.lang!)} onChange={() => toggleLang(a.lang!)} />
-          {languageName(a.lang!)}<small>{a.count}</small>
-        </label>
+        <Row key={a.lang} label={languageName(a.lang!)} hint={t('settings.articles', { count: a.count })}>
+          <Switch label={languageName(a.lang!)} checked={shown(a.lang!)} onChange={(on) => void toggle(a.lang!, on)} />
+        </Row>
       ))}
-    </div>
-  </section>;
+    </Group>
+  </>;
 }
 
-function Ai({ status, onSaved }: { status: AiStatus; onSaved: () => Promise<void> }) {
+function Ai() {
+  const [status, setStatus] = useState<AiStatus | null>(null);
+  useEffect(() => { void window.pnr.aiStatus().then(setStatus); }, []);
+  if (!status) return null;
+  return <AiForm status={status} onSaved={async () => { setStatus(await window.pnr.aiStatus()); changed(); }} />;
+}
+
+function AiForm({ status, onSaved }: { status: AiStatus; onSaved: () => Promise<void> }) {
   const { t } = useTranslation();
   const saved = status.provider as ProviderChoice;
   const [provider, setProvider] = useState<ProviderChoice>(saved);
@@ -141,67 +157,59 @@ function Ai({ status, onSaved }: { status: AiStatus; onSaved: () => Promise<void
   const setOption = async (name: keyof typeof options, value: string | boolean): Promise<void> => {
     setOptions((o) => ({ ...o, [name]: value }));
     await window.pnr.setAiOption(name, typeof value === 'boolean' ? (value ? '1' : '0') : value);
-    await onSaved();
+    changed();
   };
 
-  const current = status.available ? t('settings.state.connected', { provider: t(`settings.providers.${saved}`) })
+  const state = status.available ? t('settings.state.connected', { provider: t(`settings.providers.${saved}`) })
     : saved === 'none' ? t('settings.state.off') : t('settings.state.notConnected');
+  const unsaved = provider !== saved || Boolean(key.trim());
 
-  return <section>
-    <h3>{t('settings.connectionTitle')}</h3>
-    <p className="section-hint">{t('settings.aiIntro')}</p>
-    <p className={`state-line ${status.available ? 'on' : ''}`}><i className={`status-dot ${status.available ? 'on' : ''}`} />{current}</p>
+  return <>
+    <Group title={t('settings.connectionTitle')} footer={t('settings.aiIntro')}>
+      <Row label={t('settings.provider')} hint={<><i className={`status-dot ${status.available && !unsaved ? 'on' : ''}`} />{state}</>}>
+        <select value={provider} onChange={(e) => pickProvider(e.target.value as ProviderChoice)} aria-label={t('settings.provider')}>
+          {PROVIDERS.map((p) => <option key={p} value={p}>{t(`settings.providers.${p}`)}</option>)}
+        </select>
+      </Row>
+      {CLOUD.has(provider) && <Row label={t('settings.apiKey')} hint={t(`settings.keyHint.${provider === 'openai-compatible' ? 'compatible' : provider}`)}>
+        <input type="password" value={key} autoComplete="off" onChange={(e) => setKey(e.target.value)} aria-label={t('settings.apiKey')}
+               placeholder={hasKey(status, provider) ? t('settings.keySaved') : t('settings.keyPlaceholder')} />
+      </Row>}
+      {provider === 'openai-compatible' && <>
+        <Row label={t('settings.endpoint')}><input value={endpoint} placeholder="https://api.example.com/v1" onChange={(e) => setEndpoint(e.target.value)} aria-label={t('settings.endpoint')} /></Row>
+        <Row label={t('settings.writeModel')}><input value={models.write} onChange={(e) => setModels({ ...models, write: e.target.value })} aria-label={t('settings.writeModel')} /></Row>
+      </>}
+      {provider === 'ollama' && <Row label={t('settings.ollamaHost')} hint={t('settings.ollamaHint')}>
+        <input value={ollamaHost} onChange={(e) => setOllamaHost(e.target.value)} aria-label={t('settings.ollamaHost')} /></Row>}
+      <div className="row actions">
+        {msg && <span role="status" className="row-status">{msg}</span>}
+        <span className="grow" />
+        <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? t('common.checking') : provider === 'none' ? t('common.save') : t('settings.saveConnect')}</button>
+      </div>
+    </Group>
 
-    <label className="field"><span>{t('settings.provider')}</span>
-      <select value={provider} onChange={(e) => pickProvider(e.target.value as ProviderChoice)}>
-        {PROVIDERS.map((p) => <option key={p} value={p}>{t(`settings.providers.${p}`)}</option>)}
-      </select></label>
+    {(CLOUD.has(provider) || provider === 'ollama') && <Group title={t('settings.advanced')}>
+      {provider !== 'openai-compatible' && provider !== 'ollama' && <Row label={t('settings.writeModel')}>
+        <input value={models.write} onChange={(e) => setModels({ ...models, write: e.target.value })} placeholder={placeholder(defaults?.write, t('settings.useDefault'))} aria-label={t('settings.writeModel')} /></Row>}
+      {provider !== 'ollama' && <Row label={t('settings.fastModel')}>
+        <input value={models.fast} onChange={(e) => setModels({ ...models, fast: e.target.value })} placeholder={placeholder(defaults?.fast, t('settings.sameAsWrite'))} aria-label={t('settings.fastModel')} /></Row>}
+      {provider !== 'anthropic' && provider !== 'ollama' && <Row label={t('settings.embedModel')} hint={t('settings.embedHint')}>
+        <input value={models.embed} onChange={(e) => setModels({ ...models, embed: e.target.value })} placeholder={placeholder(defaults?.embed, t('settings.noEmbed'))} aria-label={t('settings.embedModel')} /></Row>}
+      {(provider === 'openai-compatible' || provider === 'ollama') && <Row label={t('settings.contextTokens')}>
+        <input inputMode="numeric" value={contextTokens} onChange={(e) => setContextTokens(e.target.value.replace(/\D/g, ''))} placeholder="8192" aria-label={t('settings.contextTokens')} /></Row>}
+    </Group>}
 
-    {CLOUD.has(provider) && <label className="field"><span>{t('settings.apiKey')}{provider === 'openai-compatible' && <i>{t('common.optional')}</i>}</span>
-      <input type="password" value={key} autoComplete="off" onChange={(e) => setKey(e.target.value)}
-             placeholder={hasKey(status, provider) ? t('settings.keySaved') : t('settings.keyPlaceholder')} />
-      <small>{t(`settings.keyHint.${provider === 'openai-compatible' ? 'compatible' : provider}`)}</small></label>}
-
-    {provider === 'openai-compatible' && <>
-      <label className="field"><span>{t('settings.endpoint')}</span>
-        <input value={endpoint} placeholder="https://api.example.com/v1" onChange={(e) => setEndpoint(e.target.value)} /></label>
-      <label className="field"><span>{t('settings.writeModel')}</span>
-        <input value={models.write} onChange={(e) => setModels({ ...models, write: e.target.value })} /></label>
-    </>}
-    {provider === 'ollama' && <>
-      <p className="section-hint">{t('settings.ollamaHint')}</p>
-      <label className="field"><span>{t('settings.ollamaHost')}</span><input value={ollamaHost} onChange={(e) => setOllamaHost(e.target.value)} /></label>
-    </>}
-
-    {(CLOUD.has(provider) || provider === 'ollama') && <details className="disclosure">
-      <summary>{t('settings.advanced')}</summary>
-      {provider !== 'openai-compatible' && provider !== 'ollama' && <label className="field"><span>{t('settings.writeModel')}</span>
-        <input value={models.write} onChange={(e) => setModels({ ...models, write: e.target.value })} placeholder={placeholder(defaults?.write, t('settings.useDefault'))} /></label>}
-      {provider !== 'ollama' && <label className="field"><span>{t('settings.fastModel')}</span>
-        <input value={models.fast} onChange={(e) => setModels({ ...models, fast: e.target.value })} placeholder={placeholder(defaults?.fast, t('settings.sameAsWrite'))} /></label>}
-      {provider !== 'anthropic' && provider !== 'ollama' && <label className="field"><span>{t('settings.embedModel')}</span>
-        <input value={models.embed} onChange={(e) => setModels({ ...models, embed: e.target.value })} placeholder={placeholder(defaults?.embed, t('settings.noEmbed'))} />
-        <small>{t('settings.embedHint')}</small></label>}
-      {(provider === 'openai-compatible' || provider === 'ollama') && <label className="field"><span>{t('settings.contextTokens')}</span>
-        <input inputMode="numeric" value={contextTokens} onChange={(e) => setContextTokens(e.target.value.replace(/\D/g, ''))} placeholder="8192" /></label>}
-    </details>}
-
-    <div className="form-actions">
-      <button className="primary" onClick={() => void save()} disabled={saving}>{saving ? t('common.checking') : provider === 'none' ? t('common.save') : t('settings.saveConnect')}</button>
-      {msg && <span role="status" className="section-hint">{msg}</span>}
-    </div>
-
-    <h3>{t('settings.featuresTitle')}</h3>
-    <label className="field"><span>{t('settings.outputLanguage')}</span>
-      <select value={options.outputLang} onChange={(e) => void setOption('outputLang', e.target.value)}>
-        {OUTPUT_LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-      <small>{t('settings.outputLanguageHint')}</small></label>
-    <label className="check block"><input type="checkbox" checked={options.searchFillEnabled} onChange={(e) => void setOption('searchFillEnabled', e.target.checked)} />
-      <span>{t('settings.searchFill')}<small>{t('settings.searchFillHint')}</small></span></label>
-    <label className="check block"><input type="checkbox" checked={options.outsidePicksEnabled} onChange={(e) => void setOption('outsidePicksEnabled', e.target.checked)} />
-      <span>{t('settings.outsidePicks')}<small>{t('settings.outsidePicksHint')}</small></span></label>
-  </section>;
+    <Group title={t('settings.featuresTitle')}>
+      <Row label={t('settings.outputLanguage')} hint={t('settings.outputLanguageHint')}>
+        <select value={options.outputLang} onChange={(e) => void setOption('outputLang', e.target.value)} aria-label={t('settings.outputLanguage')}>
+          {OUTPUT_LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select></Row>
+      <Row label={t('settings.searchFill')} hint={t('settings.searchFillHint')}>
+        <Switch label={t('settings.searchFill')} checked={options.searchFillEnabled} onChange={(on) => void setOption('searchFillEnabled', on)} /></Row>
+      <Row label={t('settings.outsidePicks')} hint={t('settings.outsidePicksHint')}>
+        <Switch label={t('settings.outsidePicks')} checked={options.outsidePicksEnabled} onChange={(on) => void setOption('outsidePicksEnabled', on)} /></Row>
+    </Group>
+  </>;
 }
 
 function Sources() {
@@ -236,43 +244,38 @@ function Sources() {
   };
   const saveInstance = async (): Promise<void> => {
     setInstanceMessage('');
-    try { await window.pnr.socialSetInstance(instance.trim()); setSocial(await window.pnr.socialStatus()); setInstanceMessage(t('common.saved')); }
+    try { await window.pnr.socialSetInstance(instance.trim()); setSocial(await window.pnr.socialStatus()); setInstanceMessage(t('common.saved')); changed(); }
     catch { setInstanceMessage(t('settings.instanceFailed')); }
   };
+  const packed = social?.pack.installed;
 
-  return <section>
-    <h3>{t('settings.rsshubTitle')}</h3>
-    <p className="section-hint">{t('settings.rsshubIntro')}</p>
-    {!social?.instanceUrl && <div className="panel row">
-      {social?.pack.installed
-        ? <><span>{t('settings.packInstalled', { mb: Math.round((social.pack.bytes ?? 0) / 1048576) })}{social.pack.version ? ` · ${social.pack.version.split('-').pop()}` : ''}</span>
-            <span className="grow" /><button className="secondary" onClick={async () => { await window.pnr.socialRemove(); setSocial(await window.pnr.socialStatus()); }}>{t('settings.removePack')}</button></>
-        : <><span>{t('settings.packMissing')}</span><span className="grow" />
-            <button className="primary" onClick={() => void install()} disabled={installing}>{installing ? progress || t('settings.preparing') : t('settings.downloadPack')}</button></>}
-    </div>}
-    {progress && !installing && <p className="error-text">{progress}</p>}
-    <label className="field"><span>{t('settings.instance')}<i>{t('common.optional')}</i></span>
-      <div className="input-row">
-        <input placeholder="http://127.0.0.1:1200" value={instance} onChange={(e) => { setInstance(e.target.value); setInstanceMessage(''); }} />
-        <button className="secondary" onClick={() => void saveInstance()}>{t('common.save')}</button>
-      </div>
-      <small>{instanceMessage || t('settings.instanceHint')}</small>
-    </label>
-
-    <h3>X / Twitter</h3>
-    <p className="section-hint">{t('settings.xIntro')}</p>
-    <label className="field"><span>{t('settings.apifyToken')}</span>
-      <div className="input-row">
-        <input type="password" autoComplete="off" value={apify} placeholder={hasApify ? t('settings.keySaved') : 'apify_api_…'} onChange={(e) => { setApify(e.target.value); setApifyMessage(''); }} />
-        <button className="secondary" disabled={!apify.trim()} onClick={async () => {
-          try { await window.pnr.setApifyToken(apify); setApify(''); setHasApify(true); setApifyMessage(t('common.saved')); }
-          catch { setApifyMessage(t('common.saveFailed')); }
-        }}>{t('common.save')}</button>
-        {hasApify && <button className="secondary" onClick={async () => { await window.pnr.setApifyToken(''); setHasApify(false); setApifyMessage(t('common.removed')); }}>{t('common.remove')}</button>}
-      </div>
-      {apifyMessage && <small role="status">{apifyMessage}</small>}
-    </label>
-  </section>;
+  return <>
+    <Group title={t('settings.rsshubTitle')} footer={t('settings.rsshubIntro')}>
+      <Row label={packed ? t('settings.packInstalled', { mb: Math.round((social!.pack.bytes ?? 0) / 1048576) }) : t('settings.packMissing')}
+           hint={packed && social?.pack.version ? social.pack.version.split('-').pop() : progress && !installing ? progress : undefined}>
+        {packed
+          ? <button className="push" onClick={async () => { await window.pnr.socialRemove(); setSocial(await window.pnr.socialStatus()); changed(); }}>{t('settings.removePack')}</button>
+          : <button className="push" onClick={() => void install()} disabled={installing || Boolean(social?.instanceUrl)}>{installing ? progress || t('settings.preparing') : t('settings.downloadPack')}</button>}
+      </Row>
+      <Row label={t('settings.instance')} hint={instanceMessage || t('settings.instanceHint')}>
+        <div className="inline"><input placeholder="http://127.0.0.1:1200" value={instance} aria-label={t('settings.instance')} onChange={(e) => { setInstance(e.target.value); setInstanceMessage(''); }} />
+          <button className="push" onClick={() => void saveInstance()}>{t('common.save')}</button></div>
+      </Row>
+    </Group>
+    <Group title="X / Twitter" footer={t('settings.xIntro')}>
+      <Row label={t('settings.apifyToken')} hint={apifyMessage || undefined}>
+        <div className="inline">
+          <input type="password" autoComplete="off" value={apify} aria-label={t('settings.apifyToken')} placeholder={hasApify ? t('settings.keySaved') : 'apify_api_…'} onChange={(e) => { setApify(e.target.value); setApifyMessage(''); }} />
+          {apify.trim()
+            ? <button className="push" onClick={async () => {
+                try { await window.pnr.setApifyToken(apify); setApify(''); setHasApify(true); setApifyMessage(t('common.saved')); }
+                catch { setApifyMessage(t('common.saveFailed')); }
+              }}>{t('common.save')}</button>
+            : hasApify && <button className="push" onClick={async () => { await window.pnr.setApifyToken(''); setHasApify(false); setApifyMessage(t('common.removed')); }}>{t('common.remove')}</button>}
+        </div>
+      </Row>
+    </Group>
+  </>;
 }
 
 function Background() {
@@ -284,26 +287,24 @@ function Background() {
     setBusy(true);
     try { setSched(await window.pnr.setSchedule(on, hour)); } finally { setBusy(false); }
   };
+  const last = sched?.lastRun;
 
-  return <section>
-    <h3>{t('settings.sections.background')}</h3>
-    <p className="section-hint">{t('settings.backgroundIntro')}</p>
-    <label className="check block panel"><input type="checkbox" disabled={busy || !sched} checked={Boolean(sched?.enabled)} onChange={(e) => void apply(e.target.checked)} />
-      <span>{t('settings.allowBackground')}<small>{t('settings.loginItems')}</small></span></label>
+  return <Group footer={<>{t('settings.backgroundIntro')} {t('settings.loginItems')}</>}>
+    <Row label={t('settings.allowBackground')} hint={sched?.status === 'requires-approval' ? <span className="warn">{t('common.loginItemsHint')}</span> : undefined}>
+      <Switch label={t('settings.allowBackground')} disabled={busy || !sched} checked={Boolean(sched?.enabled)} onChange={(on) => void apply(on)} />
+    </Row>
     {sched?.enabled && <>
-      {sched.status === 'requires-approval' && <p className="error-text">{t('common.loginItemsHint')}</p>}
-      <label className="field"><span>{t('settings.dailyTime')}</span>
-        <select value={sched.dailyHour} disabled={busy} onChange={(e) => void apply(true, Number(e.target.value))}>
+      <Row label={t('settings.dailyTime')} hint={t('settings.flashInterval', { count: sched.flashIntervalHours })}>
+        <select value={sched.dailyHour} disabled={busy} onChange={(e) => void apply(true, Number(e.target.value))} aria-label={t('settings.dailyTime')}>
           {[5, 6, 7, 8, 9, 10].map((h) => <option key={h} value={h}>{h}:15</option>)}
-        </select>
-        <small>{t('settings.flashInterval', { count: sched.flashIntervalHours })}</small></label>
-      <p className="section-hint">
-        {sched.lastRun
-          ? t('settings.lastRun', { when: dateTime(sched.lastRun.at), kind: t(`settings.runKind.${sched.lastRun.kind}`, { defaultValue: sched.lastRun.kind }),
-              outcome: t(`settings.outcome.${sched.lastRun.outcome === 'ok' || sched.lastRun.outcome === 'partial' ? sched.lastRun.outcome : 'failed'}`) })
-          : t('settings.neverRun')}
-      </p>
-      {sched.mode === 'launchAgent' && sched.plistPath && <p className="section-hint">{t('settings.plistPath')}<code>{sched.plistPath}</code></p>}
+        </select></Row>
+      <Row label={t('settings.lastRunLabel')} hint={sched.mode === 'launchAgent' && sched.plistPath ? <>{t('settings.plistPath')}<code>{sched.plistPath}</code></> : undefined}>
+        <span className="row-value">{last
+          ? t('settings.lastRun', { when: dateTime(last.at), kind: t(`settings.runKind.${last.kind}`, { defaultValue: last.kind }),
+              outcome: t(`settings.outcome.${last.outcome === 'ok' || last.outcome === 'partial' ? last.outcome : 'failed'}`) })
+          : t('settings.neverRun')}</span>
+      </Row>
     </>}
-  </section>;
+  </Group>;
 }
+

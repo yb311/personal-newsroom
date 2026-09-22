@@ -24,7 +24,8 @@
     "justNow": "刚刚",
     "seenAt": "发现于 {{when}}",
     "noDateHint": "来源未提供发布时间，此处为首次发现时间",
-    "loginItemsHint": "请在「系统设置 → 通用 → 登录项」中允许「所闻」在后台运行。"
+    "loginItemsHint": "请在「系统设置 → 通用 → 登录项」中允许「所闻」在后台运行。",
+    "back": "返回"
   },
   "tabs": {
     "today": "今日",
@@ -84,7 +85,9 @@
     "lastFailed": "上次更新失败",
     "failed": "失败",
     "staleTitle": "超过 {{days}} 天没有新文章",
-    "stale": "停更"
+    "stale": "停更",
+    "unsubscribe": "停用此订阅",
+    "library": "阅读"
   },
   "list": {
     "label": "文章列表",
@@ -221,9 +224,6 @@
   "flashes": {
     "needAiTitle": "快讯需要 AI",
     "needAiBody": "快讯从你的关注中挑出最新进展，每条一两句话。",
-    "last24h": "最近 24 小时",
-    "count": "{{count}} 条",
-    "onlyImportant": "只看重要",
     "empty": "这段时间没有值得提醒的新进展。",
     "emptyFiltered": "没有重要快讯。取消筛选可查看全部。",
     "important": "重要",
@@ -234,7 +234,15 @@
     "snippetOnlyHint": "未能获取原文，仅依据来源摘要撰写",
     "searchFilled": "搜索补全",
     "searchFilledHint": "原文无法获取，内容经搜索核实补全",
-    "verifiedSources": "已核实来源（{{count}}）"
+    "verifiedSources": "已核实来源（{{count}}）",
+    "subtitle": "最近 24 小时 · {{count}} 条",
+    "filter": "筛选快讯",
+    "show": {
+      "all": "全部",
+      "important": "重要"
+    },
+    "emptyTitle": "没有新快讯",
+    "emptyFilteredTitle": "没有重要快讯"
   },
   "background": {
     "title": "后台更新",
@@ -353,7 +361,10 @@
       "failed": "失败"
     },
     "neverRun": "尚未运行。",
-    "plistPath": "任务文件（开发模式）："
+    "plistPath": "任务文件（开发模式）：",
+    "noLanguages": "更新订阅后，这里会列出文章的语言。",
+    "articles": "{{count}} 篇",
+    "lastRunLabel": "上次运行"
   },
   "catalogue": {
     "title": "订阅管理",
@@ -550,7 +561,6 @@
       "less": "严格",
       "lessHint": "只保留明确相关的报道。"
     },
-    "activeLabel": "启用（暂停后不再更新，已有内容保留）",
     "aids": "AI 生成的检索词",
     "aidsHint": "只用于扩大候选范围，不影响按你的描述判断。",
     "aliases": "别名",
@@ -559,7 +569,12 @@
     "savedIntentChanged": "已保存。下次更新将按新描述重新判断。",
     "discard": "放弃未保存的修改？",
     "confirmDelete": "删除「{{label}}」及其进展？",
-    "delete": "删除关注"
+    "delete": "删除关注",
+    "count": "{{count}} 个关注",
+    "pauseAction": "暂停",
+    "resumeAction": "恢复更新",
+    "active": "更新此关注",
+    "activeHint": "关闭后不再更新，已有内容保留。"
   },
   "menu": {
     "about": "关于所闻",
@@ -588,6 +603,40 @@
     "window": "窗口",
     "minimize": "最小化",
     "zoom": "缩放",
-    "front": "前置全部窗口"
+    "front": "前置全部窗口",
+    "openOriginal": "在浏览器中打开原文",
+    "openInReader": "在阅读中打开",
+    "copyLink": "拷贝链接",
+    "copyText": "拷贝文字",
+    "manageSubscriptions": "管理订阅…"
+  },
+  "report": {
+    "title": "深度报道",
+    "open": "深度报道",
+    "restart": "重新撰写",
+    "needAi": "深度报道需要先连接 AI",
+    "gathering": "正在收集相关报道并读取全文…",
+    "writing": "正在撰写…",
+    "failed": "报道未能完成。",
+    "stopped": "已停止。",
+    "meta": "依据 {{count}} 份材料 · {{date}}",
+    "sources": "材料（{{count}}）",
+    "askPlaceholder": "就这篇报道继续追问",
+    "ask": "追问",
+    "research": "再找资料",
+    "researchHint": "追问前先搜索更多相关报道",
+    "cancel": "停止",
+    "basis": {
+      "article": "原文",
+      "snippet": "仅摘要",
+      "search": "搜索核实"
+    },
+    "errors": {
+      "failed": "报道未能完成。",
+      "conversation_busy": "上一个追问还在撰写中。",
+      "uncited_report": "模型没有给出有来源的内容，请重试。",
+      "empty_report": "模型没有给出内容，请重试。",
+      "conversation_context_exceeded": "对话太长，超出模型上限。请重新撰写。"
+    }
   }
 }

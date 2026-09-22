@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
+import { app, BrowserWindow, clipboard, ipcMain, shell, Menu, systemPreferences, type MenuItemConstructorOptions } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { setSink, withRunContext } from '@pnr/core';
@@ -6,8 +6,8 @@ import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_
 import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr/ai';
-import { runDaily, runFlashCheck, runWatch, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
-         type AssistantEvent, type AssistantAskInput, type RunOptions, type RunResult } from '@pnr/generate';
+import { runDaily, runFlashCheck, runWatch, getReport, startReport, askReport, recoverReports, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
+         type AssistantEvent, type AssistantAskInput, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
@@ -50,6 +50,7 @@ setSink((e) => {
 });
 const api = createApi(db, DATA_DIR);
 recoverAssistant(db);
+recoverReports(db);
 
 seedCatalogue();
 applyRssHubConfig(db);
@@ -57,35 +58,86 @@ const routes = bundled('rsshub-routes.json');
 if (routes) setCuratedRoutes(JSON.parse(readFileSync(routes, 'utf8')));
 
 let win: BrowserWindow | null = null;
+let settingsWin: BrowserWindow | null = null;
 
-function createWindow(): void {
-  win = new BrowserWindow({
-    width: 1180, height: 820, minWidth: 720, minHeight: 520,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 18 },
-    backgroundColor: '#00000000',
-    vibrancy: 'sidebar',
-    visualEffectState: 'followWindow',
-    webPreferences: { preload: join(__dirname, 'preload.cjs'), sandbox: false, contextIsolation: true }
-  });
+/** Loads the renderer; `view` picks a window other than the main one. */
+function load(target: BrowserWindow, view?: string): void {
   const built = join(__dirname, 'renderer', 'index.html');
-  if (existsSync(built)) void win.loadFile(built);
-  else void win.loadURL('http://localhost:5173');
-
+  if (existsSync(built)) void target.loadFile(built, view ? { hash: view } : {});
+  else void target.loadURL(`http://localhost:5173/${view ? `#${view}` : ''}`);
   // External links open in the real browser, never inside the app: new-window
   // requests (article links carry target=_blank) and in-place navigation alike.
-  win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: 'deny' }; });
-  win.webContents.on('will-navigate', (e, url) => {
-    if (url === win?.webContents.getURL()) return;
+  target.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) void shell.openExternal(url); return { action: 'deny' }; });
+  target.webContents.on('will-navigate', (e, url) => {
+    if (url === target.webContents.getURL()) return;
     e.preventDefault();
     if (/^https?:/i.test(url)) void shell.openExternal(url);
   });
+}
+const preload = { preload: join(__dirname, 'preload.cjs'), sandbox: false, contextIsolation: true };
+/** Sends to every open window, e.g. a setting changed in the Settings window. */
+const broadcast = (channel: string, ...args: unknown[]): void => {
+  for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, ...args);
+};
+
+function createWindow(): void {
+  win = new BrowserWindow({
+    width: 1180, height: 820, minWidth: 760, minHeight: 520,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 18, y: 18 },
+    backgroundColor: '#00000000',
+    vibrancy: 'sidebar',
+    visualEffectState: 'followWindow',
+    webPreferences: preload
+  });
+  load(win);
   win.on('closed', () => {
-    for (const controller of assistantRequests.values()) controller.abort();
-    assistantRequests.clear();
+    for (const controller of [...assistantRequests.values(), ...reportRequests.values()]) controller.abort();
+    assistantRequests.clear(); reportRequests.clear();
     win = null;
   });
 }
+
+/** Settings is its own window, as on every Mac app: ⌘, opens or focuses it. */
+function openSettings(section?: string): void {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    if (section) settingsWin.webContents.send('app:command', `section:${section}`);
+    settingsWin.show(); settingsWin.focus(); return;
+  }
+  settingsWin = new BrowserWindow({
+    width: 720, height: 580, minWidth: 620, minHeight: 440,
+    titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 18, y: 18 },
+    minimizable: false, fullscreenable: false, show: false,
+    backgroundColor: '#00000000', vibrancy: 'sidebar', visualEffectState: 'followWindow',
+    webPreferences: preload
+  });
+  load(settingsWin, section ? `settings:${section}` : 'settings');
+  settingsWin.once('ready-to-show', () => settingsWin?.show());
+  settingsWin.on('closed', () => { settingsWin = null; });
+}
+ipcMain.handle('app:openSettings', (_e, section?: string) => openSettings(section));
+ipcMain.handle('app:broadcast', (e, command: string) => {
+  for (const w of BrowserWindow.getAllWindows()) if (w.webContents !== e.sender) w.webContents.send('app:command', command);
+});
+
+// The system accent colour, so controls follow what the person chose in System Settings.
+ipcMain.handle('app:accent', () => systemPreferences.getAccentColor?.() ?? null);
+systemPreferences.on?.('accent-color-changed', () => broadcast('app:accent', systemPreferences.getAccentColor()));
+
+ipcMain.handle('app:copyText', (_e, text: string) => clipboard.writeText(String(text)));
+
+/** A native context menu; resolves with the chosen item's id, or null. */
+ipcMain.handle('app:contextMenu', (e, items: { id?: string; label?: string; enabled?: boolean; checked?: boolean; separator?: boolean }[]) =>
+  new Promise<string | null>((resolve) => {
+    let chosen: string | null = null;
+    const template: MenuItemConstructorOptions[] = items.map((i) => i.separator ? { type: 'separator' } : {
+      label: i.label ?? '', enabled: i.enabled !== false,
+      ...(i.checked !== undefined ? { type: 'checkbox' as const, checked: i.checked } : {}),
+      click: () => { chosen = i.id ?? null; }
+    });
+    const owner = BrowserWindow.fromWebContents(e.sender) ?? undefined;
+    Menu.buildFromTemplate(template).popup({ ...(owner ? { window: owner } : {}), callback: () => setTimeout(() => resolve(chosen), 0) });
+  }));
 
 app.whenReady().then(() => {
   setDevDockIcon();
@@ -115,6 +167,7 @@ ipcMain.handle('app:uiLanguage', () => uiLanguage());
 ipcMain.handle('app:setUiLanguage', (_e, choice: UiChoice) => {
   writeSetting(db, UI_LANGUAGE_KEY, choice === 'zh-CN' || choice === 'en' ? choice : 'system');
   installApplicationMenu();
+  broadcast('app:uiLanguage', uiLanguage().resolved);
   return uiLanguage();
 });
 
@@ -128,7 +181,7 @@ function installApplicationMenu(): void {
       label: '所闻',
       submenu: [
         { role: 'about', label: m.about },
-        { label: m.settings, accelerator: 'CmdOrCtrl+,', click: send('settings') },
+        { label: m.settings, accelerator: 'CmdOrCtrl+,', click: () => openSettings() },
         { type: 'separator' },
         { role: 'services', label: m.services },
         { type: 'separator' },
@@ -297,6 +350,26 @@ ipcMain.handle('assistant:ask', async (_e, input: AssistantAskInput) => {
   finally { assistantRequests.delete(input.requestId); }
 });
 ipcMain.handle('assistant:cancel', (_e, requestId: string) => { assistantRequests.get(requestId)?.abort(); return true; });
+
+// ── deep report ────────────────────────────────────────────────────────────
+const reportRequests = new Map<string, AbortController>();
+const reportEvent = (event: ReportEvent): void => { if (win && !win.isDestroyed()) win.webContents.send('report:event', event); };
+ipcMain.handle('report:get', (_e, selector: { conversationId?: string; anchorItemId?: string; lang?: string }) => getReport(db, selector));
+ipcMain.handle('report:start', async (_e, input: ReportStartInput) => {
+  const provider = await resolveProvider(db); if (!provider) return { noProvider: true };
+  const controller = new AbortController(); reportRequests.set(input.requestId, controller);
+  try { return { conversation: await startReport(db, provider, DATA_DIR, input, reportEvent, controller.signal) }; }
+  catch (error) { return { error: String((error as Error)?.message ?? error).slice(0, 160) }; }
+  finally { reportRequests.delete(input.requestId); }
+});
+ipcMain.handle('report:ask', async (_e, input: { conversationId: string; question: string; requestId: string; research?: boolean }) => {
+  const provider = await resolveProvider(db); if (!provider) return { noProvider: true };
+  const controller = new AbortController(); reportRequests.set(input.requestId, controller);
+  try { return { conversation: await askReport(db, provider, DATA_DIR, input.conversationId, input.question, input.requestId, Boolean(input.research), reportEvent, controller.signal) }; }
+  catch (error) { return { error: String((error as Error)?.message ?? error).slice(0, 160) }; }
+  finally { reportRequests.delete(input.requestId); }
+});
+ipcMain.handle('report:cancel', (_e, requestId: string) => { reportRequests.get(requestId)?.abort(); return true; });
 
 // ── background schedule ────────────────────────────────────────────────────
 ipcMain.handle('app:scheduleState', () => ({ ...scheduleState(db), runs: recentRuns(db) }));

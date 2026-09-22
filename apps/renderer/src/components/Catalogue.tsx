@@ -33,7 +33,7 @@ export function Catalogue({ onClose }: { onClose: (changed: boolean) => void }) 
             ))}
           </nav>
           <span className="grow" />
-          <button className="secondary" onClick={close}>{t('common.done')}</button>
+          <button className="push" onClick={close}>{t('common.done')}</button>
         </header>
         {tab === 'browse' ? <Browse onChange={mark} /> : tab === 'social' ? <RssHubPicker describe={(code) => sourceFailure(t, code)} onAdded={mark} /> : <AddSource onAdded={mark} />}
     </Dialog>

@@ -52,6 +52,18 @@ cat > "$OUT/preview.html" <<'HTML'
     runFlashes: async () => ({busy:false, published:0}),
     flashes: async () => d.flashes,
     setAiOption: async () => {},
+    openSettings: async (section) => { window.open('./preview.html#settings' + (section ? ':' + section : ''), '_blank', 'width=720,height=580'); },
+    broadcast: async () => {}, copyText: async () => {}, accentColor: async () => null, onAccentColor: () => () => {}, onUiLanguage: () => () => {},
+    contextMenu: async (items) => { console.log('menu', items.map(i => i.label).filter(Boolean).join(' | ')); return null; },
+    reportGet: async () => null, reportCancel: async () => true, onReportEvent: () => () => {}, reportAsk: async () => ({ error: 'preview' }),
+    reportStart: async (input) => { await new Promise(r => setTimeout(r, 600)); const it = d.items.find(i => i.id === input.anchorItemId) ?? d.items[0];
+      return { conversation: { id: 'c1', anchorItemId: it.id, lang: 'zh-CN', topic: input.topic, initialItemIds: [it.id], createdAt: Date.now(), updatedAt: Date.now(),
+        sources: d.items.slice(0, 3).map((x, i) => ({ refId: 's' + (i + 1), itemId: x.id, basis: 'article', title: x.title, url: x.url, publisher: x.sourceName, publishedAt: x.publishedAt, materialText: '' })),
+        messages: [{ id: 'q', sequence: 1, role: 'user', question: input.topic, answer: null, status: 'complete', model: null },
+          { id: 'a', sequence: 2, role: 'assistant', question: null, status: 'complete', model: 'x', answer: { title: it.title, units: [
+            { kind: 'paragraph', text: (it.snippet ?? it.title), sourceRefIds: ['s1'], supported: true },
+            { kind: 'timeline', text: d.items[1].title, sourceRefIds: ['s2'], supported: true },
+            { kind: 'timeline', text: d.items[2].title, sourceRefIds: ['s3'], supported: true }] } }] } }; },
     // The assistant answers from the first few articles, so the panel can be seen working.
     assistantList: async () => chats.map(c => ({ id: c.id, title: c.title, updatedAt: c.updatedAt })),
     assistantGet: async (id) => chats.find(c => c.id === id) ?? null,
