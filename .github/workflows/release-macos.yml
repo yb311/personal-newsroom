@@ -20,18 +20,18 @@ jobs:
 
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24.16.0
           cache: npm
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: 1.26.0
           cache-dependency-path: native/reader/go.sum
@@ -109,7 +109,7 @@ jobs:
         run: shasum -a 256 release/*.dmg release/*.zip > release/SHA256SUMS.txt
 
       - name: Preserve release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 所闻-${{ github.ref_name }}-macOS
           path: |
