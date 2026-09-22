@@ -55,6 +55,8 @@ export interface Today {
   changes: { watchId: string; label: string; milestones: Milestone[] }[];
   outside: OutsidePick[];
   refs: ItemRef[];
+  /** Active watches; a brief is only written for them. */
+  watchCount: number;
 }
 export interface OutsidePick { id:string; date:string; lang:string; mode:'ai'|'local'; title:string; reason:string; itemIds:string[]; suggestion:{label:string;intent:string;keywords:string[]}; createdAt:number }
 export interface HeadlineGroup { sourceId: string; sourceName: string; items: ItemRow[] }
@@ -66,12 +68,15 @@ export interface FlashRow {
   sources: ItemRef[];
   searchSources: { refId: string; url: string; title: string | null; publisher: string | null }[];
 }
-export interface ReportUnit { kind: 'paragraph'|'listItem'|'timeline'|'tableRow'; text: string; sourceRefIds: string[]; supported: boolean }
-export interface ReportAnswer { title: string; units: ReportUnit[] }
-export interface ReportSource { refId: string; itemId: string|null; basis: 'article'|'snippet'|'search'; title: string; url: string; publisher: string|null; publishedAt: number|null; materialText: string }
-export interface ReportMessage { id: string; sequence: number; role: 'user'|'assistant'; question: string|null; answer: ReportAnswer|null; status: 'pending'|'complete'|'cancelled'|'failed'; model: string|null }
-export interface ReportConversation { id: string; anchorItemId: string; lang: string; topic: string; initialItemIds: string[]; messages: ReportMessage[]; sources: ReportSource[]; createdAt: number; updatedAt: number }
-export interface ReportEvent { requestId: string; conversationId: string; messageId: string; sequence: number; type: 'partial'|'complete'|'cancelled'|'error'; value?: Partial<ReportAnswer>; error?: string }
+export type AssistantSourceKind = 'library' | 'news' | 'web';
+export interface AssistantUnit { kind: 'paragraph' | 'listItem'; text: string; sourceRefIds: string[]; supported: boolean }
+export interface AssistantAnswer { units: AssistantUnit[] }
+export interface AssistantSource { refId: string; kind: AssistantSourceKind; itemId: string | null; title: string; url: string; publisher: string | null; publishedAt: number | null }
+export interface AssistantMessage { id: string; sequence: number; role: 'user' | 'assistant'; content: string | null; answer: AssistantAnswer | null; status: 'pending' | 'complete' | 'cancelled' | 'failed'; web: boolean; error: string | null }
+export interface AssistantChat { id: string; title: string; lang: string; createdAt: number; updatedAt: number; messages: AssistantMessage[]; sources: AssistantSource[] }
+export interface AssistantChatSummary { id: string; title: string; updatedAt: number }
+export type AssistantPhase = 'library' | 'news' | 'web' | 'writing';
+export interface AssistantEvent { requestId: string; chatId: string; messageId: string; type: 'phase' | 'partial' | 'complete' | 'cancelled' | 'error'; phase?: AssistantPhase; value?: Partial<AssistantAnswer>; error?: string }
 export interface OpenQuestion { id: number; question: string; askedAt: number }
 export interface RunResult {
   busy?: boolean; error?: string; fetched?: number; watches?: number; failed?: number;
@@ -90,6 +95,10 @@ export interface AiStatus {
   ollamaHost: string; ollamaWriteModel: string; ollamaFastModel: string; ollamaEmbedModel: string;
   searchFillEnabled: boolean;
   outsidePicksEnabled: boolean;
+  /** Whether the connected provider can search the web itself. */
+  webSearch: boolean;
+  /** Recommended models of each cloud provider, shown as placeholders. */
+  defaults: Record<'gemini' | 'openai' | 'anthropic', { write: string; fast: string; embed?: string }>;
 }
 export interface SocialStatus {
   mode: 'off' | 'http' | 'library';
@@ -131,6 +140,7 @@ export interface Pnr {
   onProgress(cb: (p: unknown) => void): () => void;
   aiStatus(): Promise<AiStatus>;
   saveAiSettings(patch: Record<string, string>): Promise<AiConnection>;
+  setAiOption(key: 'outputLang' | 'searchFillEnabled' | 'outsidePicksEnabled', value: string): Promise<void>;
   presets(lang?: string): Promise<PresetRow[]>;
   watches(): Promise<WatchRow[]>;
   addWatch(i: { label: string; intent: string; keywords?: string[]; outputLang?: string | null }): Promise<WatchRow>;
@@ -152,11 +162,12 @@ export interface Pnr {
   runWatches(): Promise<RunResult>;
   runFlashes(): Promise<RunResult>;
   flashes(hours?: number, watchId?: string): Promise<FlashRow[]>;
-  reportGet(selector: { conversationId?: string; anchorItemId?: string; lang?: string }): Promise<ReportConversation|null>;
-  reportStart(input: { anchorItemId: string; itemIds: string[]; topic: string; lang: string; restart?: boolean; requestId: string }): Promise<{ noProvider?: boolean; error?: string; conversation?: ReportConversation }>;
-  reportAsk(input: { conversationId: string; question: string; requestId: string; research?: boolean }): Promise<{ noProvider?: boolean; error?: string; conversation?: ReportConversation }>;
-  reportCancel(requestId: string): Promise<boolean>;
-  onReportEvent(cb: (event: ReportEvent) => void): () => void;
+  assistantList(): Promise<AssistantChatSummary[]>;
+  assistantGet(id: string): Promise<AssistantChat | null>;
+  assistantDelete(id: string): Promise<boolean>;
+  assistantAsk(input: { chatId: string | null; question: string; web: boolean; lang: string; requestId: string }): Promise<{ chat?: AssistantChat; error?: string }>;
+  assistantCancel(requestId: string): Promise<boolean>;
+  onAssistantEvent(cb: (event: AssistantEvent) => void): () => void;
   scheduleState(): Promise<ScheduleState>;
   setSchedule(on: boolean, hour?: number): Promise<ScheduleState>;
   socialStatus(): Promise<SocialStatus>;

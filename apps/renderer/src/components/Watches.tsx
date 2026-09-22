@@ -1,19 +1,25 @@
 import { Dialog } from './Dialog.tsx';
-import { Plus, Trash2, Search, Bookmark, ArrowLeft, RefreshCw, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Search, Bookmark, ArrowLeft, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ItemRef, Milestone, OpenQuestion, PresetRow, Sensitivity, WatchItem, WatchRow } from '../types.ts';
+import type { ItemRef, Milestone, OpenQuestion, OutsidePick, PresetRow, Sensitivity, WatchItem, WatchRow } from '../types.ts';
 import { Cites } from './Cites.tsx';
 import { useTranslation } from 'react-i18next';
 import { ago, dateTime } from '../i18n.ts';
 const splitKeywords = (s: string): string[] => s.split(/[,，、;；\n]+/).map((k) => k.trim()).filter(Boolean);
 
+/** Something else in the window asked to add a watch, optionally prefilled. */
+export interface WatchRequest { draft: OutsidePick['suggestion'] | null }
+
 /** The 关注 tab. Presets and written intents are the same object; the only
  *  difference is who wrote the sentence. */
-export function Watches({ aiReady, onSetup, onOpen, onReport, reportLang, prefill, onPrefillDone }: { aiReady: boolean; onSetup: () => void; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string; prefill:{label:string;intent:string;keywords:string[]}|null; onPrefillDone:()=>void }) {
+export function Watches({ aiReady, revision, onSetup, onOpen, request, onRequestDone }: {
+  aiReady: boolean; revision: number; onSetup: () => void; onOpen: (id: string) => void;
+  request: WatchRequest | null; onRequestDone: () => void;
+}) {
   const { t } = useTranslation();
-  const [watches, setWatches] = useState<WatchRow[]>([]);
+  const [watches, setWatches] = useState<WatchRow[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
+  const [adding, setAdding] = useState<WatchRequest | null>(null);
   const [query, setQuery] = useState('');
   const [dirty, setDirty] = useState(false);
 
@@ -22,54 +28,60 @@ export function Watches({ aiReady, onSetup, onOpen, onReport, reportLang, prefil
     setWatches(w);
     setOpen((id) => (w.some((x) => x.id === id) ? id : w[0]?.id ?? null));
   }, []);
-  useEffect(() => { void load(); }, [load]);
-  useEffect(() => { if (prefill) setShowAdd(true); }, [prefill]);
+  useEffect(() => { void load(); }, [load, revision]);
+  useEffect(() => { if (request) { setAdding(request); onRequestDone(); } }, [request, onRequestDone]);
 
-  const selected = watches.find((w) => w.id === open);
+  const list = watches ?? [];
+  const selected = list.find((w) => w.id === open);
+  const confirmLeave = (): boolean => !dirty || window.confirm(t('watches.discard'));
   const pick = (id: string | null): void => {
-    if (id !== open && dirty && !window.confirm(t('watches.discard'))) return;
+    if (id === open || !confirmLeave()) return;
     setDirty(false); setOpen(id);
   };
   const q = query.trim().toLowerCase();
+  const shown = list.filter((w) => `${w.label} ${w.intent} ${w.keywords.join(' ')}`.toLowerCase().includes(q));
 
   return (
     <section className={`watch-workspace ${selected ? 'has-selection' : ''}`}>
       <aside className="watch-browser" aria-label={t('watches.list')}>
-        <div className="section-toolbar"><strong>{t('watches.mine')}</strong><span className="grow" />
-          <button title={t('watches.add')} aria-label={t('watches.add')} onClick={() => setShowAdd(true)}><Plus size={17} /></button></div>
-        <label className="search-field"><Search size={14} /><input type="search" aria-label={t('watches.search')} placeholder={t('watches.searchPlaceholder')} value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+        <div className="list-toolbar">
+          <label className="search-field"><Search size={14} /><input type="search" aria-label={t('watches.search')} placeholder={t('watches.search')} value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+          <button className="icon" title={t('watches.add')} aria-label={t('watches.add')} onClick={() => setAdding({ draft: null })}><Plus size={16} /></button>
+        </div>
         <div className="watch-rows">
-          {watches.filter((w) => `${w.label} ${w.intent} ${w.keywords.join(' ')}`.toLowerCase().includes(q)).map((w) => (
+          {shown.map((w) => (
             <button key={w.id} className={`watch-row ${open === w.id ? 'selected' : ''} ${w.active ? '' : 'paused'}`}
                     aria-current={open === w.id ? true : undefined} onClick={() => pick(w.id)}>
-              <Bookmark size={16} /><span><strong>{w.label}</strong><small>{w.active ? w.intent : t('watches.paused')}</small></span>
-              {w.newCount > 0 && <em className="badge">{w.newCount}</em>}
+              <span><strong>{w.label}</strong><small>{w.active ? w.intent : t('watches.paused')}</small></span>
+              {w.newCount > 0 && <em className="badge" title={t('watches.newTitle', { count: w.newCount })}>{w.newCount}</em>}
             </button>
           ))}
-          {watches.length === 0 && <p className="empty-block">{t('watches.emptyLine1')}<br />{t('watches.emptyLine2')}<br /><button onClick={() => setShowAdd(true)}>{t('watches.add')}</button></p>}
+          {watches && list.length === 0 && <div className="empty-state compact">
+            <p>{t('watches.empty')}</p>
+            <button className="primary" onClick={() => setAdding({ draft: null })}>{t('watches.add')}</button>
+          </div>}
+          {list.length > 0 && shown.length === 0 && <p className="section-hint pad">{t('watches.noMatch')}</p>}
         </div>
-        <footer className="list-status">{t('watches.count', { count: watches.length })}</footer>
       </aside>
       <div className="watch-detail">
-        {!aiReady && watches.length > 0 && (
-          <div className="inline-notice">
-            {t('watches.noAi')}
-            <button className="link" onClick={onSetup}>{t('common.connectAi')}</button>
-          </div>
+        {!aiReady && list.length > 0 && (
+          <div className="notice">{t('watches.noAi')}<button className="link" onClick={onSetup}>{t('common.connectAi')}</button></div>
         )}
         {selected ? <>
-          <button className="watch-back" onClick={() => pick(null)}><ArrowLeft size={15} />{t('watches.list')}</button>
-          <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} onChanged={load} onDirty={setDirty} onOpen={onOpen} onReport={onReport} reportLang={reportLang} />
-        </> : <div className="empty-state"><Bookmark size={28} /><h2>{t('watches.pickTitle')}</h2><p>{t('watches.pickHint')}</p></div>}
+          <button className="watch-back secondary" onClick={() => pick(null)}><ArrowLeft size={15} />{t('watches.list')}</button>
+          <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} revision={revision} onChanged={load}
+            dirty={dirty} onDirty={setDirty} confirmLeave={confirmLeave} onOpen={onOpen} />
+        </> : watches && list.length > 0 && <div className="empty-state"><Bookmark size={26} strokeWidth={1.6} /><h3>{t('watches.pickTitle')}</h3><p>{t('watches.pickHint')}</p></div>}
       </div>
-      {showAdd && <AddWatch prefill={prefill} onClose={() => { setShowAdd(false); onPrefillDone(); }} onAdded={async (id) => { await load(); if (id) setOpen(id); setShowAdd(false); onPrefillDone(); }} />}
+      {adding && <AddWatch prefill={adding.draft} onClose={() => setAdding(null)}
+        onAdded={async (id) => { setAdding(null); await load(); if (id) { setDirty(false); setOpen(id); } }} />}
     </section>
   );
 }
 
 // ── adding ──────────────────────────────────────────────────────────────────
 
-function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded: (id: string | null) => void; prefill:{label:string;intent:string;keywords:string[]}|null }) {
+function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded: (id: string | null) => void; prefill: OutsidePick['suggestion'] | null }) {
   const { t, i18n } = useTranslation();
   const [mode, setMode] = useState<'library' | 'custom'>(prefill ? 'custom' : 'library');
   const [presets, setPresets] = useState<PresetRow[]>([]);
@@ -90,9 +102,10 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  const ready = mode === 'library' ? picked.size > 0 : Boolean(draft.intent.trim());
 
   const submit = async (): Promise<void> => {
-    if (busy) return;
+    if (busy || !ready) return;
     setBusy(true); setError('');
     try {
       if (mode === 'library') {
@@ -100,8 +113,7 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
         onAdded(ids[0] ?? null);
       } else {
         const intent = draft.intent.trim();
-        if (!intent) return;
-        const w = await window.pnr.addWatch({ label: draft.label.trim() || intent.slice(0, 12), intent, keywords: splitKeywords(draft.keywords) });
+        const w = await window.pnr.addWatch({ label: draft.label.trim() || intent.slice(0, 16), intent, keywords: splitKeywords(draft.keywords) });
         onAdded(w.id);
       }
     } catch { setError(t('watches.addFailed')); }
@@ -111,47 +123,50 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
   return (
     <Dialog title={t('watches.add')} onClose={() => { if (!busy) onClose(); }} className="add-watch-dialog">
       <header><h2>{t('watches.add')}</h2>
-        <nav className="tabs small">
-          <button className={mode === 'library' ? 'active' : ''} onClick={() => setMode('library')}>{t('watches.library')}</button>
-          <button className={mode === 'custom' ? 'active' : ''} onClick={() => setMode('custom')}>{t('watches.custom')}</button>
+        <nav className="segmented" aria-label={t('watches.addMode')}>
+          <button className={mode === 'library' ? 'active' : ''} aria-pressed={mode === 'library'} onClick={() => setMode('library')}>{t('watches.library')}</button>
+          <button className={mode === 'custom' ? 'active' : ''} aria-pressed={mode === 'custom'} onClick={() => setMode('custom')}>{t('watches.custom')}</button>
         </nav>
       </header>
-      {mode === 'library' ? (
-        <div className="preset-library">
-          <p className="muted">{t('watches.libraryHint')}</p>
-          {groups.map(([group, list]) => (
-            <div key={group} className="preset-group">
-              <h4>{t(`watches.groups.${group}`, { defaultValue: group })}</h4>
-              <div className="preset-chips">
-                {list.map((p) => (
-                  <button key={p.id} type="button" title={p.intent} disabled={p.enabled}
-                          className={`chip ${picked.has(p.id) ? 'active' : ''}`} onClick={() => toggle(p.id)}>
-                    {p.label}{p.enabled ? t('watches.alreadyAdded') : ''}
-                  </button>
-                ))}
+      <div className="dialog-body">
+        {mode === 'library' ? (
+          <>
+            <p className="section-hint">{t('watches.libraryHint')}</p>
+            {groups.map(([group, list]) => (
+              <div key={group} className="preset-group">
+                <h4>{t(`watches.groups.${group}`, { defaultValue: group })}</h4>
+                <div className="chips">
+                  {list.map((p) => (
+                    <button key={p.id} type="button" title={p.intent} disabled={p.enabled} aria-pressed={picked.has(p.id)}
+                            className={`chip ${picked.has(p.id) ? 'active' : ''}`} onClick={() => toggle(p.id)}>
+                      {p.label}{p.enabled ? t('watches.alreadyAdded') : ''}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <form className="watch-composer" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-          <label className="field"><span>{t('watches.intentLabel')}</span>
-            <textarea autoFocus required rows={3} value={draft.intent} onChange={(e) => setDraft({ ...draft, intent: e.target.value })}
-                      placeholder={t('watches.intentPlaceholder')} /></label>
-          <p className="muted small">{t('watches.intentHint')}</p>
-          <label className="field"><span>{t('watches.nameOptional')}</span><input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} /></label>
-          <label className="field"><span>{t('watches.keywordsOptional')}</span>
-            <input value={draft.keywords} onChange={(e) => setDraft({ ...draft, keywords: e.target.value })} placeholder={t('watches.keywordsPlaceholder')} />
-            <small className="muted">{t('watches.keywordsHint')}</small></label>
-        </form>
-      )}
-      {error && <p role="alert" className="muted warn">{error}</p>}
-      <div className="dialog-actions">
-        <button type="button" disabled={busy} onClick={onClose}>{t('common.cancel')}</button>
-        <button className="primary" disabled={busy || (mode === 'library' ? picked.size === 0 : !draft.intent.trim())} onClick={() => void submit()}>
-          {busy ? t('watches.adding') : mode === 'library' && picked.size ? t('watches.addN', { count: picked.size }) : mode === 'library' ? t('watches.add') : t('common.add')}
-        </button>
+            ))}
+          </>
+        ) : (
+          <form onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+            <label className="field"><span>{t('watches.intent')}</span>
+              <textarea autoFocus required rows={3} value={draft.intent} onChange={(e) => setDraft({ ...draft, intent: e.target.value })}
+                        placeholder={t('watches.intentPlaceholder')} />
+              <small>{t('watches.intentHint')}</small></label>
+            <label className="field"><span>{t('watches.name')}<i>{t('common.optional')}</i></span>
+              <input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} /></label>
+            <label className="field"><span>{t('watches.keywords')}<i>{t('common.optional')}</i></span>
+              <input value={draft.keywords} onChange={(e) => setDraft({ ...draft, keywords: e.target.value })} placeholder={t('watches.keywordsPlaceholder')} />
+              <small>{t('watches.keywordsHint')}</small></label>
+          </form>
+        )}
+        {error && <p role="alert" className="error-text">{error}</p>}
       </div>
+      <footer className="dialog-actions">
+        <button type="button" className="secondary" disabled={busy} onClick={onClose}>{t('common.cancel')}</button>
+        <button className="primary" disabled={busy || !ready} onClick={() => void submit()}>
+          {busy ? t('common.adding') : mode === 'library' && picked.size ? t('watches.addN', { count: picked.size }) : t('common.add')}
+        </button>
+      </footer>
     </Dialog>
   );
 }
@@ -160,13 +175,22 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
 
 type Tab = 'items' | 'timeline' | 'settings';
 
-function WatchDetail({ watch, aiReady, onChanged, onDirty, onOpen, onReport, reportLang }:
-  { watch: WatchRow; aiReady: boolean; onChanged: () => void; onDirty: (dirty: boolean) => void; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
+function WatchDetail({ watch, aiReady, revision: outer, onChanged, dirty, onDirty, confirmLeave, onOpen }: {
+  watch: WatchRow; aiReady: boolean; revision: number; onChanged: () => void;
+  dirty: boolean; onDirty: (dirty: boolean) => void; confirmLeave: () => boolean; onOpen: (id: string) => void;
+}) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('items');
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
-  const [revision, setRevision] = useState(0);
+  const [local, setLocal] = useState(0);
+  const revision = outer + local;
+  // Leaving the settings form unmounts it; ask first rather than drop edits silently.
+  const switchTab = (next: Tab): void => {
+    if (next === tab || (tab === 'settings' && dirty && !confirmLeave())) return;
+    if (tab === 'settings') onDirty(false);
+    setTab(next);
+  };
 
   const runNow = async (): Promise<void> => {
     setRunning(true); setMessage(t('watches.updatingOne'));
@@ -174,7 +198,7 @@ function WatchDetail({ watch, aiReady, onChanged, onDirty, onOpen, onReport, rep
       const r = await window.pnr.runWatch(watch.id);
       setMessage(r.busy ? t('watches.busy') : r.error ? t('watches.updateFailed', { error: r.error.slice(0, 60) })
         : r.mode === 'keywords' ? t('watches.rematched') : t('watches.updated') + (r.milestones ? t('watches.newMilestones', { count: r.milestones }) : ''));
-      onChanged(); setRevision((v) => v + 1);
+      onChanged(); setLocal((v) => v + 1);
     } catch { setMessage(t('watches.updateError')); }
     finally { setRunning(false); }
   };
@@ -182,35 +206,42 @@ function WatchDetail({ watch, aiReady, onChanged, onDirty, onOpen, onReport, rep
   return (
     <section className="watch-inspector">
       <div className="detail-heading">
-        <h2>{watch.label}</h2>
-        <span className="muted">
-          {t('watches.relevant', { count: watch.passed })}{aiReady && watch.candidates > watch.passed ? t('watches.fromCandidates', { count: watch.candidates }) : ''}{watch.lastRunAt ? t('watches.lastUpdated', { when: ago(watch.lastRunAt) }) : t('watches.neverUpdated')}
-        </span>
-        <span className="grow" />
-        <button onClick={() => void runNow()} disabled={running || !watch.active}><RefreshCw size={14} className={running ? 'spinning' : ''} />{t('watches.updateNow')}</button>
+        <div>
+          <h2>{watch.label}</h2>
+          <p className="section-hint">
+            {t('watches.relevant', { count: watch.passed })}{aiReady && watch.candidates > watch.passed ? t('watches.fromCandidates', { count: watch.candidates }) : ''}
+            {' · '}{watch.lastRunAt ? t('watches.lastUpdated', { when: ago(watch.lastRunAt) }) : t('watches.neverUpdated')}
+          </p>
+        </div>
+        <button className="secondary" onClick={() => void runNow()} disabled={running || !watch.active} title={watch.active ? undefined : t('watches.paused')}>
+          <RefreshCw size={14} className={running ? 'spinning' : ''} />{t('watches.updateNow')}</button>
       </div>
-      {message && <p role="status" className="muted small">{message}</p>}
-      <nav className="tabs small watch-tabs">
+      {message && <p role="status" className="section-hint">{message}</p>}
+      <nav className="segmented tabs" aria-label={t('watches.sections')}>
         {(['items', 'timeline', 'settings'] as const).map((id) => (
-          <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
-            {t(`watches.tabs.${id}`)}{id === 'timeline' && watch.newCount ? t('watches.newCount', { count: watch.newCount }) : ''}
+          <button key={id} className={tab === id ? 'active' : ''} aria-pressed={tab === id} onClick={() => switchTab(id)}>
+            {t(`watches.tabs.${id}`)}{id === 'timeline' && watch.newCount ? <em className="badge">{watch.newCount}</em> : null}
           </button>
         ))}
       </nav>
-      {tab === 'items' && <WatchItems watch={watch} revision={revision} onOpen={onOpen} onChanged={onChanged} onReport={onReport} reportLang={reportLang} />}
-      {tab === 'timeline' && <WatchTimeline watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} onReport={onReport} reportLang={reportLang} />}
+      {tab === 'items' && <WatchItems watch={watch} revision={revision} onOpen={onOpen} onChanged={onChanged} />}
+      {tab === 'timeline' && <WatchTimeline watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} />}
       {tab === 'settings' && <WatchSettings watch={watch} onChanged={onChanged} onDirty={onDirty} />}
     </section>
   );
 }
 
-function WatchItems({ watch, revision, onOpen, onChanged, onReport, reportLang }: { watch: WatchRow; revision: number; onOpen: (id: string) => void; onChanged: () => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
+function WatchItems({ watch, revision, onOpen, onChanged }: { watch: WatchRow; revision: number; onOpen: (id: string) => void; onChanged: () => void }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<WatchItem[] | null>(null);
   const [noting, setNoting] = useState<{ id: string; verdict: 'wanted' | 'not_wanted' } | null>(null);
   const [note, setNote] = useState('');
 
-  useEffect(() => { void window.pnr.watchItems(watch.id, 80).then(setItems); }, [watch.id, revision]);
+  useEffect(() => {
+    let live = true;
+    void window.pnr.watchItems(watch.id, 80).then((r) => { if (live) setItems(r); });
+    return () => { live = false; };
+  }, [watch.id, revision]);
 
   const send = async (): Promise<void> => {
     if (!noting) return;
@@ -221,37 +252,36 @@ function WatchItems({ watch, revision, onOpen, onChanged, onReport, reportLang }
     setNoting(null); setNote(''); onChanged();
   };
 
-  if (!items) return <p className="muted">{t('common.loading')}</p>;
+  if (!items) return <p className="section-hint">{t('common.loading')}</p>;
   if (items.length === 0) {
-    return <p className="muted watch-empty">{t('watches.noItems')}{watch.keywords.length === 0 ? t('watches.noItemsKeywords') : ''}</p>;
+    return <p className="section-hint">{t('watches.noItems')}{watch.keywords.length === 0 ? t('watches.noItemsKeywords') : ''}</p>;
   }
   return (
     <>
-      <p className="muted small">{t('watches.verdictHint')}</p>
+      <p className="section-hint">{t('watches.verdictHint')}</p>
       <ul className="watch-items">
         {items.map((it) => (
           <li key={it.id}>
             <div className="meta">
-              <span className="src">{it.sourceName}</span><span className="dot">·</span>
+              <span className="src">{it.sourceName}</span><span aria-hidden>·</span>
               <time>{dateTime(it.publishedAt, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time>
-              {it.arms === 'keyword' ? <span className="tag">{t('watches.keywordMatch')}</span>
+              {it.arms === 'keyword' ? <span className="tag" title={t('watches.keywordMatchHint')}>{t('watches.keywordMatch')}</span>
                 : it.score !== null ? <span className="tag" title={t('watches.scoreHint')}>{t('watches.score', { score: it.score })}</span> : null}
-              {it.verdict === 'wanted' && <span className="tag ok">{t('watches.markedWanted')}</span>}
+              {it.verdict === 'wanted' && <span className="tag accent">{t('watches.markedWanted')}</span>}
             </div>
             <button className="headline" onClick={() => onOpen(it.id)}>{it.title}</button>
-            <button className="report-open" onClick={() => onReport({anchorItemId:it.id,itemIds:[it.id],topic:it.title,lang:watch.outputLang ?? reportLang})}><Sparkles size={12}/>{t('report.open')}</button>
             {it.reason && <p className="why">{it.reason}</p>}
             {noting?.id === it.id ? (
               <form className="note-row" onSubmit={(e) => { e.preventDefault(); void send(); }}>
                 <input autoFocus value={note} onChange={(e) => setNote(e.target.value)}
                        placeholder={noting.verdict === 'wanted' ? t('watches.whyWanted') : t('watches.whyNot')} />
                 <button className="primary">{noting.verdict === 'wanted' ? t('watches.markWanted') : t('watches.markNot')}</button>
-                <button type="button" onClick={() => { setNoting(null); setNote(''); }}>{t('common.cancel')}</button>
+                <button type="button" className="secondary" onClick={() => { setNoting(null); setNote(''); }}>{t('common.cancel')}</button>
               </form>
             ) : (
               <div className="verdicts">
-                <button title={t('watches.want')} aria-label={t('watches.wantThis')} onClick={() => setNoting({ id: it.id, verdict: 'wanted' })}><ThumbsUp size={13} /></button>
-                <button title={t('watches.notWant')} aria-label={t('watches.notWantThis')} onClick={() => setNoting({ id: it.id, verdict: 'not_wanted' })}><ThumbsDown size={13} /></button>
+                <button className="icon" title={t('watches.wantThis')} aria-label={t('watches.wantThis')} onClick={() => setNoting({ id: it.id, verdict: 'wanted' })}><ThumbsUp size={13} /></button>
+                <button className="icon" title={t('watches.notWantThis')} aria-label={t('watches.notWantThis')} onClick={() => setNoting({ id: it.id, verdict: 'not_wanted' })}><ThumbsDown size={13} /></button>
               </div>
             )}
           </li>
@@ -261,37 +291,37 @@ function WatchItems({ watch, revision, onOpen, onChanged, onReport, reportLang }
   );
 }
 
-function WatchTimeline({ watch, aiReady, revision, onOpen, onReport, reportLang }: { watch: WatchRow; aiReady: boolean; revision: number; onOpen: (id: string) => void; onReport:(a:{anchorItemId:string;itemIds:string[];topic:string;lang:string})=>void; reportLang:string }) {
+function WatchTimeline({ watch, aiReady, revision, onOpen }: { watch: WatchRow; aiReady: boolean; revision: number; onOpen: (id: string) => void }) {
   const { t } = useTranslation();
   const [data, setData] = useState<{ milestones: Milestone[]; refs: ItemRef[]; questions: OpenQuestion[] } | null>(null);
-  useEffect(() => { void window.pnr.watchTimeline(watch.id).then(setData); }, [watch.id, revision]);
+  useEffect(() => {
+    let live = true;
+    void window.pnr.watchTimeline(watch.id).then((d) => { if (live) setData(d); });
+    return () => { live = false; };
+  }, [watch.id, revision]);
   const refs = useMemo(() => new Map((data?.refs ?? []).map((r) => [r.id, r])), [data]);
 
-  if (!data) return <p className="muted">{t('common.loading')}</p>;
-  if (!aiReady && data.milestones.length === 0) return <p className="muted watch-empty">{t('watches.timelineNeedsAi')}</p>;
+  if (!data) return <p className="section-hint">{t('common.loading')}</p>;
+  if (!aiReady && data.milestones.length === 0) return <p className="section-hint">{t('watches.timelineNeedsAi')}</p>;
   return (
     <>
       {data.questions.length > 0 && (
-        <div className="open-questions">
+        <div className="panel">
           <h4>{t('watches.openQuestions')}</h4>
-          <p className="muted small">{t('watches.openQuestionsHint')}</p>
-          <ul>{data.questions.map((q) => <li key={q.id}>{q.question}</li>)}</ul>
+          <p className="section-hint">{t('watches.openQuestionsHint')}</p>
+          <ul className="plain">{data.questions.map((q) => <li key={q.id}>{q.question}</li>)}</ul>
         </div>
       )}
       {data.milestones.length === 0
-        ? <p className="muted watch-empty">{t('watches.noMilestones')}</p>
-        : (
-          <div className="timeline">
-            <ul>
-              {data.milestones.map((m) => (
-                <li key={m.id} className={m.isNew ? 'new' : ''}>
-                  <time>{m.occurredOn}</time>
-                  <span>{m.summary}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} />{m.itemIds[0] && <button className="report-open" onClick={() => onReport({anchorItemId:m.itemIds[0]!,itemIds:m.itemIds,topic:m.summary,lang:watch.outputLang ?? reportLang})}><Sparkles size={12}/>{t('report.open')}</button>}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        ? <p className="section-hint">{t('watches.noMilestones')}</p>
+        : <ul className="timeline-list rail">
+            {data.milestones.map((m) => (
+              <li key={m.id} className={m.isNew ? 'new' : ''}>
+                <time>{m.occurredOn}</time>
+                <p>{m.summary}{m.isNew && <span className="tag accent">{t('watches.new')}</span>}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></p>
+              </li>
+            ))}
+          </ul>}
     </>
   );
 }
@@ -318,7 +348,7 @@ function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChang
     setSaving(true); setMessage('');
     try {
       await window.pnr.editWatch(watch.id, {
-        label: form.label, intent: form.intent, keywords: splitKeywords(form.keywords),
+        label: form.label.trim() || watch.label, intent: form.intent.trim(), keywords: splitKeywords(form.keywords),
         outputLang: form.outputLang || null, sensitivity: form.sensitivity, active: form.active
       });
       setMessage(form.intent.trim() !== watch.intent ? t('watches.savedIntentChanged') : t('common.saved'));
@@ -328,44 +358,49 @@ function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChang
   };
 
   return (
-    <div className="watch-body">
+    <div className="form-stack">
       <label className="field"><span>{t('watches.name')}</span><input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} /></label>
       <label className="field"><span>{t('watches.intent')}</span>
         <textarea rows={3} value={form.intent} onChange={(e) => setForm({ ...form, intent: e.target.value })} />
-        <small className="muted">{t('watches.intentJudge')}</small></label>
+        <small>{t('watches.intentJudge')}</small></label>
       <label className="field"><span>{t('watches.keywords')}</span>
-        <input value={form.keywords} onChange={(e) => setForm({ ...form, keywords: e.target.value })} placeholder={t('watches.keywordsComma')} />
-        <small className="muted">{t('watches.keywordsHintShort')}</small></label>
+        <input value={form.keywords} onChange={(e) => setForm({ ...form, keywords: e.target.value })} placeholder={t('watches.keywordsPlaceholder')} />
+        <small>{t('watches.keywordsHint')}</small></label>
       <label className="field"><span>{t('watches.outputLang')}</span>
         <select value={form.outputLang} onChange={(e) => setForm({ ...form, outputLang: e.target.value })}>
           <option value="">{t('watches.followGlobal')}</option>
           {LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select></label>
-      <fieldset className="field sensitivity"><legend>{t('watches.strictness')}</legend>
-        {SENSITIVITY.map((v) => (
-          <label key={v} className="inline-check"><input type="radio" name={`s-${watch.id}`} checked={form.sensitivity === v}
-            onChange={() => setForm({ ...form, sensitivity: v })} />{t(`watches.sensitivity.${v}`)}<span className="muted small"> {t(`watches.sensitivity.${v}Hint`)}</span></label>
-        ))}
+      <fieldset className="field">
+        <legend>{t('watches.strictness')}</legend>
+        <div className="segmented" role="radiogroup">
+          {SENSITIVITY.map((v) => (
+            <button key={v} type="button" role="radio" aria-checked={form.sensitivity === v} className={form.sensitivity === v ? 'active' : ''}
+              onClick={() => setForm({ ...form, sensitivity: v })}>{t(`watches.sensitivity.${v}`)}</button>
+          ))}
+        </div>
+        <small>{t(`watches.sensitivity.${form.sensitivity}Hint`)}</small>
       </fieldset>
-      <label className="inline-check"><input type="checkbox" checked={!form.active} onChange={(e) => setForm({ ...form, active: !e.target.checked })} />{t('watches.pause')}</label>
+      <label className="check"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />{t('watches.activeLabel')}</label>
       {watch.recallAids && (
-        <details className="aids"><summary>{t('watches.aids')}</summary>
-          <p className="muted">{t('watches.aidsHint')}</p>
+        <details className="disclosure"><summary>{t('watches.aids')}</summary>
+          <p className="section-hint">{t('watches.aidsHint')}</p>
           <Chips title={t('watches.aliases')} items={watch.recallAids.aliases} />
           <Chips title={t('watches.related')} items={watch.recallAids.relatedTerms} />
           <Chips title={t('watches.sourceHints')} items={watch.recallAids.sourceHints} />
         </details>
       )}
-      <div className="save-row">
-        <button className="primary" onClick={() => void save()} disabled={saving || !dirty || !form.intent.trim()}>{saving ? t('common.saving') : t('watches.saveChanges')}</button>
-        <span role="status" className="muted">{message}</span>
+      <div className="form-actions">
+        <button className="primary" onClick={() => void save()} disabled={saving || !dirty || !form.intent.trim()}>{saving ? t('common.saving') : t('common.save')}</button>
+        {dirty && <button className="secondary" onClick={() => setForm(initial)}>{t('common.revert')}</button>}
+        <span role="status" className="section-hint">{message}</span>
       </div>
-      <div className="watch-actions">
+      <div className="danger-zone">
         {confirmDelete
-          ? <div className="delete-confirm"><span>{t('watches.confirmDelete', { label: watch.label })}</span>
-              <button onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</button>
-              <button className="danger" onClick={async () => { await window.pnr.removeWatch(watch.id); onDirty(false); onChanged(); }}>{t('watches.deleteConfirm')}</button></div>
-          : <button onClick={() => setConfirmDelete(true)}><Trash2 size={14} />{t('watches.delete')}</button>}
+          ? <><span>{t('watches.confirmDelete', { label: watch.label })}</span>
+              <button className="secondary" onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</button>
+              <button className="danger" onClick={async () => { await window.pnr.removeWatch(watch.id); onDirty(false); onChanged(); }}>{t('common.delete')}</button></>
+          : <button className="text-button danger" onClick={() => setConfirmDelete(true)}><Trash2 size={13} />{t('watches.delete')}</button>}
       </div>
     </div>
   );
@@ -373,8 +408,8 @@ function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChang
 
 const Chips = ({ title, items }: { title: string; items: string[] }) =>
   items.length === 0 ? null : (
-    <div className="chips">
+    <div className="chips labelled">
       <span className="chips-title">{title}</span>
-      {items.map((x) => <span key={x} className="chip">{x}</span>)}
+      {items.map((x) => <span key={x} className="chip static">{x}</span>)}
     </div>
   );

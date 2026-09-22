@@ -28,7 +28,7 @@ writeFileSync(new URL('../apps/desktop/dist/renderer/mock.json', import.meta.url
   cat: q('SELECT id,name,kind,category,country,domain,enabled,NULL lastError,0 unread,0 total FROM sources ORDER BY enabled DESC,name LIMIT 300'),
   watches: ws, presets: api.presets(), presetsEn: api.presets('en'),
   today: api.today(), headlines: api.headlines(24, 4),
-  timelines, watchItems, flashes, ai: { available: true, provider: 'gemini', outputLang: 'zh-CN', searchFillEnabled: true, outsidePicksEnabled: true }
+  timelines, watchItems, flashes, ai: { ...(await api.aiStatus()), available: true, provider: 'gemini', webSearch: true }
 }));
 console.log(`导出：${items.length} 条 · ${flashes.length} 快讯 · ${ws.length} 关注`);
 db.close();

@@ -4,7 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
  *  filesystem. Adding a method to ipc.ts means adding its name here. */
 const API_METHODS = [
   'listSources', 'listItems', 'getItem', 'markRead', 'toggleStar',
-  'setSourceEnabled', 'catalogue', 'stats', 'countItems', 'headlines', 'itemRefs', 'readingLanguages', 'setReadingLanguages',
+  'setSourceEnabled', 'catalogue', 'setAiOption', 'stats', 'countItems', 'headlines', 'itemRefs', 'readingLanguages', 'setReadingLanguages',
   'aiStatus', 'saveAiSettings', 'presets', 'watches', 'addWatch', 'editWatch',
   'removeWatch', 'togglePreset', 'correct', 'addPresets', 'backgroundPrompt', 'dismissBackgroundPrompt', 'today', 'watchTimeline', 'watchItems', 'flashes', 'addSource', 'removeSource', 'rsshubRoutes', 'previewRoute', 'matchRoute', 'hasApifyToken', 'setApifyToken', 'rssHubReady'
 ] as const;
@@ -27,14 +27,15 @@ contextBridge.exposeInMainWorld('pnr', {
   runWatches: () => ipcRenderer.invoke('app:runWatches'),
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),
   runWatch: (id: string) => ipcRenderer.invoke('app:runWatch', id),
-  reportGet: (selector: unknown) => ipcRenderer.invoke('report:get', selector),
-  reportStart: (input: unknown) => ipcRenderer.invoke('report:start', input),
-  reportAsk: (input: unknown) => ipcRenderer.invoke('report:ask', input),
-  reportCancel: (requestId: string) => ipcRenderer.invoke('report:cancel', requestId),
-  onReportEvent: (cb: (p: unknown) => void) => {
+  assistantList: () => ipcRenderer.invoke('assistant:list'),
+  assistantGet: (id: string) => ipcRenderer.invoke('assistant:get', id),
+  assistantDelete: (id: string) => ipcRenderer.invoke('assistant:delete', id),
+  assistantAsk: (input: unknown) => ipcRenderer.invoke('assistant:ask', input),
+  assistantCancel: (requestId: string) => ipcRenderer.invoke('assistant:cancel', requestId),
+  onAssistantEvent: (cb: (p: unknown) => void) => {
     const fn = (_e: unknown, p: unknown): void => cb(p);
-    ipcRenderer.on('report:event', fn);
-    return () => ipcRenderer.off('report:event', fn);
+    ipcRenderer.on('assistant:event', fn);
+    return () => ipcRenderer.off('assistant:event', fn);
   },
   scheduleState: () => ipcRenderer.invoke('app:scheduleState'),
   socialStatus: () => ipcRenderer.invoke('social:status'),

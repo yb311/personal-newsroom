@@ -1,6 +1,6 @@
 import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
-import { aiAvailable, checkConnection, publicSettings, writeSetting, invalidateProvider, type AiConnection } from '@pnr/ai';
+import { checkConnection, publicSettings, resolveProvider, writeSetting, invalidateProvider, GEMINI_MODELS, OPENAI_MODELS, ANTHROPIC_MODELS, type AiConnection } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection } from '@pnr/watch';
 import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions, readOutsidePicks } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
@@ -94,17 +94,22 @@ export function createApi(db: Db, dataDir: string) {
 
   // Items whose language could not be determined are always shown: hiding
   // them would drop content for a guess we could not make.
+  const langClause = (): { sql: string; params: string[] } => {
+    const langs = readingLangs();
+    return langs.length ? { sql: `(i.lang IS NULL OR i.lang IN (${langs.map(() => '?').join(',')}))`, params: langs } : { sql: '', params: [] };
+  };
+  // The reading lists show subscribed sources only. Articles pulled in by
+  // searches, or from sources switched off, stay reachable through citations
+  // and 收藏, but do not flood 全部文章 or disagree with the sidebar counts.
   const itemFilter = (opts: ItemQuery): { where: string; params: unknown[] } => {
     const where: string[] = [];
     const params: unknown[] = [];
     if (opts.sourceId) { where.push('i.source_id = ?'); params.push(opts.sourceId); }
+    else if (opts.filter !== 'starred') where.push('s.enabled = 1');
     if (opts.filter === 'unread') where.push('r.read_at IS NULL');
     if (opts.filter === 'starred') where.push('r.starred_at IS NOT NULL');
-    const langs = readingLangs();
-    if (langs.length) {
-      where.push(`(i.lang IS NULL OR i.lang IN (${langs.map(() => '?').join(',')}))`);
-      params.push(...langs);
-    }
+    const lang = langClause();
+    if (lang.sql) { where.push(lang.sql); params.push(...lang.params); }
     return { where: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
   };
 
@@ -118,16 +123,19 @@ export function createApi(db: Db, dataDir: string) {
   };
 
   return {
+    /** Subscribed sources, counted the way the article list filters, so the
+     *  numbers in the sidebar match what opening a source shows. */
     listSources(): SourceRow[] {
+      const lang = langClause();
       return db.prepare(`
         SELECT s.id, s.name, s.kind, s.category, s.country, s.domain, s.enabled, s.last_error AS lastError,
                COUNT(i.id) AS total, MAX(i.published_at) AS newest,
-               SUM(CASE WHEN r.read_at IS NULL THEN 1 ELSE 0 END) AS unread
+               SUM(CASE WHEN i.id IS NOT NULL AND r.read_at IS NULL THEN 1 ELSE 0 END) AS unread
         FROM sources s
-        LEFT JOIN items i ON i.source_id = s.id
+        LEFT JOIN items i ON i.source_id = s.id ${lang.sql ? `AND ${lang.sql}` : ''}
         LEFT JOIN reading_state r ON r.item_id = i.id
         WHERE s.enabled = 1
-        GROUP BY s.id ORDER BY s.name`).all() as SourceRow[];
+        GROUP BY s.id ORDER BY s.name`).all(...lang.params) as SourceRow[];
     },
 
     listItems(opts: ItemQuery & { limit?: number; offset?: number }): ItemRow[] {
@@ -226,7 +234,19 @@ export function createApi(db: Db, dataDir: string) {
     // Every one of these works with AI switched off; they return empty shapes
     // rather than throwing, so the UI can show its "add a key" state.
     async aiStatus(): Promise<Record<string, unknown>> {
-      return { ...publicSettings(db), available: await aiAvailable(db) };
+      const provider = await resolveProvider(db);
+      return {
+        ...publicSettings(db), available: provider !== null, webSearch: Boolean(provider?.capabilities.search),
+        // Model fields are shared by the cloud providers; the form shows each one's own defaults.
+        defaults: { gemini: GEMINI_MODELS, openai: OPENAI_MODELS, anthropic: ANTHROPIC_MODELS }
+      };
+    },
+
+    /** Preferences that need no connection check: saved as they are toggled. */
+    setAiOption(key: 'outputLang' | 'searchFillEnabled' | 'outsidePicksEnabled', value: string): void {
+      if (key === 'outputLang') writeSetting(db, 'outputLang', value);
+      else if (key === 'searchFillEnabled' || key === 'outsidePicksEnabled') writeSetting(db, `ai.${key}`, value === '1' ? '1' : '0');
+      invalidateProvider(db);
     },
 
     async saveAiSettings(patch: Record<string, string>): Promise<AiConnection> {
@@ -321,12 +341,13 @@ export function createApi(db: Db, dataDir: string) {
       const changes = watches.map((w) => ({
         watchId: w.id, label: w.label, milestones: newSinceYesterday(db, w.id)
       })).filter((x) => x.milestones.length > 0);
+      const outside = readOutsidePicks(db, watches, publicSettings(db).outputLang);
       const cited = [
         ...(digest?.blocks ?? []).flatMap((b) => ('sourceRefIds' in b ? b.sourceRefIds ?? [] : [])),
         ...changes.flatMap((c) => c.milestones.flatMap((m) => m.itemIds)),
-        ...readOutsidePicks(db, watches, publicSettings(db).outputLang).flatMap((p) => p.itemIds)
+        ...outside.flatMap((p) => p.itemIds)
       ];
-      return { date: d, digest, changes, outside: readOutsidePicks(db, watches, publicSettings(db).outputLang), refs: refsFor(cited) };
+      return { date: d, digest, changes, outside, refs: refsFor(cited), watchCount: watches.length };
     },
 
     /**
@@ -352,7 +373,8 @@ export function createApi(db: Db, dataDir: string) {
         g.items.push(it);
         groups.set(it.sourceId, g);
       }
-      return [...groups.values()];
+      // Freshest source first, rather than alphabetical.
+      return [...groups.values()].sort((a, b) => (b.items[0]?.publishedAt ?? 0) - (a.items[0]?.publishedAt ?? 0));
     },
 
     /** Titles and sources for cited item ids, so every citation can be opened. */

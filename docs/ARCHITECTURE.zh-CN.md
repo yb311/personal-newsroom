@@ -339,7 +339,7 @@ personal-newsroom/
 │   ├── ai/                 Provider 抽象（Gemini / OpenAI / Claude / 兼容接口 / Ollama）+ 统一生成、流式、向量与搜索取证
 │   │                         + 移植 semantic-embeddings
 │   ├── store/              【全新】SQLite schema、迁移、sqlite-vec、locks、runs/events
-│   ├── generate/           摘要、进展、快讯、搜索补全、深度报道会话与视野补充
+│   ├── generate/           摘要、进展、快讯、搜索补全、新闻助手与视野补充
 │   └── core/               ← 移植 schemas / retry / logging / config / debug-artifacts
 └── catalogs/               内置源目录 + NOTICE + 许可证归属
 ```
@@ -348,9 +348,9 @@ personal-newsroom/
 
 ### SQLite schema（一次设计到位）
 
-`sources` · `items`（原始条目 + 正文指针 + 抽取状态）· `watches` · `matches`（item × watch 的分数与 AI 给的理由）· `digests` · `flashes` · `milestones` · `search_materials` · `conversations` / `conversation_messages` / `conversation_sources` · `outside_picks` · `translations` · `reading_state` · `embeddings`（sqlite-vec）· `ai_requests` · `runs` / `events` · `locks`。
+`sources` · `items`（原始条目 + 正文指针 + 抽取状态）· `watches` · `matches`（item × watch 的分数与 AI 给的理由）· `digests` · `flashes` · `milestones` · `search_materials` · `assistant_chats` / `assistant_messages` / `assistant_sources` · `outside_picks` · `translations` · `reading_state` · `embeddings`（sqlite-vec）· `ai_requests` · `runs` / `events` · `locks`。
 
-迁移 006–009 分别负责多厂商 AI 运行态、可溯源搜索补全、深度报道会话和视野补充。深度报道保存实际使用的完整材料快照；旧 `deep_summaries` 在发现演示库仍有数据后改名为 `legacy_deep_summaries` 备份，不参与新功能。
+迁移 006–010 分别负责多厂商 AI 运行态、可溯源搜索补全、深度报道会话（已停用）、视野补充和新闻助手。新闻助手保存每一轮实际使用的完整材料快照；旧 `deep_summaries` 在发现演示库仍有数据后改名为 `legacy_deep_summaries` 备份，不参与新功能。
 
 这张表单覆盖 v1 全部内容加 v2 的翻译，不留「以后再加表」的坑。
 
@@ -474,7 +474,7 @@ Kagi 的 `kite_feeds.json` 标的是 CC BY-NC。**NC 限制的是商业使用，
 
 **M4 三种产出** — 今日摘要、快讯、**进展**（顶部「昨天到今天」板块 + Watch 页完整时间线，共用 `firstSeenAt` 一份数据）。进展最难，留足时间，先在两三个 Watch 上做对再铺开。
 
-**M5 深度报道对话** — App 级右侧分栏：「深入」入口 → 相关报道检索 → 完整正文/搜索补全 → 流式写作 → 逐条溯源；可追问、再找资料、取消、恢复和重新开始。
+**M5 新闻助手** — App 级右侧分栏（⌘J），不绑定文章：规划检索词 → 本地订阅（关键词 + 向量）→ 联网时 Google News 与厂商网页搜索（网页本地抽正文）→ 流式写作 → 逐条溯源；可追问、取消、查看和删除历史对话。
 
 **M6 后台与供应商** — SMAppService + launchd 调度 + 休眠补跑 + 首运行同意流；Provider 接口接上 Ollama。
 

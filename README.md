@@ -34,7 +34,7 @@ personalization.
 | **Flashes** | Short, fast updates — only the ones that pass your intent filter |
 | **Read** | A real reader. Article text extracted and shown in-app, so you don't bounce out to a browser |
 | **Watches** | Tick a preset topic, or write a sentence. Either way you can see and edit exactly how it's searching |
-| *On demand* | Open a persistent deep-report panel from any story, ask follow-ups, find more material, and trace every factual unit back to saved source evidence |
+| *Any time* | The **News Assistant** side panel: ask about any story or anything in your subscriptions, optionally searching online; every answer line carries a numbered source you can open |
 
 **Three things that make it different:**
 
@@ -79,7 +79,7 @@ We'd rather you know before you install.
 | **M2** | ✅ Watches: presets, written intent, visible search plan |
 | **M3** | ✅ Recall and relevance judging |
 | **M4** | ✅ Brief, flashes, **progress** |
-| **M5** | ✅ Restorable deep-report conversations with source snapshots |
+| **M5** | ✅ News assistant: online search, follow-ups, saved source snapshots |
 | **M6** | ✅ Background worker; Gemini, OpenAI, Claude, compatible APIs and Ollama |
 | **M7** | ⏳ Packaging, signing, notarisation |
 

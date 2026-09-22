@@ -51,6 +51,11 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 
 发现层用**返回真实 URL 的检索接口**（GDELT、Google News 搜索 RSS），它们吐的链接能拿去抓取验证。
 
+**唯一例外：新闻助手（2026-09-22 用户要求）。** 右侧「新闻助手」不绑定任何文章，用户问什么就回答什么，
+开着「联网」时允许用厂商原生搜索做发现（`packages/generate/src/assistant.ts`）。但溯源红线不变：
+搜到的网页要本地下载、抽正文，抽不到就不算来源；Google News 结果只当标题+摘要（kind `news`）；
+模型只能引用本会话登记的 `sN`，引用不存在的编号会被改成「无来源」并在界面上标明。
+
 ## 已定决策（不要重新讨论）
 
 | 决策 | 选择 | 关键理由 |
@@ -67,6 +72,7 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 阅读核心 | **Go 程序 `native/reader`（`pnr-reader`）**：Miniflux 的解析/编码/清洗/站点规则 + go-trafilatura 抽正文。**全 TS 决策的唯一例外** | Trafilatura 没有 JS 版；新闻文章 F1：Trafilatura 0.926 vs Readability 0.825（WCXB）。Miniflux 的 reader 包带大量测试。见下文「阅读核心」 |
 | 下载在哪 | **一律在 Node（`@pnr/core` 的 `download`）**，Go 只处理字节，不联网 | France 24 等按 TLS 指纹拦截：Go 客户端和 curl 403，Node fetch 200 |
 | 进展形态 | 顶部「昨天到今天」板块 **+** Watch 页完整时间线 | 共用 `WatchState.timeline` 的 `firstSeenAt`，一份数据两种渲染，判断只做一次 |
+| 右侧分栏 | **新闻助手**：通用问答，不绑定文章，可联网（本地订阅 + Google News + 厂商网页搜索） | 取代原来从每条新闻进入的「深度报道」分栏（迁移 008 的 `conversations` 表保留但不再使用） |
 
 ## 从 daily-brief 移植什么
 

@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --build",
-    "test:ci": "npm run reader:test && npm run test:schema && npm run test:ai && npm run test:search-fill && npm run test:flash-cap && npm run test:report && npm run test:outside && npm run test:watch && npm run test:today && npm run test:catalogue && npm run test:watches && npm run test:i18n && npm run test:resolve",
+    "test:ci": "npm run reader:test && npm run test:schema && npm run test:ai && npm run test:search-fill && npm run test:flash-cap && npm run test:assistant && npm run test:outside && npm run test:watch && npm run test:today && npm run test:catalogue && npm run test:watches && npm run test:i18n && npm run test:resolve",
     "reader:build": "scripts/build-reader.sh",
     "reader:test": "cd native/reader && go test ./...",
     "doctor": "node --experimental-strip-types dev/doctor.ts",
@@ -41,7 +41,7 @@
     "test:i18n": "node --experimental-strip-types dev/i18n.test.ts",
     "test:rsshub": "node --experimental-strip-types dev/rsshub.test.ts",
     "test:flash-deep": "node --experimental-strip-types dev/flash-deep.test.ts",
-    "test:report": "PNR_DISABLE_SEARCH=1 node --experimental-strip-types dev/report.test.ts",
+    "test:assistant": "node --experimental-strip-types dev/assistant.test.ts",
     "test:outside": "node --experimental-strip-types dev/outside.test.ts",
     "preview": "dev/preview.sh",
     "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",

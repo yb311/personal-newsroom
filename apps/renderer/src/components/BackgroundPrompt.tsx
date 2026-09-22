@@ -33,17 +33,19 @@ export function BackgroundPrompt({ onDone }: { onDone: () => void }) {
   return (
     <Dialog title={t('background.title')} onClose={() => void answer(false)} className="background-prompt">
       <header><h2>{t('background.question')}</h2></header>
-      <p>{t('background.body')}</p>
-      <p className="muted">{t('background.where')}</p>
-      {note && <p role="status" className="muted warn">{note}</p>}
-      <div className="dialog-actions">
+      <div className="dialog-body">
+        <p>{t('background.body')}</p>
+        <p className="section-hint">{t('background.where')}</p>
+        {note && <p role="status" className="error-text">{note}</p>}
+      </div>
+      <footer className="dialog-actions">
         {note
           ? <button className="primary" onClick={onDone}>{t('background.ok')}</button>
           : <>
-              <button disabled={busy} onClick={() => void answer(false)}>{t('background.later')}</button>
+              <button className="secondary" disabled={busy} onClick={() => void answer(false)}>{t('background.later')}</button>
               <button className="primary" disabled={busy} onClick={() => void answer(true)}>{t('background.enable')}</button>
             </>}
-      </div>
+      </footer>
     </Dialog>
   );
 }

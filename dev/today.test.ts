@@ -95,8 +95,10 @@ const opts = { dataDir: dir, lang: 'zh-CN' };
 
 // ── 1. daily run ───────────────────────────────────────────────────────────
 console.log('=== 今日：第一次运行 ===');
+// Milestones are dated from the article they cite, not from "now": just after
+// midnight an article from two hours ago is yesterday's, and a later date is rejected.
 progressScript = (p) => ({
-  milestones: idsIn(p).includes('i1') ? [{ occurredOn: localDateKey(now), summary: '欧盟通过修订', itemIds: ['i1'], isNew: true }] : [],
+  milestones: idsIn(p).includes('i1') ? [{ occurredOn: localDateKey(now - 2 * 3600_000), summary: '欧盟通过修订', itemIds: ['i1'], isNew: true }] : [],
   openQuestions: /^Q\d+:/m.test(p) ? [] : ['欧盟何时正式实施修订？']
 });
 const r1 = await runDaily(db, stub, opts);
@@ -118,7 +120,7 @@ console.log('\n=== 今日：第二次运行 ===');
 addItem('i5', '欧盟人工智能法案修订明年生效', 1);
 calls.length = 0;
 progressScript = (p) => ({
-  milestones: [{ occurredOn: localDateKey(now), summary: '修订明年生效', itemIds: ['i5'], isNew: true,
+  milestones: [{ occurredOn: localDateKey(now - 3600_000), summary: '修订明年生效', itemIds: ['i5'], isNew: true,
                  answersQuestionIds: [...p.matchAll(/^(Q\d+):/gm)].map((m) => m[1]) }],
   openQuestions: []
 });

@@ -381,6 +381,50 @@ CREATE TABLE conversation_sources (conversation_id TEXT NOT NULL REFERENCES conv
 const M009_OUTSIDE_PICKS = `CREATE TABLE outside_picks (id TEXT PRIMARY KEY, edition_date TEXT NOT NULL, lang TEXT NOT NULL, mode TEXT NOT NULL, event_title TEXT NOT NULL, importance_reason TEXT NOT NULL, item_ids_json TEXT NOT NULL, suggestion_json TEXT NOT NULL, config_fingerprint TEXT NOT NULL, created_at INTEGER NOT NULL);
 CREATE INDEX outside_picks_current ON outside_picks(edition_date, lang, config_fingerprint, created_at DESC);`;
 
+const M010_ASSISTANT = `-- 新闻助手：不绑定任何文章的问答会话。每一轮的材料快照完整保存，
+-- 回答里的每条事实只能引用本会话登记过的来源编号。
+CREATE TABLE assistant_chats (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  lang TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX assistant_chats_recent ON assistant_chats(updated_at DESC);
+
+CREATE TABLE assistant_messages (
+  id TEXT PRIMARY KEY,
+  chat_id TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
+  sequence INTEGER NOT NULL,
+  role TEXT NOT NULL,              -- user | assistant
+  content TEXT,                    -- the question, for user turns
+  answer_json TEXT,                -- { units }, for assistant turns
+  status TEXT NOT NULL,            -- pending | complete | cancelled | failed
+  web INTEGER NOT NULL DEFAULT 0,  -- whether this turn was allowed to go online
+  error TEXT,
+  model TEXT,
+  request_id TEXT UNIQUE,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE(chat_id, sequence)
+);
+
+CREATE TABLE assistant_sources (
+  chat_id TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
+  ref_id TEXT NOT NULL,
+  kind TEXT NOT NULL,              -- library | news | web
+  item_id TEXT REFERENCES items(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  publisher TEXT,
+  published_at INTEGER,
+  material_text TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (chat_id, ref_id),
+  UNIQUE(chat_id, url)
+);
+`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_init', sql: M001_INIT },
   { name: '002_vectors', sql: M002_VECTORS },
@@ -390,5 +434,6 @@ export const MIGRATIONS: Migration[] = [
   { name: '006_ai_runtime', sql: M006_AI_RUNTIME },
   { name: '007_search_fill', sql: M007_SEARCH_FILL },
   { name: '008_report_conversations', sql: M008_REPORT_CONVERSATIONS },
-  { name: '009_outside_picks', sql: M009_OUTSIDE_PICKS }
+  { name: '009_outside_picks', sql: M009_OUTSIDE_PICKS },
+  { name: '010_assistant', sql: M010_ASSISTANT }
 ];

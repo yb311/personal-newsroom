@@ -17,7 +17,7 @@ cat > "$OUT/preview.html" <<'HTML'
 <script>
 (async () => {
   const d = await (await fetch('./mock.json')).json();
-  const read = new Set(), star = new Set();
+  const read = new Set(), star = new Set(); const chats = []; const listeners = [];
   window.pnr = {
     listSources: async () => d.sources,
     listItems: async (o) => d.items
@@ -28,7 +28,7 @@ cat > "$OUT/preview.html" <<'HTML'
     getItem: async (id) => { const i = d.items.find(x=>x.id===id); return i ? {...i, body: d.bodies[id] ?? null} : null; },
     markRead: async (id) => { read.add(id); },
     toggleStar: async (id) => { star.has(id) ? star.delete(id) : star.add(id); return star.has(id); },
-    setSourceEnabled: async () => {}, catalogue: async () => d.cat,
+    setSourceEnabled: async () => {}, catalogue: async () => ({ rows: d.cat, total: d.cat.length, categories: [], countries: [] }),
     countItems: async (o) => d.items.filter(i => !o.sourceId || i.sourceId === o.sourceId).length,
     readingLanguages: async () => ({ available: [], selected: [] }), setReadingLanguages: async () => {},
     stats: async () => ({items: d.items.length, sources: d.sources.length, unread: d.items.length, lastRun: Date.now()}),
@@ -51,8 +51,32 @@ cat > "$OUT/preview.html" <<'HTML'
     runWatches: async () => ({busy:false, watches:d.watches.length, digest:true}),
     runFlashes: async () => ({busy:false, published:0}),
     flashes: async () => d.flashes,
-    reportGet: async () => null, reportStart: async () => ({error:'preview'}), reportAsk: async () => ({error:'preview'}),
-    reportCancel: async () => true, onReportEvent: () => () => {}
+    setAiOption: async () => {},
+    // The assistant answers from the first few articles, so the panel can be seen working.
+    assistantList: async () => chats.map(c => ({ id: c.id, title: c.title, updatedAt: c.updatedAt })),
+    assistantGet: async (id) => chats.find(c => c.id === id) ?? null,
+    assistantDelete: async (id) => { const i = chats.findIndex(c => c.id === id); if (i >= 0) chats.splice(i, 1); return true; },
+    assistantCancel: async () => true, onAssistantEvent: (cb) => { listeners.push(cb); return () => {}; },
+    assistantAsk: async (input) => {
+      let chat = chats.find(c => c.id === input.chatId);
+      if (!chat) { chat = { id: 'chat-' + Date.now(), title: input.question, lang: 'zh-CN', createdAt: Date.now(), updatedAt: Date.now(), messages: [], sources: [] }; chats.unshift(chat); }
+      for (const phase of ['library', input.web ? 'web' : 'writing', 'writing']) {
+        listeners.forEach(cb => cb({ requestId: input.requestId, chatId: chat.id, messageId: 'm', type: 'phase', phase }));
+        await new Promise(r => setTimeout(r, 400));
+      }
+      const picked = d.items.slice(0, 3);
+      picked.forEach((it, i) => { if (!chat.sources.some(s => s.url === it.url)) chat.sources.push({ refId: 's' + (chat.sources.length + 1), kind: i === 2 && input.web ? 'web' : 'library', itemId: it.id, title: it.title, url: it.url, publisher: it.sourceName, publishedAt: it.publishedAt }); });
+      const refs = chat.sources.slice(-3).map(s => s.refId);
+      const n = chat.messages.length;
+      chat.messages.push({ id: 'u' + n, sequence: n + 1, role: 'user', content: input.question, answer: null, status: 'complete', web: input.web, error: null });
+      chat.messages.push({ id: 'a' + n, sequence: n + 2, role: 'assistant', content: null, status: 'complete', web: input.web, error: null, answer: { units: [
+        { kind: 'paragraph', text: picked[0].title + '。', sourceRefIds: [refs[0]], supported: true },
+        { kind: 'listItem', text: picked[1].title, sourceRefIds: [refs[1]], supported: true },
+        { kind: 'listItem', text: picked[2].title, sourceRefIds: [refs[2]], supported: true },
+        { kind: 'paragraph', text: '背景信息示例。', sourceRefIds: [], supported: false }] } });
+      chat.updatedAt = Date.now();
+      return { chat: structuredClone(chat) };
+    }
   };
   const html = await (await fetch('./index.html')).text();
   const l = document.createElement('link'); l.rel='stylesheet';

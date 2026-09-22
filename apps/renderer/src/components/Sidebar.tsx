@@ -1,14 +1,16 @@
-import { Inbox, Circle, Star, ChevronRight } from 'lucide-react';
+import { Bookmark, ChevronRight, Circle, Inbox, PanelLeft, Plus, Settings, Star, Sun, Zap } from 'lucide-react';
 import { categoryLabel } from '@pnr/core/catalog-labels';
 import { useTranslation } from 'react-i18next';
 import type { SourceRow } from '../types.ts';
-import type { Filter } from '../App.tsx';
+import type { Filter, Tab } from '../App.tsx';
 
 interface Props {
-  active: boolean; sources: SourceRow[]; sourceId: string | undefined; filter: Filter;
+  tab: Tab; onTab: (tab: Tab) => void;
+  sources: SourceRow[]; sourceId: string | undefined; filter: Filter;
   onPickSource: (id: string | undefined) => void;
   onPickFilter: (f: Filter) => void;
-  onManage: () => void;
+  onManage: () => void; onSettings: () => void; onHide: () => void;
+  aiReady: boolean;
 }
 
 /** A source whose newest article is older than this has stopped publishing. */
@@ -16,56 +18,77 @@ const STALE_DAYS = 45;
 const isStale = (s: SourceRow): boolean =>
   Boolean(s.total && s.newest && Date.now() - s.newest > STALE_DAYS * 864e5);
 
-export function Sidebar({ active, sources, sourceId, filter, onPickSource, onPickFilter, onManage }: Props) {
+const NAV = [['today', Sun], ['flashes', Zap], ['watches', Bookmark]] as const;
+const FILTERS = [['all', Inbox], ['unread', Circle], ['starred', Star]] as const;
+
+/**
+ * The window's source list: the three AI views, then reading — the library
+ * filters and every subscribed source. Exactly one row is selected at a time.
+ */
+export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, onPickFilter, onManage, onSettings, onHide, aiReady }: Props) {
   const { t, i18n } = useTranslation();
+  const reading = tab === 'read';
   const totalUnread = sources.reduce((a, s) => a + (s.unread ?? 0), 0);
-  const filters: [Filter, number | null][] = [['all', null], ['unread', totalUnread], ['starred', null]];
   const byCategory = new Map<string, SourceRow[]>();
   for (const s of sources) {
     const k = s.category ?? '';
     (byCategory.get(k) ?? byCategory.set(k, []).get(k)!).push(s);
   }
+  const groups = [...byCategory.entries()].sort((a, b) =>
+    categoryLabel(a[0] || null, i18n.language).localeCompare(categoryLabel(b[0] || null, i18n.language), i18n.language));
 
   return (
-    <nav className="sidebar" aria-label={t('sidebar.label')}>
-      <div className="sidebar-section-label">{t('sidebar.library')}</div>
-      <ul className="filters">
-        {filters.map(([f, count]) => (
-          <li key={f}>
-            <button aria-pressed={active && !sourceId && filter === f} className={active && !sourceId && filter === f ? 'active' : ''} onClick={() => onPickFilter(f)}>
-              {f === 'all' ? <Inbox size={16} /> : f === 'unread' ? <Circle size={15} /> : <Star size={16} />}<span>{t(`filters.${f}`)}</span>
-              {count ? <em>{count}</em> : null}
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      <div className="sidebar-head">
-        <span>{t('sidebar.sources')}</span>
-        <button className="link" onClick={onManage}>{t('sidebar.manage')}</button>
+    <aside className="sidebar">
+      <div className="sidebar-top">
+        <button className="icon" title={`${t('app.hideSidebar')} (⌘⌃S)`} aria-label={t('app.hideSidebar')} onClick={onHide}><PanelLeft size={17} /></button>
       </div>
+      <nav className="sidebar-scroll" aria-label={t('app.mainNav')}>
+        <ul className="side-list">
+          {NAV.map(([id, Icon]) => (
+            <li key={id}><button className={`side-row ${tab === id ? 'selected' : ''}`} aria-current={tab === id ? 'page' : undefined} onClick={() => onTab(id)}>
+              <Icon size={16} className="accent" /><span>{t(`tabs.${id}`)}</span></button></li>
+          ))}
+        </ul>
 
-      <ul className="sources">
-        {[...byCategory.entries()].sort((a, b) => categoryLabel(a[0] || null, i18n.language).localeCompare(categoryLabel(b[0] || null, i18n.language), i18n.language)).map(([cat, list]) => (
-          <li key={cat} className="group">
-            <details open><summary className="group-label"><ChevronRight size={12} />{categoryLabel(cat || null, i18n.language)}</summary>
-            <ul>
-              {list.map((s) => (
-                <li key={s.id}>
-                  <button
-                    aria-pressed={active && sourceId === s.id} className={active && sourceId === s.id ? 'active' : ''}
-                    onClick={() => onPickSource(s.id)}
-                    title={s.lastError ? t('sidebar.lastFailed') : isStale(s) ? t('sidebar.staleTitle', { days: STALE_DAYS }) : s.domain ?? s.name}
-                  >
-                    <span>{s.name}{s.lastError ? ' ⚠' : ''}{isStale(s) ? <small className="stale">{t('sidebar.stale')}</small> : null}</span>
+        <h2 className="side-heading">{t('tabs.read')}</h2>
+        <ul className="side-list">
+          {FILTERS.map(([f, Icon]) => {
+            const on = reading && !sourceId && filter === f;
+            return <li key={f}><button className={`side-row ${on ? 'selected' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPickFilter(f)}>
+              <Icon size={15} /><span>{t(`filters.${f}`)}</span>{f === 'unread' && totalUnread > 0 && <em>{totalUnread}</em>}</button></li>;
+          })}
+        </ul>
+
+        <div className="side-heading with-action">
+          <h2>{t('sidebar.sources')}</h2>
+          <button className="text-button" onClick={onManage}>{t('sidebar.manage')}</button>
+        </div>
+        {sources.length === 0 && <p className="side-empty">{t('sidebar.noSources')}</p>}
+        {groups.map(([cat, list]) => (
+          <details key={cat} className="side-group" open>
+            <summary><ChevronRight size={11} />{categoryLabel(cat || null, i18n.language)}</summary>
+            <ul className="side-list">
+              {list.map((s) => {
+                const on = reading && sourceId === s.id;
+                const stale = isStale(s);
+                return <li key={s.id}>
+                  <button className={`side-row source ${on ? 'selected' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPickSource(s.id)}
+                    title={s.lastError ? t('sidebar.lastFailed') : stale ? t('sidebar.staleTitle', { days: STALE_DAYS }) : s.domain ?? s.name}>
+                    <span>{s.name}</span>
+                    {s.lastError ? <small className="flag warn">{t('sidebar.failed')}</small> : stale ? <small className="flag">{t('sidebar.stale')}</small> : null}
                     {s.unread ? <em>{s.unread}</em> : null}
                   </button>
-                </li>
-              ))}
-            </ul></details>
-          </li>
+                </li>;
+              })}
+            </ul>
+          </details>
         ))}
-      </ul>
-    </nav>
+      </nav>
+      <footer className="sidebar-footer">
+        <button className="side-row" onClick={onManage}><Plus size={15} /><span>{t('app.addSubscription')}</span></button>
+        <button className="side-row" onClick={onSettings}><Settings size={15} /><span>{t('app.settings')}</span>
+          <i className={`status-dot ${aiReady ? 'on' : ''}`} title={aiReady ? t('app.aiOn') : t('app.aiOff')} /></button>
+      </footer>
+    </aside>
   );
 }

@@ -38,7 +38,7 @@ export const clock = (ts: number): string =>
 export function ago(ts: number): string {
   const rtf = new Intl.RelativeTimeFormat(lang(), { numeric: 'auto' });
   const mins = Math.round((Date.now() - ts) / 60000);
-  if (mins < 1) return rtf.format(0, 'second');
+  if (mins < 1) return i18next.t('common.justNow');
   if (mins < 60) return rtf.format(-mins, 'minute');
   const h = Math.round(mins / 60);
   if (h < 24) return rtf.format(-h, 'hour');

@@ -35,7 +35,7 @@ function fill(route: CuratedRoute, values: Record<string, string>): string | nul
  * working example), try it, add it. Or paste the address of a page — a
  * 少数派 author, a 即刻 circle — and the matching route is filled in.
  */
-export function RssHubPicker({ describe }: { describe: (reason?: string) => string }) {
+export function RssHubPicker({ describe, onAdded }: { describe: (reason?: string) => string; onAdded: () => void }) {
   const { t } = useTranslation();
   const [routes, setRoutes] = useState<CuratedRoute[]>([]);
   const [social, setSocial] = useState<SocialStatus | null>(null);
@@ -65,7 +65,9 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
 
   const platforms = useMemo(() => [...new Set(routes.map((r) => r.platform))], [routes]);
   const choose = (r: CuratedRoute, preset?: Record<string, string>): void => {
-    setRoute(r); setValues(preset ?? {}); setPreview(null); setResult('');
+    // A select shows its default; the route has to be built with it too.
+    const defaults = Object.fromEntries(r.params.filter((p) => p.default != null).map((p) => [p.key, p.default!]));
+    setRoute(r); setValues({ ...defaults, ...preset }); setPreview(null); setResult('');
   };
   const path = route ? fill(route, values) : null;
   const examples = route ? exampleValues(route) : {};
@@ -105,6 +107,7 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
     setBusy(true); setResult('');
     try {
       const r = await window.pnr.addSource({ kind: 'rsshub', value: path, name: `${route.platform} · ${route.name}` });
+      if (r.ok) onAdded();
       setResult(!r.ok ? (r.error ? describe(r.error) : t('catalogue.addFailed')) : r.items ? t('catalogue.added', { name: r.name, count: r.items }) : t('catalogue.addedEmpty', { name: r.name, why: describe(r.error) }));
     } catch { setResult(t('catalogue.addError')); }
     finally { setBusy(false); }
@@ -112,21 +115,21 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
 
   const usingInstance = Boolean(social?.instanceUrl);
   return (
-    <div className="rsshub-picker">
+    <div className="dialog-body rsshub-picker">
       {ready === false && !usingInstance && (
         <div className="pack-banner">
           <p>{t('rsshub.packBanner')}</p>
           <button className="primary" disabled={Boolean(installing)} onClick={() => void install()}>
             {installing || t('settings.downloadPack')}
           </button>
-          {failed && <p className="muted warn">{failed}</p>}
+          {failed && <p className="error-text">{failed}</p>}
         </div>
       )}
 
       <div className="paste-row">
         <input value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={t('rsshub.pastePlaceholder')}
                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void recognise(); }} />
-        <button onClick={() => void recognise()} disabled={!pasted.trim()}>{t('rsshub.recognise')}</button>
+        <button className="secondary" onClick={() => void recognise()} disabled={!pasted.trim()}>{t('rsshub.recognise')}</button>
       </div>
 
       <div className="picker-body">
@@ -154,29 +157,29 @@ export function RssHubPicker({ describe }: { describe: (reason?: string) => stri
                 <label key={p.key} className="field">
                   <span>{p.description.split(/[，,。]/)[0] || p.key}{p.optional ? t('rsshub.optional') : ''}</span>
                   {p.options?.length
-                    ? <select value={values[p.key] ?? p.default ?? ''} onChange={(e) => setValues({ ...values, [p.key]: e.target.value })}>
+                    ? <select value={values[p.key] ?? ''} onChange={(e) => setValues({ ...values, [p.key]: e.target.value })}>
                         {p.optional && <option value="">{t('rsshub.default')}</option>}
                         {p.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     : <input value={values[p.key] ?? ''} placeholder={examples[p.key] ? t('rsshub.exampleValue', { value: examples[p.key] }) : ''}
                              onChange={(e) => setValues({ ...values, [p.key]: e.target.value })} />}
-                  {p.description && <small className="muted">{p.description}</small>}
+                  {p.description && <small>{p.description}</small>}
                 </label>
               ))}
-              {route.sources.length > 0 && <p className="muted small">{t('rsshub.pasteHint', { example: route.sources[0] })}</p>}
-              <p className="muted small">{t('rsshub.route')}<code>{path ?? t('rsshub.missing')}</code></p>
-              <div className="dialog-actions">
-                <button disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void tryIt()}>{busy ? t('common.pleaseWait') : t('rsshub.try')}</button>
+              {route.sources.length > 0 && <p className="section-hint">{t('rsshub.pasteHint', { example: route.sources[0] })}</p>}
+              <p className="section-hint">{t('rsshub.route')}<code>{path ?? t('rsshub.missing')}</code></p>
+              <div className="form-actions">
+                <button className="secondary" disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void tryIt()}>{busy ? t('common.pleaseWait') : t('rsshub.try')}</button>
                 <button className="primary" disabled={!path || busy || (ready === false && !usingInstance)} onClick={() => void add()}>{t('common.add')}</button>
               </div>
               {preview && (preview.ok
                 ? <ul className="preview-titles">{preview.titles.map((t, i) => <li key={i}>{t}</li>)}</ul>
-                : <p className="muted warn">{t('rsshub.tryEmpty', { why: describe(preview.reason) })}</p>)}
+                : <p className="error-text">{t('rsshub.tryEmpty', { why: describe(preview.reason) })}</p>)}
             </div>
           )}
         </div>
       </div>
-      {result && <p role="status" className="muted">{result}</p>}
+      {result && <p role="status" className="section-hint">{result}</p>}
     </div>
   );
 }

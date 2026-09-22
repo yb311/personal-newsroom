@@ -6,7 +6,8 @@ import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_
 import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr/ai';
-import { runDaily, runFlashCheck, runWatch, getReport, startReport, askReport, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult } from '@pnr/generate';
+import { runDaily, runFlashCheck, runWatch, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
+         type AssistantEvent, type AssistantAskInput, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
@@ -48,6 +49,7 @@ setSink((e) => {
   } catch { /* logging must never break a run */ }
 });
 const api = createApi(db, DATA_DIR);
+recoverAssistant(db);
 
 seedCatalogue();
 applyRssHubConfig(db);
@@ -79,8 +81,8 @@ function createWindow(): void {
     if (/^https?:/i.test(url)) void shell.openExternal(url);
   });
   win.on('closed', () => {
-    for (const controller of reportRequests.values()) controller.abort();
-    reportRequests.clear();
+    for (const controller of assistantRequests.values()) controller.abort();
+    assistantRequests.clear();
     win = null;
   });
 }
@@ -151,9 +153,10 @@ function installApplicationMenu(): void {
       ]
     },
     { label: m.view, submenu: [
-      ...(['today', 'flashes', 'read', 'watches'] as const).map((id, i) => ({ label: tabs[id], accelerator: `CmdOrCtrl+${i + 1}`, click: send(id) })),
+      ...(['today', 'flashes', 'watches', 'read'] as const).map((id, i) => ({ label: tabs[id], accelerator: `CmdOrCtrl+${i + 1}`, click: send(id) })),
       { type: 'separator' as const },
       { label: m.sidebar, accelerator: 'CmdOrCtrl+Ctrl+S', click: send('sidebar') },
+      { label: m.assistant, accelerator: 'CmdOrCtrl+J', click: send('assistant') },
       { label: m.search, accelerator: 'CmdOrCtrl+F', click: send('search') },
       { label: m.refresh, accelerator: 'CmdOrCtrl+R', click: send('refresh') },
       { role: 'togglefullscreen', label: m.fullscreen }
@@ -223,11 +226,12 @@ ipcMain.handle('app:refresh', async () => {
   if (refreshing) return { busy: true };
   if (!acquireLock(db, 'fetch')) return { busy: true };
   refreshing = true;
+  const beat = setInterval(() => renewLock(db, 'fetch'), HEARTBEAT_MS);
   const runId = `run-${Date.now()}`;
   db.prepare('INSERT INTO runs (id, kind, started_at) VALUES (?, ?, ?)').run(runId, 'fetch', Date.now());
   try {
     const r = await ingestAll(db, 8, { dataDir: DATA_DIR });
-    win?.webContents.send('app:progress', { phase: 'extracting' });
+    win?.webContents.send('app:progress', { phase: 'extract' });
     const e = await enrichPending(db, DATA_DIR, 40, 5);
     db.prepare("UPDATE runs SET finished_at=?, outcome='ok', stats_json=? WHERE id=?")
       .run(Date.now(), JSON.stringify({ ...r, ...e }), runId);
@@ -236,7 +240,7 @@ ipcMain.handle('app:refresh', async () => {
     db.prepare("UPDATE runs SET finished_at=?, outcome='failed', stats_json=? WHERE id=?")
       .run(Date.now(), JSON.stringify({ error: String(err) }), runId);
     return { busy: false, error: String(err) };
-  } finally { refreshing = false; releaseLock(db, 'fetch'); }
+  } finally { clearInterval(beat); refreshing = false; releaseLock(db, 'fetch'); }
 });
 
 ipcMain.handle('app:enrichOne', async (_e, id: string) => {
@@ -279,24 +283,20 @@ ipcMain.handle('app:runWatches', () => run('daily', 'daily', (p, o) => runDaily(
 ipcMain.handle('app:runFlashes', () => run('flashes', 'flashes', (p, o) => runFlashCheck(db, p, o)));
 ipcMain.handle('app:runWatch', (_e, id: string) => run('daily', 'daily', (p, o) => runWatch(db, p, id, o)));
 
-const reportRequests = new Map<string, AbortController>();
-const reportEvent = (event: ReportEvent): void => { if (!win?.isDestroyed()) win?.webContents.send('report:event', event); };
-ipcMain.handle('report:get', (_e, selector: { conversationId?: string; anchorItemId?: string; lang?: string }) => getReport(db, selector));
-ipcMain.handle('report:start', async (_e, input: ReportStartInput) => {
-  const provider = await resolveProvider(db); if (!provider) return { noProvider: true };
-  const controller = new AbortController(); reportRequests.set(input.requestId, controller);
-  try { return { conversation: await startReport(db, provider, DATA_DIR, input, reportEvent, controller.signal) }; }
-  catch (error) { return { error: String(error).slice(0, 160) }; }
-  finally { reportRequests.delete(input.requestId); }
+// ── news assistant ─────────────────────────────────────────────────────────
+const assistantRequests = new Map<string, AbortController>();
+const assistantEvent = (event: AssistantEvent): void => { if (win && !win.isDestroyed()) win.webContents.send('assistant:event', event); };
+ipcMain.handle('assistant:list', () => listChats(db));
+ipcMain.handle('assistant:get', (_e, id: string) => getChat(db, id));
+ipcMain.handle('assistant:delete', (_e, id: string) => { deleteChat(db, id); return true; });
+ipcMain.handle('assistant:ask', async (_e, input: AssistantAskInput) => {
+  const provider = await resolveProvider(db); if (!provider) return { error: 'no_provider' };
+  const controller = new AbortController(); assistantRequests.set(input.requestId, controller);
+  try { return { chat: await askAssistant(db, provider, DATA_DIR, input, assistantEvent, controller.signal) }; }
+  catch (error) { return { error: String((error as Error)?.message ?? error).slice(0, 160) }; }
+  finally { assistantRequests.delete(input.requestId); }
 });
-ipcMain.handle('report:ask', async (_e, input: { conversationId: string; question: string; requestId: string; research?: boolean }) => {
-  const provider = await resolveProvider(db); if (!provider) return { noProvider: true };
-  const controller = new AbortController(); reportRequests.set(input.requestId, controller);
-  try { return { conversation: await askReport(db, provider, DATA_DIR, input.conversationId, input.question, input.requestId, Boolean(input.research), reportEvent, controller.signal) }; }
-  catch (error) { return { error: String(error).slice(0, 160) }; }
-  finally { reportRequests.delete(input.requestId); }
-});
-ipcMain.handle('report:cancel', (_e, requestId: string) => { reportRequests.get(requestId)?.abort(); return true; });
+ipcMain.handle('assistant:cancel', (_e, requestId: string) => { assistantRequests.get(requestId)?.abort(); return true; });
 
 // ── background schedule ────────────────────────────────────────────────────
 ipcMain.handle('app:scheduleState', () => ({ ...scheduleState(db), runs: recentRuns(db) }));

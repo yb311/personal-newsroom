@@ -1,7 +1,8 @@
 import { categoryLabel, countryLabel } from '@pnr/core/catalog-labels';
 import { Dialog } from './Dialog.tsx';
 import { RssHubPicker } from './RssHubPicker.tsx';
-import { useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { CatalogueResult, SourceRow } from '../types.ts';
@@ -14,28 +15,32 @@ const sourceFailure = (t: TFunction, code?: string): string =>
     : code.startsWith('instance_') ? t('catalogue.failure.instance')
     : t(`catalogue.failure.${code}`, { defaultValue: t('catalogue.failure.unknown') });
 
-/** Browse the built-in catalogue, or add anything the user has in mind. */
-export function Catalogue({ onClose }: { onClose: () => void }) {
+/** Browse the built-in catalogue, or add anything the user has in mind.
+ *  Closing reports whether subscriptions changed, so new ones get fetched. */
+export function Catalogue({ onClose }: { onClose: (changed: boolean) => void }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('browse');
+  const changed = useRef(false);
+  const mark = (): void => { changed.current = true; };
+  const close = (): void => onClose(changed.current);
   return (
-    <Dialog title={t('catalogue.title')} onClose={onClose}>
+    <Dialog title={t('catalogue.title')} onClose={close} className="catalogue-dialog">
         <header>
-          <h2>{t('catalogue.heading')}</h2>
-          <nav className="tabs small">
+          <h2>{t('catalogue.title')}</h2>
+          <nav className="segmented" aria-label={t('catalogue.title')}>
             {(['browse', 'social', 'add'] as const).map((id) => (
-              <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{t(`catalogue.tabs.${id}`)}</button>
+              <button key={id} className={tab === id ? 'active' : ''} aria-pressed={tab === id} onClick={() => setTab(id)}>{t(`catalogue.tabs.${id}`)}</button>
             ))}
           </nav>
           <span className="grow" />
-          <button onClick={onClose}>{t('common.done')}</button>
+          <button className="secondary" onClick={close}>{t('common.done')}</button>
         </header>
-        {tab === 'browse' ? <Browse /> : tab === 'social' ? <RssHubPicker describe={(code) => sourceFailure(t, code)} /> : <AddSource />}
+        {tab === 'browse' ? <Browse onChange={mark} /> : tab === 'social' ? <RssHubPicker describe={(code) => sourceFailure(t, code)} onAdded={mark} /> : <AddSource onAdded={mark} />}
     </Dialog>
   );
 }
 
-function Browse() {
+function Browse({ onChange }: { onChange: () => void }) {
   const { t, i18n } = useTranslation();
   const [q, setQ] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -54,13 +59,15 @@ function Browse() {
   const toggle = async (s: SourceRow): Promise<void> => {
     const next = !s.enabled;
     await window.pnr.setSourceEnabled(s.id, next);
+    onChange();
     setResult((prev) => prev && { ...prev, rows: prev.rows.map((r) => (r.id === s.id ? { ...r, enabled: next ? 1 : 0 } : r)) });
   };
 
   return (
     <>
-      <div className="modal-search">
-        <input autoFocus aria-label={t('catalogue.search')} placeholder={t('catalogue.searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="dialog-search">
+        <label className="search-field"><Search size={14} />
+          <input autoFocus type="search" aria-label={t('catalogue.search')} placeholder={t('catalogue.searchPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} /></label>
       </div>
       <div className="facets" aria-label={t('catalogue.byCategory')}>
         <button className={category === null ? 'chip active' : 'chip'} onClick={() => setCategory(null)}>{t('catalogue.allCategories')}</button>
@@ -80,9 +87,9 @@ function Browse() {
           ))}
         </div>
       )}
-      <p className="modal-note">{t('catalogue.found', { count: rows.length, enabled: rows.filter((r) => r.enabled).length })}</p>
+      <p className="dialog-note">{t('catalogue.found', { count: rows.length, enabled: rows.filter((r) => r.enabled).length })}</p>
       <ul className="catalogue">
-        {rows.length === 0 && <li className="empty-block">{t('catalogue.none')}</li>}
+        {rows.length === 0 && <li className="section-hint pad">{t('catalogue.none')}</li>}
         {rows.map((s) => (
           <li key={s.id}>
             <label>
@@ -102,7 +109,7 @@ function Browse() {
 /** Source kinds; their names, hints and examples are in the dictionaries. */
 const KINDS = ['auto', 'rss', 'telegram', 'reddit', 'hackernews', 'github', 'apify_x', 'rsshub'] as const;
 
-function AddSource() {
+function AddSource({ onAdded }: { onAdded: () => void }) {
   const { t } = useTranslation();
   const [kind, setKind] = useState<(typeof KINDS)[number]>('auto');
   const [value, setValue] = useState('');
@@ -118,6 +125,7 @@ function AddSource() {
     setBusy(true); setResult(null);
     try {
     const r = await window.pnr.addSource({ kind, value, ...(name.trim() ? { name: name.trim() } : {}) });
+    if (r.ok) onAdded();
     if (!r.ok) setResult({ ok: false, text: r.error ? sourceFailure(t, r.error) : t('catalogue.addFailed') });
     else if (r.items === 0) setResult({ ok: false, text: t('catalogue.addedEmpty', { name: r.name, why: sourceFailure(t, r.error) }) });
     else { setResult({ ok: true, text: t('catalogue.added', { name: r.name, count: r.items }) }); setValue(''); setName(''); }
@@ -128,36 +136,20 @@ function AddSource() {
   const example = t(`catalogue.kinds.${kind}.example`);
 
   return (
-    <div className="add-source">
-      <div className="kind-picker">
+    <div className="dialog-body add-source">
+      <div className="chips" role="radiogroup" aria-label={t('catalogue.kind')}>
         {KINDS.map((k) => (
-          <button key={k} className={kind === k ? 'active' : ''} onClick={() => setKind(k)}>{t(`catalogue.kinds.${k}.label`)}</button>
+          <button key={k} role="radio" aria-checked={kind === k} className={`chip ${kind === k ? 'active' : ''}`} onClick={() => setKind(k)}>{t(`catalogue.kinds.${k}.label`)}</button>
         ))}
       </div>
-      <p className="muted">{t(`catalogue.kinds.${kind}.hint`)}　{t('catalogue.example')}<code>{example}</code></p>
-
-      <div className="new-watch">
-        <input aria-label={t('catalogue.name')} placeholder={t('catalogue.namePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
-        <input autoFocus aria-label={t('catalogue.address')} placeholder={example} value={value}
-               onChange={(e) => setValue(e.target.value)}
-               onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit(); }} />
-        <button className="primary" onClick={() => void submit()} disabled={busy || !value.trim()}>
-          {busy ? t('common.checking') : t('common.add')}
-        </button>
-      </div>
-
-      {result && <p role="status" className={result.ok ? 'muted ok' : 'muted warn'}>{result.text}</p>}
-
-      {kind === 'rsshub' && (
-        <p className="muted">
-          {rssHub === false && <span className="warn">{t('catalogue.rsshubMissing')}</span>}
-          {t('catalogue.rsshubHint')}
-        </p>
-      )}
-
-      {kind === 'telegram' && (
-        <p className="muted">{t('catalogue.telegramHint')}</p>
-      )}
+      <p className="section-hint">{t(`catalogue.kinds.${kind}.hint`)}</p>
+      <form className="add-row" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <input autoFocus aria-label={t('catalogue.address')} placeholder={example} value={value} onChange={(e) => setValue(e.target.value)} />
+        <input aria-label={t('catalogue.name')} placeholder={t('catalogue.name')} value={name} onChange={(e) => setName(e.target.value)} />
+        <button className="primary" disabled={busy || !value.trim()}>{busy ? t('common.checking') : t('common.add')}</button>
+      </form>
+      {result && <p role="status" className={result.ok ? 'ok-text' : 'error-text'}>{result.text}</p>}
+      {kind === 'rsshub' && <p className="section-hint">{rssHub === false && <span className="error-text">{t('catalogue.rsshubMissing')} </span>}{t('catalogue.rsshubHint')}</p>}
     </div>
   );
 }
