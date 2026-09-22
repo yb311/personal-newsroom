@@ -53,7 +53,7 @@ console.log(`\n重复打开（迁移幂等）: 表数仍为 ${t2 - 1} + _migrati
 db2.close();
 for (const s of ['','-wal','-shm']) rmSync(p+s,{force:true});
 
-// 真实升级路径：保留已经使用到 M005 的旧库和旧版深度总结，再应用 M006-M009。
+// 真实升级路径：保留已经使用到 M005 的旧库和旧版深度总结，再应用 M006-M010。
 const upgrade = join(tmpdir(), `pnr-upgrade-${Date.now()}.db`);
 const legacy = new Database(upgrade); legacy.loadExtension(sqliteVec.getLoadablePath()); legacy.pragma('journal_mode=WAL'); legacy.pragma('foreign_keys=ON');
 legacy.exec('CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)');
@@ -69,7 +69,7 @@ const applied=(upgraded.prepare('SELECT name FROM _migrations ORDER BY name').al
 if(applied.length!==MIGRATIONS.length)throw new Error(`migration chain incomplete: ${applied.join(',')}`);
 if((upgraded.prepare('SELECT COUNT(*) c FROM legacy_deep_summaries').get() as {c:number}).c!==1)throw new Error('legacy deep summary lost');
 if(upgraded.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='deep_summaries'").get())throw new Error('old table name survived');
-for(const name of ['ai_runtime','search_materials','conversations','outside_picks'])
+for(const name of ['ai_runtime','search_materials','conversations','outside_picks','assistant_chats','assistant_messages','assistant_sources'])
   if(!upgraded.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name))throw new Error(`missing upgraded table ${name}`);
 upgraded.close();for(const s of ['','-wal','-shm'])rmSync(upgrade+s,{force:true});
-console.log('\n✅ schema 新建、幂等与 005→009 真实升级验证通过');
+console.log('\n✅ schema 新建、幂等与 005→010 真实升级验证通过');

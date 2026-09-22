@@ -33,6 +33,7 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
   const input = useRef<HTMLTextAreaElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const pendingRef = useRef<Pending | null>(null);
+  const requestRef = useRef<string | null>(null);
   pendingRef.current = pending;
 
   const loadChats = async (): Promise<void> => setChats(await window.pnr.assistantList());
@@ -42,14 +43,36 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
     if (last) void window.pnr.assistantGet(last).then((c) => { if (c && !pendingRef.current) setChat(c); });
   }, []);
 
-  useEffect(() => window.pnr.onAssistantEvent((event: AssistantEvent) => {
-    setPending((p) => {
-      if (!p || p.requestId !== event.requestId) return p;
-      if (event.type === 'phase' && event.phase) return { ...p, phase: event.phase };
-      if (event.type === 'partial') return { ...p, units: (event.value?.units ?? []).filter((u): u is AssistantUnit => Boolean(u?.text)) };
-      return p;
+  useEffect(() => {
+    const off = window.pnr.onAssistantEvent((event: AssistantEvent) => {
+      if (event.requestId !== requestRef.current) return;
+      setPending((p) => {
+        if (!p || p.requestId !== event.requestId) return p;
+        if (event.type === 'phase' && event.phase) return { ...p, phase: event.phase };
+        if (event.type === 'partial') {
+          // Structured streams expose fields while their objects are still
+          // incomplete. Never hand those partial shapes directly to Units,
+          // which quite reasonably expects sourceRefIds to be an array.
+          const raw = Array.isArray(event.value?.units) ? event.value.units : [];
+          const units = raw.flatMap((unit) => {
+            const text = typeof unit?.text === 'string' ? unit.text : '';
+            if (!text) return [];
+            return [{ kind: unit.kind === 'listItem' ? 'listItem' as const : 'paragraph' as const, text,
+              sourceRefIds: Array.isArray(unit.sourceRefIds) ? unit.sourceRefIds.filter((id): id is string => typeof id === 'string') : [],
+              supported: unit.supported === true }];
+          });
+          return { ...p, units };
+        }
+        return p;
+      });
     });
-  }), []);
+    return () => {
+      off();
+      const id = requestRef.current;
+      requestRef.current = null;
+      if (id) void window.pnr.assistantCancel(id);
+    };
+  }, []);
 
   // Keep the newest turn in view while it is written.
   useLayoutEffect(() => {
@@ -65,6 +88,7 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
   }, [draft]);
 
   const open = (c: AssistantChat | null): void => {
+    if (requestRef.current) return;
     setChat(c); setError(''); setShowHistory(false); remember(CHAT_KEY, c?.id ?? null);
     requestAnimationFrame(() => input.current?.focus());
   };
@@ -75,17 +99,31 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
     const question = text.trim();
     if (!question || pending || !ai?.available) return;
     const requestId = crypto.randomUUID();
+    requestRef.current = requestId;
     setPending({ requestId, question, phase: null, units: [] }); setError(''); setDraft(''); setShowHistory(false);
     try {
       const result = await window.pnr.assistantAsk({ chatId: chat?.id ?? null, question, web, lang: ai.outputLang, requestId });
+      if (requestRef.current !== requestId) return;
       if (result.chat) { setChat(result.chat); remember(CHAT_KEY, result.chat.id); }
       else { setError(describe(result.error)); setDraft((d) => d || question); }
-    } catch { setError(describe(null)); setDraft((d) => d || question); }
-    finally { setPending(null); void loadChats(); requestAnimationFrame(() => input.current?.focus()); }
+    } catch {
+      if (requestRef.current === requestId) { setError(describe(null)); setDraft((d) => d || question); }
+    } finally {
+      if (requestRef.current === requestId) {
+        requestRef.current = null; setPending(null); void loadChats(); requestAnimationFrame(() => input.current?.focus());
+      }
+    }
   };
   const stop = (): void => { if (pending) void window.pnr.assistantCancel(pending.requestId); };
+  const close = (): void => {
+    const id = requestRef.current;
+    requestRef.current = null;
+    if (id) void window.pnr.assistantCancel(id);
+    onClose();
+  };
   const toggleWeb = (): void => { setWeb((on) => { remember(WEB_KEY, on ? '0' : '1'); return !on; }); };
   const remove = async (id: string): Promise<void> => {
+    if (requestRef.current) return;
     await window.pnr.assistantDelete(id);
     if (chat?.id === id) open(null);
     await loadChats();
@@ -149,10 +187,10 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
         <strong>{showHistory ? t('assistant.history') : t('assistant.title')}</strong>
         <span className="grow" />
         {ai?.available && <>
-          <button className="tool" aria-pressed={showHistory} title={t('assistant.history')} aria-label={t('assistant.history')} onClick={() => setShowHistory((v) => !v)}><History size={15} /></button>
+          <button className="tool" aria-pressed={showHistory} title={t('assistant.history')} aria-label={t('assistant.history')} disabled={Boolean(pending)} onClick={() => setShowHistory((v) => !v)}><History size={15} /></button>
           <button className="tool" title={t('assistant.newChat')} aria-label={t('assistant.newChat')} disabled={Boolean(pending) || (!chat && !showHistory)} onClick={() => open(null)}><Plus size={16} /></button>
         </>}
-        <button className="tool" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}><X size={16} /></button>
+        <button className="tool" title={t('common.close')} aria-label={t('common.close')} onClick={close}><X size={16} /></button>
       </header>
       <div className="assistant-scroll" ref={scroller}>{body}</div>
       {ai?.available && !showHistory && (
