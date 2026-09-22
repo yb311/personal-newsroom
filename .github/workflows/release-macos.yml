@@ -1,6 +1,7 @@
 name: Release macOS
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*.*.*"
@@ -37,6 +38,7 @@ jobs:
           cache-dependency-path: native/reader/go.sum
 
       - name: Verify tag matches package version
+        if: github.ref_type == 'tag'
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -120,6 +122,7 @@ jobs:
           retention-days: 14
 
       - name: Create GitHub Release
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
