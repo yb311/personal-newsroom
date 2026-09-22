@@ -12,17 +12,15 @@ let cost = 0;
 const og = p.generate.bind(p); (p as any).generate = async (a:any,b:any)=>{const r=await og(a,b);cost+=geminiCost(r.model,r.usage?.input??0,r.usage?.output??0)??0;return r;};
 
 console.log('━━ 快讯 ━━');
-for (const w of listWatches(db, true)) {
-  const f = await generateFlashes(db, p, [w], 'zh-CN');
-  console.log(`  ${w.label}: 发布 ${f.length} 条`);
-  for (const x of f.slice(0,3))
-    console.log(`    [${x.importance}分·${x.basis}${x.followUpOf?'·后续':''}] ${x.title.slice(0,50)}\n       ${x.body.slice(0,76)}`);
-}
+const watches=listWatches(db,true);
+const flashes=await generateFlashes(db,p,watches,'zh-CN',{remaining:5,byEvent:new Map()});
+console.log(`  跨 ${watches.length} 个关注合并写作：发布 ${flashes.length} 条（全局上限 5）`);
+for (const x of flashes.slice(0,5))
+  console.log(`    [${x.importance}分·${x.basis}${x.followUpOf?'·后续':''}] ${x.title.slice(0,50)}\n       ${x.body.slice(0,76)}`);
 console.log(`\n  24 小时窗口内共 ${recentFlashes(db).length} 条`);
 
 console.log('\n━━ 快讯去重：同样材料再跑一次 ━━');
-let again = 0;
-for (const w of listWatches(db, true)) again += (await generateFlashes(db, p, [w], 'zh-CN')).length;
+const again=(await generateFlashes(db,p,watches,'zh-CN',{remaining:5,byEvent:new Map()})).length;
 console.log(`  第二次新发 ${again} 条  ${again === 0 ? '✅ 认出已发过' : '⚠️ 仍发了 ' + again + ' 条'}`);
 
 console.log('\n━━ 深度报道会话 ━━');

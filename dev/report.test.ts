@@ -24,7 +24,13 @@ const provider: Provider = {
     const data = (opts.operation === 'report_select' ? {itemIds:['i1','i2']} : {}) as T;
     return {data,provider:'gemini',model:opts.model ?? 'fast',usedSearch:false};
   },
-  async *stream<T>():AsyncIterable<StreamEvent<T>> {
+  async *stream<T>(prompt:string, opts:GenerateOptions):AsyncIterable<StreamEvent<T>> {
+    if (prompt.includes('QUESTION: Cancel this answer')) {
+      await new Promise<void>((resolve, reject) => {
+        if (opts.signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'));
+        opts.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once:true });
+      });
+    }
     answers++; const data = {title:`Answer ${answers}`,units:[{kind:'paragraph',text:'The council approved the line.',sourceRefIds:['s1'],supported:true}]} as T;
     yield {type:'partial',value:{title:`Answer ${answers}`} as Partial<T>,sequence:1};
     yield {type:'final',result:{data,provider:'gemini',model:'write',usedSearch:false},sequence:2};
@@ -39,7 +45,15 @@ const restored = getReport(db,{anchorItemId:'i1',lang:'en'}); if (restored?.id !
 const second = await askReport(db,provider,dir,first.id,'What happens next?','request-2',false,e=>events.push(e));
 if (second.messages.filter(m=>m.role==='assistant'&&m.status==='complete').length !== 2) throw new Error('follow-up not persisted');
 await askReport(db,provider,dir,first.id,'duplicate','request-2',false,e=>events.push(e)); if (answers !== 2) throw new Error('duplicate request charged twice');
+const controller = new AbortController();
+const cancelling = askReport(db,provider,dir,first.id,'Cancel this answer','request-cancel',false,e=>events.push(e),controller.signal);
+setTimeout(()=>controller.abort(),10);
+const cancelled = await cancelling;
+if (!cancelled.messages.some(m=>m.question==='Cancel this answer'&&m.status==='complete')
+  || !cancelled.messages.some(m=>m.role==='assistant'&&m.status==='cancelled')) throw new Error('cancelled turn not persisted');
+const afterCancel = await askReport(db,provider,dir,first.id,'Can I continue?','request-after-cancel',false,e=>events.push(e));
+if (!afterCancel.messages.some(m=>m.question==='Can I continue?') || !events.some(e=>e.type==='cancelled')) throw new Error('conversation did not recover after cancellation');
 const restarted = await startReport(db,provider,dir,{anchorItemId:'i1',itemIds:['i1'],topic:'Transit line',lang:'en',restart:true,requestId:'request-3'},e=>events.push(e));
 if (restarted.id === first.id) throw new Error('restart reused old conversation');
-console.log('✅ 完整材料、逐句引用、两轮追问、恢复、重复点击与重新开始');
+console.log('✅ 完整材料、逐句引用、追问、恢复、重复点击、取消后续问与重新开始');
 db.close(); rmSync(dir,{recursive:true,force:true});

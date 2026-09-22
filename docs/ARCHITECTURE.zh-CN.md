@@ -126,6 +126,20 @@ Electron 本身跨平台，所以将来要出另外两个平台，主要工作�
 | AI 供应商 | **Vercel AI SDK 统一层：Gemini 优先 + OpenAI + Claude + OpenAI 兼容接口 + Ollama** | 业务层只依赖项目自己的 Provider 契约；密钥直连厂商，不经过默认网关。搜索能力按厂商实际工具证据判断，本地 Ollama 没有原生搜索时诚实降级 |
 | 视觉语言 | **沿用 daily-brief 的报纸美学** | 见下 |
 
+### AI 默认模型与能力（2026-09-21 复核）
+
+默认模型集中在 `packages/ai/src/gemini.ts` 与 `packages/ai/src/vendors.ts`，设置里的高级字段可以覆盖；不要在业务包散写模型名。
+
+| 服务商 | 写作 / 快速 / 向量默认值 | 结构化 | 原生搜索 | 说明 |
+|---|---|---|---|---|
+| Gemini | `gemini-3.8-flash` / `gemini-3.5-flash-lite` / `gemini-embedding-2` | JSON Schema | Google Search grounding | 向量固定请求 768 维；来源元数据本身也算搜索实际执行证据 |
+| OpenAI | `gpt-5.6` / `gpt-5.4-mini` / `text-embedding-3-small` | JSON Schema | Web Search | 使用 Responses API，显式 `store:false`，向量固定请求 768 维 |
+| Anthropic | `claude-sonnet-5` / `claude-haiku-4-5` / 无 | JSON Schema | Web Search | 搜索取证和结构化写作分两次请求 |
+| OpenAI 兼容接口 | 用户填写；快速模型留空则复用写作模型 | 默认 JSON，可手动声明 Schema | 无统一保证 | 默认按 8K 输入预算；向量模型留空时改用 AI 初筛 |
+| Ollama | `qwen3:8b` / 同写作模型 / `nomic-embed-text` | JSON | 无 | 启动时检查 `/api/tags`；实际上下文由用户填写的本地配置决定 |
+
+验证分层：`npm run test:ai` 不需要密钥，使用真实 AI SDK 和模拟 HTTP 覆盖 Responses、Chat Completions、SSE、schema、来源、错误、取消和用量，再覆盖多 Watch 初筛及向量换代；`npm run test:ai-live` 才是需要真实 Gemini 密钥的付费实测。缺少密钥不会被计作离线测试通过。
+
 ### 视觉语言：直接移植 daily-brief 的设计 token
 
 `app/globals.css`（7021 行，单文件全局 CSS，普通 class，无 Tailwind）里的 `:root` 变量整套搬过来，深色模式也是现成的：

@@ -60,10 +60,13 @@ export const addUsage = (a?: StandardUsage, b?: StandardUsage): StandardUsage | 
 const abortSignal = (signal?: AbortSignal, timeoutMs = 90_000): AbortSignal =>
   signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
 
-const messagesOf = (messages: AiMessage[]): ModelMessage[] => messages.map((m) => ({
-  role: m.role,
-  content: m.content
-}));
+const messageInput = (messages: AiMessage[]): { instructions?: string; messages: ModelMessage[] } => {
+  const instructions = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const rest = messages.filter((m) => m.role !== 'system').map((m) => ({
+    role: m.role as 'user' | 'assistant', content: m.content
+  }));
+  return { ...(instructions ? { instructions } : {}), messages: rest };
+};
 
 const classify = (error: unknown): ProviderError => {
   if (error instanceof ProviderError) return error;
@@ -145,7 +148,7 @@ export class AiSdkProvider implements Provider {
       const result = await generateText({
         model: this.#config.model(modelId),
         output: Output.object({ schema: jsonSchema<T>(opts.schema) }),
-        ...(opts.messages ? { messages: messagesOf(opts.messages) } : { prompt: finalPrompt }),
+        ...(opts.messages ? messageInput(opts.messages) : { prompt: finalPrompt }),
         ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
         ...(opts.maxOutputTokens != null ? { maxOutputTokens: opts.maxOutputTokens } : {}),
         ...(this.#config.providerOptions ? { providerOptions: this.#config.providerOptions } : {}),
@@ -172,7 +175,7 @@ export class AiSdkProvider implements Provider {
       const result = streamText({
         model: this.#config.model(modelId),
         output: Output.object({ schema: jsonSchema<T>(opts.schema) }),
-        ...(opts.messages ? { messages: messagesOf(opts.messages) } : { prompt }),
+        ...(opts.messages ? messageInput(opts.messages) : { prompt }),
         ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
         ...(opts.maxOutputTokens != null ? { maxOutputTokens: opts.maxOutputTokens } : {}),
         ...(this.#config.providerOptions ? { providerOptions: this.#config.providerOptions } : {}),
@@ -197,7 +200,10 @@ export class AiSdkProvider implements Provider {
     try {
       const result = await generateText({
         model: this.#config.model(modelId), prompt, tools: this.#config.searchTools(),
-        toolChoice: 'required', abortSignal: abortSignal(opts.signal, opts.timeoutMs), maxRetries: 2,
+        // Provider-native search (for example Gemini grounding) may return cited
+        // sources without emitting an ordinary tool-call part. Requiring a tool
+        // call makes the AI SDK reject an otherwise successful grounded answer.
+        toolChoice: 'auto', abortSignal: abortSignal(opts.signal, opts.timeoutMs), maxRetries: 2,
         ...(this.#config.providerOptions ? { providerOptions: this.#config.providerOptions } : {})
       });
       const sources = result.sources.flatMap((s) => {
@@ -206,10 +212,14 @@ export class AiSdkProvider implements Provider {
           ...(source.id ? { providerRef: source.id } : {}) }] : [];
       });
       const calls = result.toolCalls.length;
+      // Grounding providers such as Gemini can expose URL sources without a
+      // normal tool-call part. Sources are still proof that the native search
+      // tool executed, and must count for both usedSearch and cost auditing.
+      const executed = calls > 0 || sources.length > 0;
       return {
         provider: this.id, model: modelId, text: result.text,
-        executed: calls > 0 || sources.length > 0, sources,
-        usage: usageOf(result.usage, calls)
+        executed, sources,
+        usage: usageOf(result.usage, executed ? Math.max(1, calls) : 0)
       };
     } catch (e) { throw classify(e); }
   }

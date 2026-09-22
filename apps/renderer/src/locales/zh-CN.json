@@ -203,7 +203,12 @@
     "providerOllama": "Ollama（本地模型）",
     "providerNone": "先不用 AI",
     "keySaved": "已保存，留空则不改",
-    "keyHint": "在 Google AI Studio 获取密钥。使用费用由 Google 收取。",
+    "keyHint": {
+      "gemini": "在 Google AI Studio 获取密钥。使用费用由 Google 收取。",
+      "openai": "在 OpenAI 平台获取密钥。使用费用由 OpenAI 收取。",
+      "anthropic": "在 Anthropic Console 获取密钥。使用费用由 Anthropic 收取。",
+      "compatible": "填写这个兼容服务签发的密钥；如果服务不要求密钥，可以留空。"
+    },
     "apiKey": "API 密钥",
     "apiKeyPlaceholder": "在此输入密钥",
     "endpoint": "接口地址",
@@ -229,7 +234,7 @@
       "connected": "已保存，并已连接所选 AI 服务",
       "no_key": "已保存。还没有填写 API Key，AI 功能暂不可用",
       "invalid_key": "已保存，但这个 API Key 无效，请检查后重试",
-      "network": "已保存，但连不上 Google，请检查网络后重试",
+      "network": "已保存，但连不上所选 AI 服务，请检查网络和接口地址后重试",
       "rate_limited": "已保存，但服务商正在限流，请稍后重试",
       "quota_exhausted": "已保存，但账户余额或配额不足",
       "context_exceeded": "模型上下文上限过小，请调整模型或上限",

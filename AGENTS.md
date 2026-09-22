@@ -58,7 +58,7 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 许可证 | **AGPL-3.0** | 能直接内置 RSSHub（也是 AGPL）；防止被做成闭源 SaaS。用户是唯一版权人，将来可双许可 |
 | 桌面外壳 | **Electron** | 老项目 58000 行全是 TS，主进程就是 Node，管线原封不动能跑 |
 | 存储 | **SQLite + sqlite-vec** | sqlite-vec 是**运行时扩展**不是原生模块，不用 electron-rebuild。better-sqlite3 是原生模块，需要 asarUnpack |
-| AI | Gemini 优先 + Ollama | 老项目 prompt 全按 Gemini 调好 |
+| AI | Vercel AI SDK 统一层：Gemini 优先 + OpenAI + Claude + OpenAI 兼容接口 + Ollama | 业务层只依赖统一 Provider；用户密钥直连厂商 |
 | 输出语言 | **用户自己选**，全局默认 + 按 Watch 覆盖 | 顺带简化：daily-brief 的 `titleZh`/`titleEn` 双份字段合并成 `title` + `lang`，token 减半 |
 | 平台 | **只 macOS** | launchd / SMAppService。README 里直说不支持 Win/Linux |
 | 无 key | **能当纯 RSS 阅读器用** | 最好的上手坡道。所有 AI 功能**优雅降级，不报错不空白** |
@@ -134,7 +134,7 @@ M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签�
 | `native/reader` | Go 阅读核心：feed/sitemap 解析、编码识别、正文抽取、HTML 清洗、语言识别 | `reader:test`（含 Miniflux 原有测试 + 34 页抽取基准） |
 | `@pnr/reader-core` | 常驻子进程客户端（按需启动、崩溃重启、空闲 unref） | — |
 | `@pnr/reader` | 下载页面 → 阅读核心抽取 → 落盘 `{html,text,words}`；付费墙名单 | `test:reader` |
-| `@pnr/ai` | Provider 抽象（Gemini + Ollama）、无 key 闸门、向量缓存、按模型计价 | `test:ai` |
+| `@pnr/ai` | Vercel AI SDK Provider（Gemini / OpenAI / Claude / 兼容接口 / Ollama）、无 key 闸门、流式/搜索、向量代次、按请求计价 | `test:ai`（真实 SDK + 模拟 HTTP、业务离线边界） |
 | `@pnr/watch` | Watch 模型、10 个预置标签、意图向量、召回辅助、纠偏 | `test:watch` |
 | `@pnr/recall` | R1/R2/R3 三路并集、判定前免费排序截断、批量判定、意图闸门 | `test:pipeline` |
 | `@pnr/generate` | 今日摘要（跨关注合并一次调用）、进展、快讯、按需深度总结 | `test:generate` · `test:flash-deep` |

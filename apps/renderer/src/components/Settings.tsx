@@ -176,7 +176,7 @@ export function Settings({ onClose, onChanged }: { onClose: () => void; onChange
               <span>{t('settings.apiKey')}</span>
               <input type="password" value={key} placeholder={status?.available ? t('settings.keySaved') : t('settings.apiKeyPlaceholder')}
                      onChange={(e) => setKey(e.target.value)} />
-              <small className="muted">{t('settings.keyHint')}</small>
+              <small className="muted">{t(`settings.keyHint.${provider === 'openai-compatible' ? 'compatible' : provider}`)}</small>
             </label>
           )}
 

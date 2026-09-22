@@ -78,6 +78,11 @@ function createWindow(): void {
     e.preventDefault();
     if (/^https?:/i.test(url)) void shell.openExternal(url);
   });
+  win.on('closed', () => {
+    for (const controller of reportRequests.values()) controller.abort();
+    reportRequests.clear();
+    win = null;
+  });
 }
 
 app.whenReady().then(() => {

@@ -8,9 +8,13 @@ export const OPENAI_MODELS = { write: 'gpt-5.6', fast: 'gpt-5.4-mini', embed: 't
 export const ANTHROPIC_MODELS = { write: 'claude-sonnet-5', fast: 'claude-haiku-4-5' } as const;
 const normalEndpoint = (input: string): string => input.trim().replace(/\/+$/, '');
 
+export interface OpenAiOptions { write?: string; fast?: string; embed?: string; baseURL?: string }
+
 export class OpenAiProvider extends AiSdkProvider {
-  constructor(apiKey: string, models: { write?: string; fast?: string; embed?: string } = {}) {
-    const ids = { ...OPENAI_MODELS, ...models }; const openai = createOpenAI({ apiKey });
+  constructor(apiKey: string, models: OpenAiOptions = {}) {
+    const ids = { write: models.write ?? OPENAI_MODELS.write, fast: models.fast ?? OPENAI_MODELS.fast,
+      embed: models.embed ?? OPENAI_MODELS.embed };
+    const openai = createOpenAI({ apiKey, ...(models.baseURL ? { baseURL: normalEndpoint(models.baseURL) } : {}) });
     super({
       id: 'openai', name: 'OpenAI', fastModel: ids.fast, writeModel: ids.write,
       limits: { fast: { maxInputTokens: 350_000, maxOutputTokens: 32_000 }, write: { maxInputTokens: 350_000, maxOutputTokens: 64_000 } },

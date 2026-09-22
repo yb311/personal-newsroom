@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { openDb } from '../packages/store/src/index.ts';
 import { generateOutsidePicks, readOutsidePicks } from '../packages/generate/src/index.ts';
 import { createWatch, listWatches } from '../packages/watch/src/index.ts';
+import type { Provider } from '../packages/ai/src/index.ts';
 
 const dir=mkdtempSync(join(tmpdir(),'pnr-outside-')); const db=openDb(join(dir,'newsroom.db')); const now=Date.now();
 const sources=[['a','news.alpha.com','Alpha'],['b','beta.net','Beta'],['c','gamma.org','Gamma'],['a2','world.alpha.com','Alpha World'],['d','delta.net','Delta']];
@@ -25,5 +26,20 @@ db.prepare(`UPDATE settings SET value='["zh"]',updated_at=? WHERE key='reader.la
 picks=await generateOutsidePicks(db,null,listWatches(db,true),'en'); if(!picks.some(p=>p.itemIds.includes('zh1')))throw new Error('reading language filter failed');
 db.prepare(`INSERT INTO settings (key,value,updated_at) VALUES ('ai.outsidePicksEnabled','0',?)`).run(now);
 if((await generateOutsidePicks(db,null,listWatches(db,true),'en')).length||readOutsidePicks(db,listWatches(db,true),'en').length)throw new Error('disabled picks still generated');
-console.log('✅ 无 Watch、无 AI、3/2 家、同媒体多 feed、已关注、语言过滤与开关');
+db.prepare(`UPDATE settings SET value='1',updated_at=? WHERE key='ai.outsidePicksEnabled'`).run(now);
+db.prepare(`UPDATE settings SET value='["en"]',updated_at=? WHERE key='reader.languages'`).run(now);
+for(let i=0;i<40;i++)add(`cross-${i}`,'a',`Cross batch event ${i} ${'detailed evidence '.repeat(35)}`);
+let batchCalls=0,mergeCalls=0;
+const ai:Provider={
+  id:'openai-compatible',name:'fake',fastModel:'fast',writeModel:'write',embeddingDims:0,vectorProfile:undefined,pricing:undefined,
+  capabilities:{embedding:false,search:false,stream:false,structured:'schema'},limits:{fast:{maxInputTokens:100,maxOutputTokens:100},write:{maxInputTokens:100,maxOutputTokens:100}},
+  async isAvailable(){return true;},async check(){return{ok:true};},async embed(){return[];},async search(){return{provider:'openai-compatible',model:'write',text:'',executed:false,sources:[]};},async *stream(){},
+  async generate<T>(prompt,opts){
+    if(opts.operation==='outside_picks_merge'){mergeCalls++;const ids=[...prompt.matchAll(/cross-\d+/g)].map(m=>m[0]);return{data:{picks:[{title:'One merged event',reason:'Important across batches',itemIds:ids,suggestion:{label:'Merged',intent:'Follow this merged event',keywords:['merged']}}]} as T,provider:'openai-compatible',model:'write',usedSearch:false};}
+    batchCalls++;const id=prompt.match(/cross-\d+/)?.[0];return{data:{picks:id?[{title:'Batch candidate',reason:'Important',itemIds:[id],suggestion:{label:'Batch',intent:'Follow batch event',keywords:['batch']}}]:[]} as T,provider:'openai-compatible',model:'write',usedSearch:false};
+  }
+};
+const merged=await generateOutsidePicks(db,ai,listWatches(db,true),'en');
+if(batchCalls<2||mergeCalls!==1||merged.length!==1||merged[0]!.itemIds.length<2)throw new Error(`cross-batch merge failed: ${batchCalls}/${mergeCalls}/${merged.length}`);
+console.log('✅ 无 Watch、无 AI、3/2 家、同媒体多 feed、已关注、语言、开关与跨批次合并');
 db.close(); rmSync(dir,{recursive:true,force:true});

@@ -132,18 +132,20 @@ function validAnswer(value: ReportAnswer, allowed: Set<string>): ReportAnswer {
 
 async function answer(db: Db, provider: Provider, conversationId: string, question: string, requestId: string,
   emit: (event: ReportEvent) => void, signal?: AbortSignal): Promise<ReportConversation> {
-  const existing = db.prepare('SELECT id FROM conversation_messages WHERE request_id=?').get(requestId) as { id: string } | undefined;
-  if (existing) return getReport(db, { conversationId })!;
-  const busy = db.prepare("SELECT 1 FROM conversation_messages WHERE conversation_id=? AND status='pending'").get(conversationId);
-  if (busy) throw new Error('conversation_busy');
-  const seq = (db.prepare('SELECT COALESCE(MAX(sequence),0)+1 AS n FROM conversation_messages WHERE conversation_id=?').get(conversationId) as { n: number }).n;
   const userId = `message-${randomUUID()}`; const assistantId = `message-${randomUUID()}`; const now = Date.now();
-  db.transaction(() => {
+  const created = db.transaction((): boolean => {
+    const existing = db.prepare('SELECT id FROM conversation_messages WHERE request_id=? OR request_id=?').get(requestId, `${requestId}:user`);
+    if (existing) return false;
+    const busy = db.prepare("SELECT 1 FROM conversation_messages WHERE conversation_id=? AND status='pending'").get(conversationId);
+    if (busy) throw new Error('conversation_busy');
+    const seq = (db.prepare('SELECT COALESCE(MAX(sequence),0)+1 AS n FROM conversation_messages WHERE conversation_id=?').get(conversationId) as { n: number }).n;
     db.prepare(`INSERT INTO conversation_messages (id,conversation_id,sequence,role,question,status,request_id,created_at,updated_at) VALUES (?,?,?,?,?,'complete',?,?,?)`)
       .run(userId, conversationId, seq, 'user', question, `${requestId}:user`, now, now);
     db.prepare(`INSERT INTO conversation_messages (id,conversation_id,sequence,role,status,request_id,created_at,updated_at) VALUES (?,?,?,?, 'pending',?,?,?)`)
       .run(assistantId, conversationId, seq + 1, 'assistant', requestId, now, now);
+    return true;
   })();
+  if (!created) return getReport(db, { conversationId })!;
   const report = getReport(db, { conversationId })!;
   const history = report.messages.filter((m) => m.status === 'complete').map((m) => m.role === 'user'
     ? `USER: ${m.question}` : `ASSISTANT: ${JSON.stringify(m.answer)}`).join('\n');

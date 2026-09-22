@@ -21,37 +21,48 @@ export function ReportPanel({ anchor, onClose }: { anchor: ReportAnchor; onClose
   const [report, setReport] = useState<ReportConversation | null>(null);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
-  const [requestId, setRequestId] = useState<string | null>(null);
   const [partial, setPartial] = useState<{ title?: string; units?: unknown[] } | null>(null);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const requestRef = useRef<string | null>(null);
   const byRef = useMemo(() => new Map(report?.sources.map((s) => [s.refId, s]) ?? []), [report]);
 
   useEffect(() => window.pnr.onReportEvent((event: ReportEvent) => {
-    if (event.requestId !== requestId) return;
+    if (event.requestId !== requestRef.current) return;
     if (event.type === 'partial') setPartial(event.value ?? null);
     if (event.type === 'error') setError(event.error ?? t('report.failed'));
-  }), [requestId, t]);
+  }), [t]);
+
+  const activate = (id: string | null): void => { requestRef.current = id; };
+  const cancelActive = (): void => {
+    const id = requestRef.current; if (!id) return;
+    requestRef.current = null; setBusy(false); setPartial(null);
+    void window.pnr.reportCancel(id);
+  };
 
   const begin = async (restart = false): Promise<void> => {
-    const id = crypto.randomUUID(); setRequestId(id); setBusy(true); setError(''); setPartial(null);
+    cancelActive();
+    const id = crypto.randomUUID(); activate(id); setBusy(true); setError(''); setPartial(null);
     const existing = !restart ? await window.pnr.reportGet({ anchorItemId: anchor.anchorItemId, lang: anchor.lang }) : null;
-    if (existing) { setReport(existing); setBusy(false); setRequestId(null); return; }
+    if (requestRef.current !== id) return;
+    if (existing) { setReport(existing); setBusy(false); activate(null); return; }
     const result = await window.pnr.reportStart({ ...anchor, restart, requestId: id });
+    if (requestRef.current !== id) return;
     if (result.conversation) setReport(result.conversation);
     else setError(result.noProvider ? t('report.needAi') : result.error ?? t('report.failed'));
-    setBusy(false); setRequestId(null); setPartial(null);
+    setBusy(false); activate(null); setPartial(null);
   };
-  useEffect(() => { void begin(false); return () => { if (requestId) void window.pnr.reportCancel(requestId); }; }, [anchor.anchorItemId, anchor.lang]);
+  useEffect(() => { void begin(false); return cancelActive; }, [anchor.anchorItemId, anchor.lang]);
 
   const ask = async (research: boolean): Promise<void> => {
     const question = draft.trim(); if (!question || !report || busy) return;
-    const id = crypto.randomUUID(); setRequestId(id); setBusy(true); setError(''); setPartial(null); setDraft('');
+    const id = crypto.randomUUID(); activate(id); setBusy(true); setError(''); setPartial(null); setDraft('');
     const result = await window.pnr.reportAsk({ conversationId: report.id, question, requestId: id, research });
+    if (requestRef.current !== id) return;
     if (result.conversation) setReport(result.conversation); else setError(result.error ?? t('report.failed'));
-    setBusy(false); setRequestId(null); setPartial(null); inputRef.current?.focus();
+    setBusy(false); activate(null); setPartial(null); inputRef.current?.focus();
   };
-  const close = (): void => { if (requestId) void window.pnr.reportCancel(requestId); onClose(); };
+  const close = (): void => { cancelActive(); onClose(); };
 
   return <aside className="report-panel" aria-label={t('report.title')}>
     <header><strong>{t('report.title')}</strong><span className="grow" />
@@ -75,7 +86,7 @@ export function ReportPanel({ anchor, onClose }: { anchor: ReportAnchor; onClose
       </details>}
     </div>
     <footer><input ref={inputRef} value={draft} disabled={busy || !report} placeholder={t('report.askPlaceholder')} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void ask(false); }} />
-      {busy ? <button onClick={() => requestId && void window.pnr.reportCancel(requestId)} title={t('report.cancel')}><Square size={14} /></button>
+      {busy ? <button onClick={cancelActive} title={t('report.cancel')}><Square size={14} /></button>
         : <><button onClick={() => void ask(false)} disabled={!draft.trim()}>{t('report.ask')}</button><button onClick={() => void ask(true)} disabled={!draft.trim()} title={t('report.research')}><Search size={14} /></button></>}
     </footer>
   </aside>;

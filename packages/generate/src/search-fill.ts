@@ -16,6 +16,10 @@ export interface SearchFillResult {
   materialId: string; publishable: boolean; title: string; body: string;
   sourceRefIds: string[]; sources: SearchFillSource[];
 }
+export interface SearchFillDeps {
+  download: typeof downloadPublic;
+  extract: typeof extractArticle;
+}
 
 const VALIDATE_SCHEMA = {
   type: 'object', properties: { sources: { type: 'array', items: { type: 'object', properties: {
@@ -52,7 +56,10 @@ function saveSearchItem(db: Db, source: { url: string; title: string }, input: S
 
 /** Native search is evidence gathering only. Publication text is produced in a
  * second schema-validated call over locally bound reference ids. */
-export async function fillFromSearch(db: Db, provider: Provider, input: SearchFillInput): Promise<SearchFillResult> {
+export async function fillFromSearch(
+  db: Db, provider: Provider, input: SearchFillInput,
+  deps: SearchFillDeps = { download: downloadPublic, extract: extractArticle }
+): Promise<SearchFillResult> {
   if (flags.disableSearch || !provider.capabilities.search) {
     return { materialId: '', publishable: false, title: '', body: '', sourceRefIds: [], sources: [] };
   }
@@ -72,8 +79,8 @@ export async function fillFromSearch(db: Db, provider: Provider, input: SearchFi
   for (const [index, candidate] of unique.entries()) {
     const refId = `s${index + 1}`;
     try {
-      const page = await downloadPublic(candidate.url, { ...(input.signal ? { signal: input.signal } : {}) });
-      const article = await extractArticle(page.url, page.body, page.contentType);
+      const page = await deps.download(candidate.url, { ...(input.signal ? { signal: input.signal } : {}) });
+      const article = await deps.extract(page.url, page.body, page.contentType);
       const accessible = !softFailure(article.text);
       candidates.push({ refId, url: page.url, title: article.title ?? candidate.title ?? '',
         publisher: domainOf(page.url), text: accessible ? article.text.slice(0, 8_000) : '',

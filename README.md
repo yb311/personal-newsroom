@@ -4,8 +4,8 @@
 
 Local-first, intent-driven personal news intelligence for macOS.
 
-> 🚧 **Status: feature-complete, not yet packaged.** Everything in the roadmap
-> below works and is covered by tests that run against live sources. What is
+> 🚧 **Status: feature-complete with an unsigned directory build verified, but not yet distributed.** Everything in the roadmap
+> below works and is covered by tests. What is
 > missing is the signed, notarised `.dmg` — until then you have to build it
 > yourself. Star the repo to hear when that ships.
 

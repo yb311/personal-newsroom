@@ -85,7 +85,8 @@ type Candidate = Material & { watchIds: string; score: number };
  * THIS person's watches rather than for a general audience.
  */
 export async function generateFlashes(
-  db: Db, provider: Provider, watches: Watch[], lang: string, searchFill?: SearchFillContext
+  db: Db, provider: Provider, watches: Watch[], lang: string, searchFill?: SearchFillContext,
+  fill: typeof fillFromSearch = fillFromSearch
 ): Promise<Flash[]> {
   const active = watches.filter((w) => w.active);
   if (active.length === 0) return [];
@@ -215,7 +216,7 @@ export async function generateFlashes(
     let filled = searchFill.byEvent.get(primary.id);
     if (!filled && searchFill.remaining > 0) {
       searchFill.remaining--;
-      filled = await fillFromSearch(db, provider, { itemId: primary.id, title: primary.title,
+      filled = await fill(db, provider, { itemId: primary.id, title: primary.title,
         snippet: primary.snippet, publishedAt: primary.publishedAt, lang });
       searchFill.byEvent.set(primary.id, filled);
     }

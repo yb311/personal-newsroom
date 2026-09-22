@@ -214,7 +214,12 @@
     "providerOllama": "Ollama (local models)",
     "providerNone": "No AI for now",
     "keySaved": "Saved; leave empty to keep it",
-    "keyHint": "Get a key from Google AI Studio. Usage is billed by Google.",
+    "keyHint": {
+      "gemini": "Get a key from Google AI Studio. Usage is billed by Google.",
+      "openai": "Get a key from the OpenAI platform. Usage is billed by OpenAI.",
+      "anthropic": "Get a key from Anthropic Console. Usage is billed by Anthropic.",
+      "compatible": "Enter the key issued by this compatible service, or leave it empty if the service does not require one."
+    },
     "apiKey": "API key",
     "apiKeyPlaceholder": "Enter the key here",
     "endpoint": "Endpoint",
@@ -240,7 +245,7 @@
       "connected": "Saved and connected to the selected AI provider",
       "no_key": "Saved. No API key yet, so AI features are off",
       "invalid_key": "Saved, but this API key is invalid. Please check it",
-      "network": "Saved, but Google can't be reached. Check your network",
+      "network": "Saved, but the selected AI service can't be reached. Check your network and endpoint",
       "rate_limited": "Saved, but the provider is rate limiting requests. Try again later",
       "quota_exhausted": "Saved, but this account has insufficient balance or quota",
       "context_exceeded": "The model context is too small. Change the model or context limit",
