@@ -13,7 +13,8 @@ import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, curatedR
 export interface ItemRow {
   id: string; title: string; url: string; publishedAt: number;
   snippet: string | null; imageUrl: string | null; author: string | null;
-  sourceName: string; sourceId: string; domain: string | null;
+  /** null for the placeholder sources that hold search results: they are not an outlet. */
+  sourceName: string | null; sourceId: string; domain: string | null;
   bodyState: string; bodyWords: number | null;
   readAt: number | null; starredAt: number | null;
   /** 1 when the upstream gave no date and this is when we first saw it. */
@@ -30,9 +31,14 @@ export interface SourceRow {
   newest: number | null;
 }
 
+/** Items found by a news search sit under a placeholder source ("搜索发现",
+ *  "Report discovery") that names how they were found, not who published them;
+ *  the interface must not show that as an outlet. */
+const SOURCE_NAME = `CASE WHEN s.id LIKE 'search:%' THEN NULL ELSE s.name END`;
+
 const ITEM_COLS = `
   i.id, i.title, i.url, i.published_at AS publishedAt, i.snippet, i.image_url AS imageUrl,
-  i.author, s.name AS sourceName, s.id AS sourceId, i.body_state AS bodyState,
+  i.author, ${SOURCE_NAME} AS sourceName, s.id AS sourceId, i.body_state AS bodyState,
   i.body_words AS bodyWords, s.domain, r.read_at AS readAt, r.starred_at AS starredAt,
   i.date_estimated AS dateEstimated, i.lang`;
 
@@ -117,7 +123,7 @@ export function createApi(db: Db, dataDir: string) {
     const unique = [...new Set(ids)];
     if (unique.length === 0) return [];
     return db.prepare(
-      `SELECT i.id, i.title, i.url, i.published_at AS publishedAt, s.name AS sourceName
+      `SELECT i.id, i.title, i.url, i.published_at AS publishedAt, ${SOURCE_NAME} AS sourceName
        FROM items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id IN (${unique.map(() => '?').join(',')})`
     ).all(...unique) as ItemRef[];
   };
@@ -324,30 +330,48 @@ export function createApi(db: Db, dataDir: string) {
 
     flashes(hours = 24, watchId?: string): unknown[] {
       const labels = new Map(listWatches(db).map((w) => [w.id, w.label]));
-      return recentFlashes(db, hours, watchId).map((f) => ({
+      // The flash a follow-up continues, however old, so the reader can see what it follows.
+      const earlier = db.prepare('SELECT id, title, published_at AS publishedAt, item_ids_json AS itemIds FROM flashes WHERE id = ?');
+      return recentFlashes(db, hours, watchId).map((f) => {
+        const prior = f.followUpOf ? earlier.get(f.followUpOf) as { id: string; title: string; publishedAt: number; itemIds: string | null } | undefined : undefined;
+        return {
         ...f,
         watchLabels: f.watchIds.map((id) => labels.get(id)).filter(Boolean),
+        watches: f.watchIds.flatMap((id) => (labels.has(id) ? [{ id, label: labels.get(id)! }] : [])),
+        followUp: prior ? { id: prior.id, title: prior.title, publishedAt: prior.publishedAt, itemIds: prior.itemIds ? JSON.parse(prior.itemIds) as string[] : [] } : null,
         sources: refsFor(f.itemIds),
         searchSources: f.searchMaterialId ? db.prepare(`SELECT ref_id AS refId,url,title,publisher
           FROM search_material_sources WHERE material_id=? AND relevant=1 AND supported=1 ORDER BY ref_id`)
           .all(f.searchMaterialId) : []
-      }));
+        };
+      });
     },
 
+    /**
+     * One edition of 今日: the brief of that day, and — for today — what lies
+     * outside every watch. What changed since yesterday is told inside the
+     * brief; the watches (with their count of new developments) let each
+     * section lead to its timeline.
+     */
     today(date?: string): unknown {
       const d = date ?? localDateKey();
       const digest = getDigest(db, d);
-      const watches = listWatches(db, true);
-      const changes = watches.map((w) => ({
-        watchId: w.id, label: w.label, milestones: newSinceYesterday(db, w.id)
-      })).filter((x) => x.milestones.length > 0);
-      const outside = readOutsidePicks(db, watches, publicSettings(db).outputLang);
+      const active = listWatches(db, true);
+      const outside = d === localDateKey() ? readOutsidePicks(db, active, publicSettings(db).outputLang) : [];
       const cited = [
         ...(digest?.blocks ?? []).flatMap((b) => ('sourceRefIds' in b ? b.sourceRefIds ?? [] : [])),
-        ...changes.flatMap((c) => c.milestones.flatMap((m) => m.itemIds)),
         ...outside.flatMap((p) => p.itemIds)
       ];
-      return { date: d, digest, changes, outside, refs: refsFor(cited), watchCount: watches.length };
+      const watches = listWatches(db).map((w) => ({ id: w.id, label: w.label, newCount: newSinceYesterday(db, w.id).length }));
+      return { date: d, digest, outside, refs: refsFor(cited), watches, watchCount: active.length };
+    },
+
+    /** Earlier editions of 今日, newest first. */
+    editions(limit = 14): { date: string; title: string; generatedAt: number }[] {
+      return db.prepare(
+        `SELECT edition_date AS date, title, generated_at AS generatedAt FROM digests
+         WHERE edition_date < ? ORDER BY edition_date DESC LIMIT ?`
+      ).all(localDateKey(), limit) as { date: string; title: string; generatedAt: number }[];
     },
 
     /**
@@ -369,7 +393,7 @@ export function createApi(db: Db, dataDir: string) {
         .all(Date.now() - hours * 3600_000, ...langs, perSource) as (ItemRow & { rank: number })[];
       const groups = new Map<string, { sourceId: string; sourceName: string; items: ItemRow[] }>();
       for (const { rank: _rank, ...it } of rows) {
-        const g = groups.get(it.sourceId) ?? { sourceId: it.sourceId, sourceName: it.sourceName, items: [] };
+        const g = groups.get(it.sourceId) ?? { sourceId: it.sourceId, sourceName: it.sourceName ?? '', items: [] };
         g.items.push(it);
         groups.set(it.sourceId, g);
       }

@@ -119,7 +119,10 @@ export class AiSdkProvider implements Provider {
       for (const model of new Set([this.fastModel, this.writeModel])) {
         const result = await this.generate<{ ok: boolean }>('Return {"ok":true}.', {
           schema: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false },
-          model, maxOutputTokens: 32, temperature: 0, timeoutMs: 15_000, operation: 'connection_check'
+          // Reasoning models can spend well over 32 output tokens internally
+          // before emitting this tiny object.  A smaller cap makes a healthy
+          // API look offline when the SDK reports "No output generated".
+          model, maxOutputTokens: 256, temperature: 0, timeoutMs: 15_000, operation: 'connection_check'
         });
         if (result.data.ok !== true) return { ok: false, problem: 'unsupported', generation: false };
       }

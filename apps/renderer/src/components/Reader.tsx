@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink } from 'lucide-react';
+import { BookOpen, ChevronLeft, ExternalLink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ItemBody, ItemRow } from '../types.ts';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,8 @@ type Full = ItemRow & { body: ItemBody | null; bodyError: string | null };
  *  stub); the reader says so rather than looking truncated. */
 const SHORT_WORDS = 120;
 
-export function Reader({ id, onLoaded }: { id: string | null; onLoaded: (item: ItemRow | null) => void }) {
+/** `onBack` is for split views without a toolbar back button: a narrow window shows only this half. */
+export function Reader({ id, onLoaded, onBack }: { id: string | null; onLoaded: (item: ItemRow | null) => void; onBack?: () => void }) {
   const { t } = useTranslation();
   const [item, setItem] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,14 +45,17 @@ export function Reader({ id, onLoaded }: { id: string | null; onLoaded: (item: I
   const open = (): void => { void window.pnr.openExternal(item.url); };
   return (
     <section className="reader" key={id}>
-      <article>
+      {/* The article's own language ('' when unknown), so type follows the text, not the interface. */}
+      <article lang={item.lang ?? ''}>
+        {onBack && <button className="push narrow-only detail-back" onClick={onBack}><ChevronLeft size={14} />{t('common.back')}</button>}
         <div className="reader-meta">
-          <span className="src">{item.sourceName}</span>
+          <span className="src">{item.sourceName ?? t('common.newsSearch')}</span>
           <span aria-hidden>·</span>
           <time title={item.dateEstimated ? t('common.noDateHint') : undefined}>
             {item.dateEstimated ? t('common.seenAt', { when: dateTime(item.publishedAt) }) : dateTime(item.publishedAt)}
           </time>
-          {item.author && <><span aria-hidden>·</span><span>{item.author}</span></>}
+          {/* Feeds list co-authors as "A,B"; set them as a byline. */}
+          {item.author && <><span aria-hidden>·</span><span>{item.author.replace(/\s*,\s*/g, ', ')}</span></>}
           {item.body && <><span aria-hidden>·</span><span>{t('reader.words', { count: item.body.words })}{item.body.words < SHORT_WORDS ? t('reader.short') : ''}</span></>}
         </div>
         <h1>{item.title}</h1>

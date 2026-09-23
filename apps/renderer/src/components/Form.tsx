@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
+import type { ReactNode, SelectHTMLAttributes } from 'react';
 
 /** A grouped box of rows, as in System Settings. */
 export function Group({ title, footer, children }: { title?: string; footer?: ReactNode; children: ReactNode }) {
@@ -18,3 +19,10 @@ export function Row({ label, hint, children, wide }: { label: ReactNode; hint?: 
 export const Switch = ({ checked, onChange, label, disabled }: { checked: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) =>
   <input type="checkbox" role="switch" className="switch" aria-label={label} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />;
 
+/** A native select with a consistent macOS-style bezel and disclosure arrow. */
+export function Select({ className, disabled, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <span className={`select-control${disabled ? ' disabled' : ''}${className ? ` ${className}` : ''}`}>
+    <select {...props} disabled={disabled}>{children}</select>
+    <ChevronDown className="select-chevron" size={13} strokeWidth={2.25} aria-hidden="true" />
+  </span>;
+}

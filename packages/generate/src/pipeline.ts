@@ -170,16 +170,22 @@ export async function runFlashCheck(db: Db, provider: Provider | null, opts: Run
   return { ...base, failed, flashes };
 }
 
-/** "立即更新" on one watch: match it and refresh its timeline, without a new digest. */
+/**
+ * "更新" on one watch: fetch, match it and refresh its timeline, without a new
+ * digest. It fetches first because the person asked for the latest on this
+ * story; matching only what an earlier fetch left would often find nothing.
+ */
 export async function runWatch(db: Db, provider: Provider | null, watchId: string, opts: RunOptions): Promise<RunResult> {
   const w = getWatch(db, watchId);
   if (!w) return { fetched: 0, watches: 0, failed: 1, mode: provider ? 'ai' : 'keywords' };
   const startedAt = Date.now();
+  opts.onProgress?.({ phase: 'fetch' });
+  const ing = await ingestAll(db, 8, { dataDir: opts.dataDir });
   opts.onProgress?.({ phase: 'watch', label: w.label });
   const matched = await matchAll(db, provider, [w], { windowHours: 72, useSearch: true, maxJudged: 40 }, opts.onProgress);
   const ready = matched.ready[0];
-  if (!ready) return { fetched: 0, watches: 0, failed: matched.failed || 1, mode: provider ? 'ai' : 'keywords' };
-  const base: RunResult = { fetched: 0, watches: 1, failed: 0, mode: provider ? 'ai' : 'keywords' };
+  if (!ready) return { fetched: ing.inserted, watches: 0, failed: matched.failed || 1, mode: provider ? 'ai' : 'keywords' };
+  const base: RunResult = { fetched: ing.inserted, watches: 1, failed: 0, mode: provider ? 'ai' : 'keywords' };
   if (!provider) return base;
   await enrichMatched(db, opts.dataDir, [w.id], Date.now() - 72 * 3600_000, 15);
   opts.onProgress?.({ phase: 'writing' });

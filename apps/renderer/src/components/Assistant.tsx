@@ -1,8 +1,9 @@
-import { ArrowUp, Globe, History, MessageSquareText, Plus, Square, Trash2, X } from 'lucide-react';
+import { ArrowUp, ChevronRight, Globe, History, MessageSquareText, Plus, Square, Trash2, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AiStatus, AssistantChat, AssistantChatSummary, AssistantEvent, AssistantMessage, AssistantPhase, AssistantSource, AssistantUnit } from '../types.ts';
 import { ago } from '../i18n.ts';
+import { Cited } from './Cites.tsx';
 
 const CHAT_KEY = 'pnr.assistantChat';
 const WEB_KEY = 'pnr.assistantWeb';
@@ -232,7 +233,7 @@ function Answer({ message, sources, onSource, retry, onRetry, describe }: {
       <Units units={units} sources={sources} onSource={onSource} />
       {units.some((u) => !u.supported) && <p className="answer-note">{t('assistant.unsourced')}</p>}
       {cited.length > 0 && <details className="answer-sources" open={cited.length <= 3}>
-        <summary>{t('assistant.sources', { count: cited.length })}</summary>
+        <summary><ChevronRight size={11} strokeWidth={2.25} aria-hidden />{t('assistant.sources', { count: cited.length })}</summary>
         <ol>{cited.map((s) => (
           <li key={s.refId}><button onClick={() => onSource(s)} title={s.url}>
             <span className="ref">{s.refId.slice(1)}</span>
@@ -253,9 +254,12 @@ function Units({ units, sources, onSource }: { units: AssistantUnit[]; sources: 
     const prev = blocks.at(-1);
     if (prev && prev.list && list) prev.units.push(u); else blocks.push({ list, units: [u] });
   }
-  const refs = (u: AssistantUnit) => u.sourceRefIds.map((r) => sources.get(r)).filter((s): s is AssistantSource => Boolean(s))
-    .map((s) => <button key={s.refId} className="ref" title={s.title} onClick={() => onSource(s)}>{s.refId.slice(1)}</button>);
+  const refs = (u: AssistantUnit) => {
+    const found = u.sourceRefIds.map((r) => sources.get(r)).filter((s): s is AssistantSource => Boolean(s));
+    return found.length === 0 ? null : <span className="refs">{found.map((s) =>
+      <button key={s.refId} className="ref" title={[s.publisher, s.title].filter(Boolean).join(' · ')} onClick={() => onSource(s)}>{s.refId.slice(1)}</button>)}</span>;
+  };
   return <>{blocks.map((b, i) => b.list
-    ? <ul key={i}>{b.units.map((u, j) => <li key={j}>{u.text}{refs(u)}</li>)}</ul>
-    : <p key={i}>{b.units[0]!.text}{refs(b.units[0]!)}</p>)}</>;
+    ? <ul key={i}>{b.units.map((u, j) => <li key={j}><Cited text={u.text}>{refs(u)}</Cited></li>)}</ul>
+    : <p key={i}><Cited text={b.units[0]!.text}>{refs(b.units[0]!)}</Cited></p>)}</>;
 }

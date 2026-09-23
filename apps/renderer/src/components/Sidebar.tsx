@@ -13,6 +13,8 @@ interface Props {
   onSourceMenu: (s: SourceRow) => void;
   onAdd: () => void; onSettings: () => void; onHide: () => void;
   aiReady: boolean;
+  /** New developments across the watches, counted on 关注 as unread articles are on 未读. */
+  fresh: number;
 }
 
 /** A source whose newest article is older than this has stopped publishing. */
@@ -27,7 +29,7 @@ const FILTERS = [['all', Inbox], ['unread', Circle], ['starred', Star]] as const
  * The window's source list: the three AI views, then reading — the library
  * filters and every subscribed source. Exactly one row is selected at a time.
  */
-export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, onPickFilter, onSourceMenu, onAdd, onSettings, onHide, aiReady }: Props) {
+export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, onPickFilter, onSourceMenu, onAdd, onSettings, onHide, aiReady, fresh }: Props) {
   const { t, i18n } = useTranslation();
   const reading = tab === 'read';
   const totalUnread = sources.reduce((a, s) => a + (s.unread ?? 0), 0);
@@ -36,6 +38,9 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
     const k = s.category ?? '';
     (byCategory.get(k) ?? byCategory.set(k, []).get(k)!).push(s);
   }
+  // Two sources with one name ("Android" from a blog and from Reddit) are told apart by their domain.
+  const seen = new Map<string, number>();
+  for (const s of sources) seen.set(s.name, (seen.get(s.name) ?? 0) + 1);
   const groups = [...byCategory.entries()].sort((a, b) =>
     categoryLabel(a[0] || null, i18n.language).localeCompare(categoryLabel(b[0] || null, i18n.language), i18n.language));
 
@@ -48,7 +53,8 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
         <ul className="side-list">
           {NAV.map(([id, Icon]) => (
             <li key={id}><button className={`side-row ${tab === id ? 'selected' : ''}`} aria-current={tab === id ? 'page' : undefined} onClick={() => onTab(id)}>
-              <Icon size={16} className="accent" /><span>{t(`tabs.${id}`)}</span></button></li>
+              <Icon size={16} className="accent" /><span>{t(`tabs.${id}`)}</span>
+              {id === 'watches' && fresh > 0 && <em title={t('watches.newTitle', { count: fresh })}>{fresh}</em>}</button></li>
           ))}
         </ul>
 
@@ -61,10 +67,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
           })}
         </ul>
 
-        <div className="side-heading with-action">
-          <h2>{t('sidebar.sources')}</h2>
-          <button className="text-button" onClick={onAdd}>{t('sidebar.manage')}</button>
-        </div>
+        <h2 className="side-heading">{t('sidebar.sources')}</h2>
         {sources.length === 0 && <p className="side-empty">{t('sidebar.noSources')}</p>}
         {groups.map(([cat, list]) => (
           <details key={cat} className="side-group" open>
@@ -77,7 +80,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
                   <button className={`side-row source ${on ? 'selected' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPickSource(s.id)}
                     onContextMenu={(e) => { e.preventDefault(); onSourceMenu(s); }}
                     title={s.lastError ? t('sidebar.lastFailed') : stale ? t('sidebar.staleTitle', { days: STALE_DAYS }) : s.domain ?? s.name}>
-                    <span>{s.name}</span>
+                    <span>{s.name}{(seen.get(s.name) ?? 0) > 1 && s.domain ? <small className="domain">{s.domain.replace(/^www\./, '')}</small> : null}</span>
                     {s.lastError ? <small className="flag warn">{t('sidebar.failed')}</small> : stale ? <small className="flag">{t('sidebar.stale')}</small> : null}
                     {s.unread ? <em>{s.unread}</em> : null}
                   </button>

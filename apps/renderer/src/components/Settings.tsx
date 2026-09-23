@@ -1,6 +1,6 @@
 import { Bot, Clock, Rss, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Group, Row, Switch } from './Form.tsx';
+import { Group, Row, Select, Switch } from './Form.tsx';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage, dateTime, languageName } from '../i18n.ts';
 import type { AiConnection, AiStatus, ScheduleState, SocialStatus } from '../types.ts';
@@ -89,15 +89,15 @@ function General() {
   return <>
     <Group>
       <Row label={t('settings.uiLanguage')} hint={t('settings.uiLanguageHint')}>
-        <select value={uiChoice} onChange={(e) => void pickUi(e.target.value as UiChoice)} aria-label={t('settings.uiLanguage')}>
+        <Select value={uiChoice} onChange={(e) => void pickUi(e.target.value as UiChoice)} aria-label={t('settings.uiLanguage')}>
           <option value="system">{t('settings.followSystem')}</option>
           <option value="zh-CN">中文</option>
           <option value="en">English</option>
-        </select>
+        </Select>
       </Row>
     </Group>
     <Group title={t('settings.readingLanguages')} footer={t('settings.readingLanguagesHint')}>
-      {known.length === 0 && <Row label={t('settings.noLanguages')} />}
+      {known.length === 0 && <div className="row"><p className="row-status">{t('settings.noLanguages')}</p></div>}
       {langs?.available.filter((a) => a.lang).map((a) => (
         <Row key={a.lang} label={languageName(a.lang!)} hint={t('settings.articles', { count: a.count })}>
           <Switch label={languageName(a.lang!)} checked={shown(a.lang!)} onChange={(on) => void toggle(a.lang!, on)} />
@@ -167,12 +167,12 @@ function AiForm({ status, onSaved }: { status: AiStatus; onSaved: () => Promise<
   return <>
     <Group title={t('settings.connectionTitle')} footer={t('settings.aiIntro')}>
       <Row label={t('settings.provider')} hint={<><i className={`status-dot ${status.available && !unsaved ? 'on' : ''}`} />{state}</>}>
-        <select value={provider} onChange={(e) => pickProvider(e.target.value as ProviderChoice)} aria-label={t('settings.provider')}>
+        <Select value={provider} onChange={(e) => pickProvider(e.target.value as ProviderChoice)} aria-label={t('settings.provider')}>
           {PROVIDERS.map((p) => <option key={p} value={p}>{t(`settings.providers.${p}`)}</option>)}
-        </select>
+        </Select>
       </Row>
       {CLOUD.has(provider) && <Row label={t('settings.apiKey')} hint={t(`settings.keyHint.${provider === 'openai-compatible' ? 'compatible' : provider}`)}>
-        <input type="password" value={key} autoComplete="off" onChange={(e) => setKey(e.target.value)} aria-label={t('settings.apiKey')}
+        <input type="password" value={key} autoComplete="off" spellCheck={false} onChange={(e) => setKey(e.target.value)} aria-label={t('settings.apiKey')}
                placeholder={hasKey(status, provider) ? t('settings.keySaved') : t('settings.keyPlaceholder')} />
       </Row>}
       {provider === 'openai-compatible' && <>
@@ -201,9 +201,9 @@ function AiForm({ status, onSaved }: { status: AiStatus; onSaved: () => Promise<
 
     <Group title={t('settings.featuresTitle')}>
       <Row label={t('settings.outputLanguage')} hint={t('settings.outputLanguageHint')}>
-        <select value={options.outputLang} onChange={(e) => void setOption('outputLang', e.target.value)} aria-label={t('settings.outputLanguage')}>
+        <Select value={options.outputLang} onChange={(e) => void setOption('outputLang', e.target.value)} aria-label={t('settings.outputLanguage')}>
           {OUTPUT_LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select></Row>
+        </Select></Row>
       <Row label={t('settings.searchFill')} hint={t('settings.searchFillHint')}>
         <Switch label={t('settings.searchFill')} checked={options.searchFillEnabled} onChange={(on) => void setOption('searchFillEnabled', on)} /></Row>
       <Row label={t('settings.outsidePicks')} hint={t('settings.outsidePicksHint')}>
@@ -257,7 +257,7 @@ function Sources() {
           ? <button className="push" onClick={async () => { await window.pnr.socialRemove(); setSocial(await window.pnr.socialStatus()); changed(); }}>{t('settings.removePack')}</button>
           : <button className="push" onClick={() => void install()} disabled={installing || Boolean(social?.instanceUrl)}>{installing ? progress || t('settings.preparing') : t('settings.downloadPack')}</button>}
       </Row>
-      <Row label={t('settings.instance')} hint={instanceMessage || t('settings.instanceHint')}>
+      <Row wide label={t('settings.instance')} hint={instanceMessage || t('settings.instanceHint')}>
         <div className="inline"><input placeholder="http://127.0.0.1:1200" value={instance} aria-label={t('settings.instance')} onChange={(e) => { setInstance(e.target.value); setInstanceMessage(''); }} />
           <button className="push" onClick={() => void saveInstance()}>{t('common.save')}</button></div>
       </Row>
@@ -295,9 +295,9 @@ function Background() {
     </Row>
     {sched?.enabled && <>
       <Row label={t('settings.dailyTime')} hint={t('settings.flashInterval', { count: sched.flashIntervalHours })}>
-        <select value={sched.dailyHour} disabled={busy} onChange={(e) => void apply(true, Number(e.target.value))} aria-label={t('settings.dailyTime')}>
+        <Select value={sched.dailyHour} disabled={busy} onChange={(e) => void apply(true, Number(e.target.value))} aria-label={t('settings.dailyTime')}>
           {[5, 6, 7, 8, 9, 10].map((h) => <option key={h} value={h}>{h}:15</option>)}
-        </select></Row>
+        </Select></Row>
       <Row label={t('settings.lastRunLabel')} hint={sched.mode === 'launchAgent' && sched.plistPath ? <>{t('settings.plistPath')}<code>{sched.plistPath}</code></> : undefined}>
         <span className="row-value">{last
           ? t('settings.lastRun', { when: dateTime(last.at), kind: t(`settings.runKind.${last.kind}`, { defaultValue: last.kind }),
@@ -307,4 +307,3 @@ function Background() {
     </>}
   </Group>;
 }
-

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CuratedRoute, SocialStatus } from '../types.ts';
+import { Select } from './Form.tsx';
 
 /** Values a route's example uses, so each field can show a working sample. */
 function exampleValues(route: CuratedRoute): Record<string, string> {
@@ -157,10 +158,10 @@ export function RssHubPicker({ describe, onAdded }: { describe: (reason?: string
                 <label key={p.key} className="field">
                   <span>{p.description.split(/[，,。]/)[0] || p.key}{p.optional ? t('rsshub.optional') : ''}</span>
                   {p.options?.length
-                    ? <select value={values[p.key] ?? ''} onChange={(e) => setValues({ ...values, [p.key]: e.target.value })}>
+                    ? <Select value={values[p.key] ?? ''} onChange={(e) => setValues({ ...values, [p.key]: e.target.value })}>
                         {p.optional && <option value="">{t('rsshub.default')}</option>}
                         {p.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
+                      </Select>
                     : <input value={values[p.key] ?? ''} placeholder={examples[p.key] ? t('rsshub.exampleValue', { value: examples[p.key] }) : ''}
                              onChange={(e) => setValues({ ...values, [p.key]: e.target.value })} />}
                   {p.description && <small>{p.description}</small>}

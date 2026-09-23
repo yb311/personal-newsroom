@@ -1,8 +1,10 @@
 import type { Db } from '@pnr/store';
+import { randomUUID } from 'node:crypto';
 import type { Provider } from '@pnr/ai';
 import type { Watch } from '@pnr/watch';
 import { log, localDateKey } from '@pnr/core';
 import { MATERIAL_COLS, materialBlock, type Material } from './material.ts';
+import { writingRules } from './style.ts';
 
 export interface Milestone {
   id: string;
@@ -26,9 +28,10 @@ const SCHEMA = {
           summary: { type: 'string' },
           itemIds: { type: 'array', items: { type: 'string' } },
           isNew: { type: 'boolean' },
+          existingMilestoneId: { type: 'string' },
           answersQuestionIds: { type: 'array', items: { type: 'string' } }
         },
-        required: ['occurredOn', 'summary', 'itemIds', 'isNew']
+        required: ['occurredOn', 'summary', 'itemIds', 'isNew', 'existingMilestoneId']
       }
     },
     openQuestions: { type: 'array', items: { type: 'string' } }
@@ -95,6 +98,13 @@ export async function generateProgress(
     'SELECT COUNT(*) c FROM milestones WHERE watch_id = ?'
   ).get(watch.id) as { c: number }).c;
   const isBaseline = priorMilestones === 0;
+  // Supply full narratives for semantic identity; shared evidence alone is not
+  // an event identifier. No extra model call is needed.
+  const existing = db.prepare(
+    `SELECT id, occurred_on AS occurredOn, summary FROM milestones
+     WHERE watch_id = ? ORDER BY first_seen_at DESC LIMIT 100`
+  ).all(watch.id) as { id: string; occurredOn: string; summary: string }[];
+  const existingIds = new Set(existing.map((m) => m.id));
 
   const lines = [
     'ROLE',
@@ -118,6 +128,13 @@ export async function generateProgress(
     lines.push('请梳理出这件事目前的来龙去脉，全部标成 isNew=true 作为起点。');
   }
 
+  if (existing.length) {
+    lines.push('', 'EXISTING_MILESTONES（已保存的进展，全文）');
+    for (const m of existing) lines.push(`${m.id} | ${m.occurredOn} | ${m.summary}`);
+    lines.push('同一事件只是换了说法时，existingMilestoneId 填上面对应的 id；新事件填空字符串。');
+    lines.push('同一天、引用同一篇报道不代表同一事件；不同决定、数字或结果必须保留为独立节点。');
+  }
+
   if (questions.length) {
     lines.push('', 'OPEN_QUESTIONS（上次留下、还没有下文的悬念）');
     for (const q of questions) lines.push(`Q${q.id}: ${q.question}`);
@@ -127,15 +144,18 @@ export async function generateProgress(
   lines.push(
     '',
     'OUTPUT',
-    `- summary: 一句话说清这个节点发生了什么，用${lang}写，不要写成标题党`,
+    `- summary: 一句话说清这个节点发生了什么，用${lang}写，不要写成标题党（中文不超过 45 字）`,
     '- occurredOn: 事情发生的日期 YYYY-MM-DD。不能晚于引用材料的日期',
     '- itemIds: 支撑这个节点的材料 id，原样照抄，至少一个',
     '- isNew: 相对 ALREADY_TOLD 是不是新的',
+    '- existingMilestoneId: 与 EXISTING_MILESTONES 中同一事件的 id；没有对应节点则为空字符串',
     '- answersQuestionIds: 这个节点回答了哪些 OPEN_QUESTIONS（没有就给空数组）',
     `- openQuestions: 这件事里还没有下文、值得明天继续找的悬念，最多 3 条，用${lang}写，`,
     '  写成能拿去搜新闻的具体问题（谁、什么事、结果如何），不要重复上面 OPEN_QUESTIONS 里还没解决的',
     '',
     '3 到 8 个节点，按时间从早到晚。只用材料里的事实。',
+    '',
+    ...writingRules(lang),
     '',
     'MATERIAL'
   );
@@ -163,8 +183,10 @@ export async function generateProgress(
     // every source that reports it.
     const latestCited = itemIds.map((id: string) => dateOf.get(id) ?? '').sort().pop() ?? '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(occurredOn) || (latestCited && occurredOn > latestCited)) continue;
-    const id = `ms-${watch.id}-${occurredOn}-${now}-${out.length}`;
-    out.push({ id, watchId: watch.id, occurredOn, summary, itemIds,
+    const existingId = String(m.existingMilestoneId ?? '');
+    const duplicate = existingIds.has(existingId);
+    const id = duplicate ? existingId : `ms-${watch.id}-${occurredOn}-${now}-${randomUUID()}`;
+    if (!duplicate) out.push({ id, watchId: watch.id, occurredOn, summary, itemIds,
                firstSeenAt: now, isNew: isBaseline ? false : Boolean(m.isNew) });
     for (const q of m.answersQuestionIds ?? []) {
       const qid = validQuestions.get(String(q).trim());
@@ -172,7 +194,7 @@ export async function generateProgress(
     }
   }
 
-  const kept = persist(db, watch.id, out);
+  const kept = persist(db, watch.id, out, answered);
   saveQuestions(db, watch.id, answered, (res.data.openQuestions ?? []).map((q) => String(q).trim()).filter(Boolean), now);
   log({ event: 'progress.generated', entityId: watch.id, elapsedMs: Date.now() - t0,
         attrs: { produced: out.length, kept: kept.length, isNew: kept.filter((m) => m.isNew).length,
@@ -213,35 +235,18 @@ export function openQuestions(db: Db, watchId: string): { id: number; question: 
  * yesterday" panel shows milestones first seen today, the watch page shows the
  * whole timeline with those highlighted. One judgement, two renderings.
  */
-function persist(db: Db, watchId: string, milestones: Milestone[]): Milestone[] {
-  // Existing milestones, keyed by date plus the items they cite. Exact string
-  // matching is not enough: the model rewords the same event slightly on every
-  // run, so near-duplicates would pile up and look like fresh developments.
+function persist(db: Db, watchId: string, milestones: Milestone[], answered: { questionId: number; milestoneId: string }[]): Milestone[] {
+  // Semantic repeats are bound to existing IDs above. Exact repeats are a
+  // deterministic fallback, including repeats within one model response.
   const priorRows = db.prepare(
-    `SELECT m.id, m.occurred_on AS occurredOn, m.summary,
-            (SELECT group_concat(item_id) FROM milestone_sources WHERE milestone_id = m.id) AS items
-     FROM milestones m WHERE m.watch_id = ?`
-  ).all(watchId) as { id: string; occurredOn: string; summary: string; items: string | null }[];
-
-  const priorByDate = new Map<string, { summary: string; items: Set<string> }[]>();
-  for (const r of priorRows) {
-    const bucket = priorByDate.get(r.occurredOn) ?? [];
-    bucket.push({ summary: r.summary, items: new Set((r.items ?? '').split(',').filter(Boolean)) });
-    priorByDate.set(r.occurredOn, bucket);
-  }
-
-  const isDuplicate = (m: Milestone): boolean => {
-    for (const prior of priorByDate.get(m.occurredOn) ?? []) {
-      if (prior.summary === m.summary) return true;
-      // Same day and at least one shared source: the same development.
-      if (m.itemIds.some((id) => prior.items.has(id))) return true;
-    }
-    return false;
-  };
+    'SELECT id, occurred_on AS occurredOn, summary FROM milestones WHERE watch_id = ?'
+  ).all(watchId) as { id: string; occurredOn: string; summary: string }[];
+  const identity = (m: { occurredOn: string; summary: string }): string => JSON.stringify([m.occurredOn, m.summary]);
+  const prior = new Map(priorRows.map((m) => [identity(m), m.id]));
 
   const insMs = db.prepare(
     `INSERT INTO milestones (id, watch_id, occurred_on, first_seen_at, summary, is_new, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
   );
   const insSrc = db.prepare(
     'INSERT INTO milestone_sources (milestone_id, item_id) VALUES (?, ?) ON CONFLICT DO NOTHING'
@@ -253,7 +258,11 @@ function persist(db: Db, watchId: string, milestones: Milestone[]): Milestone[] 
   const kept: Milestone[] = [];
   db.transaction(() => {
     for (const m of milestones) {
-      if (isDuplicate(m)) continue;
+      const duplicate = prior.get(identity(m));
+      if (duplicate) {
+        for (const a of answered) if (a.milestoneId === m.id) a.milestoneId = duplicate;
+        continue;
+      }
       kept.push(m);
       insMs.run(m.id, watchId, m.occurredOn, m.firstSeenAt, m.summary, m.isNew ? 1 : 0, now);
       for (const id of m.itemIds) insSrc.run(m.id, id);
@@ -261,33 +270,44 @@ function persist(db: Db, watchId: string, milestones: Milestone[]): Milestone[] 
       // if the user could see it on the timeline, we told them, and tomorrow's
       // pass must know that.
       insTold.run(watchId, m.summary, 'progress', m.id, now);
-      const bucket = priorByDate.get(m.occurredOn) ?? [];
-      bucket.push({ summary: m.summary, items: new Set(m.itemIds) });
-      priorByDate.set(m.occurredOn, bucket);
+      prior.set(identity(m), m.id);
     }
   })();
   return kept;
 }
 
-/** Milestones first seen today — the "since yesterday" panel. */
-export function newSinceYesterday(db: Db, watchId: string, hours = 36): Milestone[] {
+/** How long a development counts as new on the watch page and in its badge. */
+export const NEW_HOURS = 36;
+
+/** Developments judged new and first seen at or after `since`. */
+export function newSince(db: Db, watchId: string, since: number): Milestone[] {
   return (db.prepare(
     `SELECT id, watch_id AS watchId, occurred_on AS occurredOn, summary,
             first_seen_at AS firstSeenAt, is_new AS isNew
      FROM milestones WHERE watch_id = ? AND is_new = 1 AND first_seen_at >= ?
      ORDER BY occurred_on DESC`
-  ).all(watchId, Date.now() - hours * 3600_000) as any[])
+  ).all(watchId, since) as any[])
     .map((r) => ({ ...r, isNew: Boolean(r.isNew), itemIds: sourcesOf(db, r.id) }));
 }
 
-/** The whole timeline — the watch page. */
+/** Developments first seen recently — the watch's badge and the "新" marks on its timeline. */
+export function newSinceYesterday(db: Db, watchId: string, hours = NEW_HOURS): Milestone[] {
+  return newSince(db, watchId, Date.now() - hours * 3600_000);
+}
+
+/**
+ * The whole timeline — the watch page. `isNew` here means new *now*: judged new
+ * when it was found and found within NEW_HOURS, so last week's developments do
+ * not stay marked 新 for ever.
+ */
 export function timeline(db: Db, watchId: string): Milestone[] {
+  const recent = Date.now() - NEW_HOURS * 3600_000;
   return (db.prepare(
     `SELECT id, watch_id AS watchId, occurred_on AS occurredOn, summary,
             first_seen_at AS firstSeenAt, is_new AS isNew
      FROM milestones WHERE watch_id = ? ORDER BY occurred_on`
   ).all(watchId) as any[])
-    .map((r) => ({ ...r, isNew: Boolean(r.isNew), itemIds: sourcesOf(db, r.id) }));
+    .map((r) => ({ ...r, isNew: Boolean(r.isNew) && r.firstSeenAt >= recent, itemIds: sourcesOf(db, r.id) }));
 }
 
 const sourcesOf = (db: Db, milestoneId: string): string[] =>

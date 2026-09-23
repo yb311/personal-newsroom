@@ -12,7 +12,10 @@ export function Dialog({ title, onClose, children, className = '' }: {
     dialog.showModal();
     return () => { dialog.close(); previous?.focus(); };
   }, []);
+  // Escape is handled here as well as through `cancel`: Chromium may close a
+  // dialog without firing `cancel`, which would leave it shut while React still shows it.
   return <dialog ref={ref} className={`modal ${className}`} aria-label={title}
+    onKeyDown={(e) => { if (e.key === 'Escape' && !e.nativeEvent.isComposing) { e.preventDefault(); e.stopPropagation(); onClose(); } }}
     onCancel={(e) => { e.preventDefault(); onClose(); }}>
     {children}
   </dialog>;

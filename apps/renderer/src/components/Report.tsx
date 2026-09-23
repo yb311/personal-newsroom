@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent,
 import { useTranslation } from 'react-i18next';
 import type { ReportAnchor, ReportConversation, ReportEvent, ReportSource, ReportUnit } from '../types.ts';
 import { dateOnly } from '../i18n.ts';
+import { Cited } from './Cites.tsx';
 
 /**
  * 深度报道: a report on one story, written from the full text of the related
@@ -85,14 +86,17 @@ export function Report({ anchor, lang, restart, onOpen }: { anchor: ReportAnchor
     else if (choice === 'read' && s.itemId) onOpen(s.itemId);
     else if (choice === 'copy') void window.pnr.copyText(s.url);
   };
-  const cite = (ids: string[]) => ids.map((r) => byRef.get(r)).filter((s): s is ReportSource => Boolean(s)).map((s) =>
-    <button key={s.refId} className="ref" title={`${s.publisher ?? ''} · ${s.title}`} onClick={() => openSource(s)} onContextMenu={(e) => void sourceMenu(e, s)}>{s.refId.slice(1)}</button>);
+  const cite = (ids: string[]): ReactElement | null => {
+    const found = ids.map((r) => byRef.get(r)).filter((s): s is ReportSource => Boolean(s));
+    return found.length === 0 ? null : <span className="refs">{found.map((s) =>
+      <button key={s.refId} className="ref" title={[s.publisher, s.title].filter(Boolean).join(' · ')} onClick={() => openSource(s)} onContextMenu={(e) => void sourceMenu(e, s)}>{s.refId.slice(1)}</button>)}</span>;
+  };
 
   const messages = report?.messages ?? [];
   return (
     <section className="report">
       <div className="report-scroll" ref={scroller}>
-        <article className="report-doc">
+        <article className="report-doc" lang={report?.lang ?? lang}>
           {!report && busy && <div className="empty-state"><span className="spinner large" /><p>{t('report.gathering')}</p></div>}
           {messages.map((m) => m.role === 'user'
             ? (m.sequence > 1 && <h3 key={m.id} className="report-question">{m.question}</h3>)
@@ -108,8 +112,8 @@ export function Report({ anchor, lang, restart, onOpen }: { anchor: ReportAnchor
           </section>}
           {busy && !report && partial?.title && <p className="working"><span className="spinner" />{partial.title}</p>}
           {error && <div className="banner warn"><p>{error}</p><button className="push" onClick={() => void (report ? ask() : begin(false))}>{t('common.retry')}</button></div>}
-          {report && report.sources.length > 0 && <section className="report-sources">
-            <h2 className="section-title">{t('report.sources', { count: report.sources.length })}</h2>
+          {report && report.sources.length > 0 && <section className="doc-sources">
+            <h2>{t('report.sources', { count: report.sources.length })}</h2>
             <ol>{report.sources.map((s) => <li key={s.refId} onContextMenu={(e) => void sourceMenu(e, s)}>
               <span className="ref static">{s.refId.slice(1)}</span>
               <div><button className="link" onClick={() => openSource(s)}>{s.title}</button>
@@ -138,13 +142,13 @@ export function Report({ anchor, lang, restart, onOpen }: { anchor: ReportAnchor
 }
 
 /** Paragraphs, lists (consecutive list items), timeline points and table rows. */
-function Units({ units, cite }: { units: ReportUnit[]; cite: (ids: string[]) => ReactElement[] }) {
+function Units({ units, cite }: { units: ReportUnit[]; cite: (ids: string[]) => ReactElement | null }) {
   const blocks: { kind: ReportUnit['kind']; units: ReportUnit[] }[] = [];
   for (const u of units) {
     const prev = blocks.at(-1);
     if (prev && prev.kind === u.kind && u.kind !== 'paragraph') prev.units.push(u); else blocks.push({ kind: u.kind, units: [u] });
   }
   return <>{blocks.map((b, i) => b.kind === 'paragraph'
-    ? <p key={i}>{b.units[0]!.text}{cite(b.units[0]!.sourceRefIds)}</p>
-    : <ul key={i} className={b.kind}>{b.units.map((u, j) => <li key={j}>{u.text}{cite(u.sourceRefIds)}</li>)}</ul>)}</>;
+    ? <p key={i}><Cited text={b.units[0]!.text}>{cite(b.units[0]!.sourceRefIds)}</Cited></p>
+    : <ul key={i} className={b.kind}>{b.units.map((u, j) => <li key={j}><Cited text={u.text}>{cite(u.sourceRefIds)}</Cited></li>)}</ul>)}</>;
 }

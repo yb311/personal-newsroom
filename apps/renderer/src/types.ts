@@ -1,7 +1,8 @@
 export interface ItemRow {
   id: string; title: string; url: string; publishedAt: number;
   snippet: string | null; imageUrl: string | null; author: string | null;
-  sourceName: string; sourceId: string; domain: string | null;
+  /** null for search results, which have no outlet of their own. */
+  sourceName: string | null; sourceId: string; domain: string | null;
   bodyState: string; bodyWords: number | null;
   readAt: number | null; starredAt: number | null;
   dateEstimated?: number;
@@ -24,7 +25,7 @@ export interface CatalogueResult {
 }
 export type Block =
   | { type: 'paragraph'; text: string; sourceRefIds?: string[] }
-  | { type: 'heading'; level: 2 | 3; text: string }
+  | { type: 'heading'; level: 2 | 3; text: string; watchId?: string }
   | { type: 'list'; ordered?: boolean; items: string[] }
   | { type: 'quote'; text: string; attribution?: string }
   | { type: 'table'; columns: { key: string; label: string }[]; rows: Record<string, string>[]; caption?: string }
@@ -49,22 +50,30 @@ export interface WatchItem extends ItemRow {
 }
 /** What a citation needs to be shown and opened. */
 export interface ItemRef { id: string; title: string; url: string; publishedAt: number; sourceName: string | null }
+/** One edition of 今日. What changed since yesterday is told inside the brief. */
 export interface Today {
   date: string;
   digest: { id: string; title: string; blocks: Block[]; generatedAt: number } | null;
-  changes: { watchId: string; label: string; milestones: Milestone[] }[];
+  /** Only today's edition has them. */
   outside: OutsidePick[];
   refs: ItemRef[];
+  /** Every watch, so a section of the brief can lead to its timeline. */
+  watches: { id: string; label: string; newCount: number }[];
   /** Active watches; a brief is only written for them. */
   watchCount: number;
 }
+export interface Edition { date: string; title: string; generatedAt: number }
 export interface OutsidePick { id:string; date:string; lang:string; mode:'ai'|'local'; title:string; reason:string; itemIds:string[]; suggestion:{label:string;intent:string;keywords:string[]}; createdAt:number }
 export interface HeadlineGroup { sourceId: string; sourceName: string; items: ItemRow[] }
 export interface FlashRow {
   id: string; watchIds: string[]; watchLabels: string[];
+  /** The watches it matters to, for linking to them. */
+  watches: { id: string; label: string }[];
   publishedAt: number; itemPublishedAt: number | null; itemIds: string[];
   title: string; body: string; importance: number; importanceReason: string | null;
   category: string | null; basis: 'article' | 'snippet' | 'search'; followUpOf: string | null;
+  /** The earlier flash this one continues. */
+  followUp: { id: string; title: string; publishedAt: number; itemIds: string[] } | null;
   sources: ItemRef[];
   searchSources: { refId: string; url: string; title: string | null; publisher: string | null }[];
 }
@@ -163,6 +172,7 @@ export interface Pnr {
   togglePreset(id: string, on: boolean): Promise<void>;
   correct(watchId: string, itemId: string, verdict: 'wanted' | 'not_wanted', note?: string): Promise<void>;
   today(date?: string): Promise<Today>;
+  editions(limit?: number): Promise<Edition[]>;
   watchTimeline(id: string): Promise<{ milestones: Milestone[]; refs: ItemRef[]; questions: OpenQuestion[] }>;
   headlines(hours?: number, perSource?: number): Promise<HeadlineGroup[]>;
   itemRefs(ids: string[]): Promise<ItemRef[]>;

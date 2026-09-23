@@ -1,6 +1,7 @@
 import type { Db } from '@pnr/store';
 import type { Watch } from '@pnr/watch';
 import { log } from '@pnr/core';
+import { applyLatestCorrections } from './corrections.ts';
 
 /**
  * Keyword matching: how a watch works when no AI is connected.
@@ -45,6 +46,7 @@ export function matchKeywords(db: Db, watch: Watch, windowHours = 72): number {
       ins.run(watch.id, r.id, now);
       n++;
     }
+    applyLatestCorrections(db, watch.id);
   })();
   log({ event: 'watch.keywords', entityId: watch.id, attrs: { scanned: rows.length, hits: n } });
   return n;

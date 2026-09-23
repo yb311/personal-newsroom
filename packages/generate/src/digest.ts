@@ -4,6 +4,8 @@ import type { RichBlock } from '@pnr/core';
 import { log, localDateKey } from '@pnr/core';
 import type { Watch } from '@pnr/watch';
 import { MATERIAL_COLS, materialBlock, type Material } from './material.ts';
+import { newSince, type Milestone } from './progress.ts';
+import { writingRules } from './style.ts';
 
 /** Today's brief is about the last day and a bit. When nothing that recent
  *  passed for a watch, it falls back to the last three days rather than
@@ -57,6 +59,12 @@ const SCHEMA = {
  * expensive stage, and one call per watch would multiply the daily cost by the
  * number of watches. The Flash promotional pricing doubles on 2027-01-01, which
  * makes this structural rather than optional.
+ *
+ * The brief is where "昨天到今天" is told. The progress pass (run just before)
+ * has already judged, against everything the person was told, which
+ * developments are new since the previous edition; each section is written
+ * around those. One judgement, rendered as prose here and as marked nodes on
+ * the watch's timeline — not repeated as a separate list beside the brief.
  */
 export async function generateDigest(
   db: Db, provider: Provider, watches: Watch[], lang: string, editionDate?: string
@@ -71,10 +79,30 @@ export async function generateDigest(
      ORDER BY m.intent_score DESC, i.published_at DESC LIMIT 8`
   );
   const now = Date.now();
+  // "New" means new since the previous edition was written, so regenerating
+  // today's brief in the afternoon still covers the morning's developments.
+  const previous = db.prepare('SELECT generated_at AS at FROM digests WHERE edition_date < ? ORDER BY edition_date DESC LIMIT 1')
+    .get(date) as { at: number } | undefined;
+  const since = previous?.at ?? now - 24 * 3600_000;
+  const byId = (watchId: string, ids: string[]): Material[] => ids.length === 0 ? [] : db.prepare(
+    `SELECT ${MATERIAL_COLS} FROM matches m JOIN items i ON i.id = m.item_id
+     LEFT JOIN sources s ON s.id = i.source_id
+     WHERE m.watch_id = ? AND m.passed_gate = 1 AND i.id IN (${ids.map(() => '?').join(',')})`
+  ).all(watchId, ...ids) as Material[];
   const perWatch = watches.map((w) => {
     let items = pick.all(w.id, now - DIGEST_WINDOW_HOURS * 3600_000) as Material[];
     if (items.length === 0) items = pick.all(w.id, now - DIGEST_FALLBACK_HOURS * 3600_000) as Material[];
-    return { watch: w, items };
+    const candidates = newSince(db, w.id, since);
+    const material = byId(w.id, [...new Set(candidates.flatMap((m) => m.itemIds))]);
+    const eligible = new Set(material.map((i) => i.id));
+    // A historical summary may depend on a source the user has since rejected.
+    // Do not reuse that summary after silently removing part of its evidence.
+    const fresh: Milestone[] = candidates.filter((m) => m.itemIds.length > 0 && m.itemIds.every((id) => eligible.has(id)));
+    // A development may rest on an article older than the digest window; its material must be there to cite.
+    const have = new Set(items.map((i) => i.id));
+    const freshIds = new Set(fresh.flatMap((m) => m.itemIds));
+    items = [...items, ...material.filter((i) => freshIds.has(i.id) && !have.has(i.id))];
+    return { watch: w, items, fresh };
   }).filter((x) => x.items.length > 0);
 
   if (perWatch.length === 0) return null;
@@ -93,16 +121,27 @@ export async function generateDigest(
     '- 材料里没确认的事要写明是未确认的。',
     '- 不写社论口吻，不做预测，不用煽情词。',
     '- 每个关注写 1-3 段，每段 2-4 句。没什么可说的就少写，不要凑字数。',
+    '- 列了 NEW 的关注：NEW 是已经核对过、他还不知道的新进展。这一节先写这些，每一条都要写到，',
+    '  需要时用半句话交代前情；再补材料里与之相关的细节。不要把 NEW 以外的旧事写成新消息。',
+    '- 没有 NEW 的关注：只写材料里最重要的一两件事。',
     '- 同一件事只写一次：几个关注都涉及同一事件时，写在最相关的那个关注下，其他关注里不再重复。',
     '  某个关注的材料全都已经写在别处了，就不输出这个关注的 section。',
+    '- heading 是这一节的小标题，一句话说出这一节最重要的事实，不要只写关注的名字。',
     '- title 是整份摘要的标题，一句话概括今天他最该知道的事。',
+    '',
+    ...writingRules(lang),
     '',
     'WATCHES'
   ];
 
-  for (const { watch, items } of perWatch) {
+  for (const { watch, items, fresh } of perWatch) {
     lines.push('', `## watchId=${watch.id}  ${watch.label}`);
     lines.push(`他的原话：${watch.intent}`);
+    if (fresh.length) {
+      lines.push('NEW（自上一期以来的新进展）');
+      for (const m of fresh) lines.push(`- [${m.occurredOn}] ${m.summary}（材料：${m.itemIds.join(', ')}）`);
+    }
+    lines.push('MATERIAL');
     for (const it of items) lines.push(materialBlock(it, 600));
   }
 
@@ -116,21 +155,27 @@ export async function generateDigest(
   const validIds = new Set(perWatch.flatMap((x) => x.items.map((i) => i.id)));
   const labelOf = new Map(perWatch.map((x) => [x.watch.id, x.watch.label]));
   const blocks: RichBlock[] = [];
+  const narratives = new Map<string, string[]>();
   let kept = 0, dropped = 0;
 
   for (const sec of res.data.sections ?? []) {
     const heading = String(sec.heading ?? labelOf.get(String(sec.watchId)) ?? '').trim();
     const paras = (sec.paragraphs ?? []).filter((p: any) => String(p?.text ?? '').trim());
     if (!heading || paras.length === 0) continue;
-    blocks.push({ type: 'heading', level: 2, text: heading });
+    // The watch the section belongs to, so the brief can lead to its timeline.
+    const watchId = String(sec.watchId ?? '');
+    const paragraphs: Extract<RichBlock, { type: 'paragraph' }>[] = [];
     for (const p of paras) {
       // Citation binding, ported from daily-brief: the model may only point at
       // ids it was given, never invent a URL of its own.
       const refs = (p.itemIds ?? []).map(String).filter((x: string) => validIds.has(x));
       if (refs.length === 0) { dropped++; continue; }
-      blocks.push({ type: 'paragraph', text: String(p.text).trim(), sourceRefIds: refs });
+      paragraphs.push({ type: 'paragraph', text: String(p.text).trim(), sourceRefIds: refs });
       kept++;
     }
+    if (paragraphs.length === 0) continue;
+    blocks.push({ type: 'heading', level: 2, text: heading, ...(labelOf.has(watchId) ? { watchId } : {}) }, ...paragraphs);
+    if (labelOf.has(watchId)) narratives.set(watchId, [...(narratives.get(watchId) ?? []), ...paragraphs.map((p) => p.text)]);
   }
   if (kept === 0) return null;
 
@@ -155,11 +200,8 @@ export async function generateDigest(
   );
   db.transaction(() => {
     db.prepare("DELETE FROM told_records WHERE surface = 'digest' AND surface_id = ?").run(digest.id);
-    for (const sec of res.data.sections ?? []) {
-      const wid = String(sec.watchId ?? '');
-      if (!labelOf.has(wid)) continue;
-      const text = (sec.paragraphs ?? []).map((p: any) => String(p?.text ?? '')).join(' ').trim();
-      if (text) insTold.run(wid, text, 'digest', digest.id, digest.generatedAt);
+    for (const [wid, paragraphs] of narratives) {
+      insTold.run(wid, paragraphs.join(' '), 'digest', digest.id, digest.generatedAt);
     }
   })();
 

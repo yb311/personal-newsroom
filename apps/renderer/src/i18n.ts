@@ -28,7 +28,7 @@ export async function changeLanguage(lng: UiLanguage): Promise<void> {
 const lang = (): string => i18next.language || 'zh-CN';
 
 // Dates and times always follow the interface language.
-export const dateTime = (ts: number, opts?: Intl.DateTimeFormatOptions): string =>
+export const dateTime = (ts: number, opts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' }): string =>
   new Date(ts).toLocaleString(lang(), opts);
 export const dateOnly = (ts: number): string => new Date(ts).toLocaleDateString(lang());
 export const clock = (ts: number): string =>
@@ -44,6 +44,17 @@ export function ago(ts: number): string {
   if (h < 24) return rtf.format(-h, 'hour');
   const d = Math.round(h / 24);
   return d < 30 ? rtf.format(-d, 'day') : dateOnly(ts);
+}
+
+/**
+ * The writing system of AI-written text that does not record its language, so
+ * a document is set as what it is rather than as the interface language:
+ * Chinese and Japanese are justified, Latin text is not. '' is "not CJK".
+ */
+export function scriptLang(text: string): string {
+  const sample = text.slice(0, 400);
+  if ((sample.match(/[\u3040-\u30ff]/g) ?? []).length > 4) return 'ja';
+  return (sample.match(/[\u3400-\u9fff]/g) ?? []).length > sample.length * 0.2 ? 'zh' : '';
 }
 
 /** A language code's name in the interface language: "es" → 西班牙语 / Spanish. */

@@ -16,6 +16,7 @@
     "revert": "还原",
     "optional": "选填",
     "source": "来源",
+    "sources": "来源（{{count}}）",
     "connectAi": "连接 AI",
     "checking": "正在检查…",
     "pleaseWait": "请稍候…",
@@ -25,7 +26,8 @@
     "seenAt": "发现于 {{when}}",
     "noDateHint": "来源未提供发布时间，此处为首次发现时间",
     "loginItemsHint": "请在「系统设置 → 通用 → 登录项」中允许「所闻」在后台运行。",
-    "back": "返回"
+    "back": "返回",
+    "newsSearch": "新闻搜索"
   },
   "tabs": {
     "today": "今日",
@@ -48,11 +50,9 @@
     "articleNav": "切换文章",
     "prevArticle": "上一篇",
     "nextArticle": "下一篇",
-    "resizeList": "调整文章列表宽度",
+    "resizeList": "调整列表宽度",
     "refresh": "更新订阅",
-    "updateToday": "更新今日",
-    "updateWatches": "更新全部关注",
-    "checkFlashes": "检查快讯",
+    "checkFlashes": "检查新快讯",
     "progress": {
       "fetch": "正在抓取订阅…",
       "watch": "正在处理「{{label}}」…",
@@ -69,18 +69,17 @@
     "flashChecking": "正在检查快讯…",
     "flashDone": "快讯已检查，新增 {{count}} 条",
     "partial": "（{{count}} 项未完成）",
-    "watchesRunning": "正在更新关注…",
     "watchesKeywords": "已按关键词更新 {{count}} 个关注",
-    "watchesDone": "已更新 {{count}} 个关注",
-    "digestReady": "，今日摘要已生成",
     "lastRun": "订阅更新于 {{when}}",
     "neverRun": "尚未更新订阅",
     "aiOn": "AI 已连接",
-    "aiOff": "阅读模式（未连接 AI）"
+    "aiOff": "阅读模式（未连接 AI）",
+    "briefWriting": "正在生成今日摘要…",
+    "briefDone": "今日摘要已生成",
+    "briefNone": "关注里暂无可写的新内容，摘要未更新"
   },
   "sidebar": {
     "sources": "订阅源",
-    "manage": "管理",
     "noSources": "还没有订阅源。",
     "lastFailed": "上次更新失败",
     "failed": "失败",
@@ -204,22 +203,24 @@
   },
   "outside": {
     "title": "关注之外的要事",
-    "hint": "不在你的关注范围内，但可能值得跟进。",
     "follow": "关注此事"
   },
   "today": {
-    "changes": "昨天到今天",
+    "brief": "今日摘要",
     "generatedAt": "{{date}} · {{time}} 生成",
     "noAiTitle": "今日摘要需要 AI",
-    "noAiBody": "连接 AI 后，这里会按你的关注生成每日摘要。下方是各订阅源最近 24 小时的要闻。",
+    "noAiBody": "连接 AI 后，这里会按你的关注写每日简报。在此之前，左侧列出各订阅源最近 24 小时的要闻。",
     "noWatchesTitle": "先添加关注",
     "noWatchesBody": "摘要围绕你关注的事撰写。添加一个关注即可开始。",
     "noDigestTitle": "今日摘要尚未生成",
-    "noDigestBody": "更新关注后生成；开启后台更新后，每天早上会自动生成。",
-    "generate": "生成摘要",
-    "generating": "正在生成…",
+    "noDigestBody": "开启后台更新后，每天早上自动生成；也可以现在生成。",
     "headlines": "要闻",
-    "noHeadlines": "最近 24 小时没有新文章。"
+    "editions": "往期",
+    "write": "生成今日摘要",
+    "writing": "正在生成…",
+    "rewrite": "重新生成",
+    "openWatch": "在「关注」中查看这件事的进展",
+    "newDevelopments": "{{count}} 条新进展"
   },
   "flashes": {
     "needAiTitle": "快讯需要 AI",
@@ -227,22 +228,18 @@
     "empty": "这段时间没有值得提醒的新进展。",
     "emptyFiltered": "没有重要快讯。取消筛选可查看全部。",
     "important": "重要",
-    "development": "进展",
     "writtenAt": "整理于 {{when}}",
     "followUp": "后续",
-    "snippetOnly": "仅据摘要",
-    "snippetOnlyHint": "未能获取原文，仅依据来源摘要撰写",
-    "searchFilled": "搜索补全",
-    "searchFilledHint": "原文无法获取，内容经搜索核实补全",
+    "snippetOnlyHint": "未能获取原文，本条依据来源提供的摘要撰写。",
+    "searchFilledHint": "未能获取原文，内容经搜索核实后补全。",
     "verifiedSources": "已核实来源（{{count}}）",
     "subtitle": "最近 24 小时 · {{count}} 条",
-    "filter": "筛选快讯",
-    "show": {
-      "all": "全部",
-      "important": "重要"
-    },
     "emptyTitle": "没有新快讯",
-    "emptyFilteredTitle": "没有重要快讯"
+    "emptyFilteredTitle": "没有重要快讯",
+    "earlier": "前情",
+    "openWatch": "在「关注」中查看",
+    "importantOnly": "只看重要快讯",
+    "subtitleImportant": "最近 24 小时 · 重要 {{count}} 条"
   },
   "background": {
     "title": "后台更新",
@@ -271,7 +268,7 @@
     "connectionTitle": "连接",
     "aiIntro": "阅读无需 AI。连接后可使用今日摘要、快讯、进展和新闻助手。密钥仅保存在本机；使用云端服务时，相关文章内容会发送给该服务。",
     "state": {
-      "connected": "已连接 {{provider}}",
+      "connected": "已配置 {{provider}}",
       "notConnected": "未连接",
       "off": "未使用 AI"
     },
@@ -489,6 +486,7 @@
     "noMatch": "没有匹配的关注。",
     "paused": "已暂停",
     "newTitle": "{{count}} 个新进展",
+    "emptyTitle": "还没有关注",
     "empty": "用一句话写下你想跟进的事，或从主题库中挑选。",
     "noAi": "未连接 AI：按关键词匹配文章，不判断相关性，也不生成进展。",
     "pickTitle": "选择一个关注",
@@ -532,20 +530,20 @@
       "timeline": "进展",
       "settings": "设置"
     },
-    "noItems": "还没有相关报道。点「立即更新」开始匹配。",
+    "noItems": "还没有相关报道。点「立即更新」开始筛选。",
     "noItemsKeywords": "未连接 AI 时，需要先在「设置」中填写关键词。",
-    "verdictHint": "用 👍 / 👎 标注文章是否需要，可附一句理由；AI 下次判断时会参考你的原话。",
+    "verdictHint": "标记报道是否相关，可附理由，用于改进之后的筛选。",
     "keywordMatch": "关键词匹配",
     "keywordMatchHint": "按关键词匹配，未经 AI 判断",
     "score": "相关度 {{score}}/10",
     "scoreHint": "AI 依据你的描述给出的相关度",
-    "markedWanted": "已标为需要",
-    "whyWanted": "为什么需要？（选填）",
-    "whyNot": "为什么不需要？例如：只是顺带提及（选填）",
-    "markWanted": "标为需要",
-    "markNot": "标为不需要",
-    "wantThis": "需要这篇",
-    "notWantThis": "不需要这篇",
+    "markedWanted": "已标为相关",
+    "whyWanted": "理由（选填）",
+    "whyNot": "理由（选填），例如：只是顺带提及",
+    "markWanted": "标为相关",
+    "markNot": "标为不相关",
+    "wantThis": "相关",
+    "notWantThis": "不相关",
     "timelineNeedsAi": "进展由 AI 梳理，连接 AI 后生成。",
     "openQuestions": "待跟进",
     "openQuestionsHint": "尚无下文的事项，下次更新时优先查找。",
@@ -574,7 +572,8 @@
     "pauseAction": "暂停",
     "resumeAction": "恢复更新",
     "active": "更新此关注",
-    "activeHint": "关闭后不再更新，已有内容保留。"
+    "activeHint": "关闭后不再更新，已有内容保留。",
+    "updateHint": "获取最新报道，重新筛选并更新进展"
   },
   "menu": {
     "about": "关于所闻",

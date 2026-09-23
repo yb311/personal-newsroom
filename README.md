@@ -30,7 +30,7 @@ personalization.
 
 | | |
 |---|---|
-| **Today** | Your own daily brief, a **"since yesterday"** panel, and a small evidence-backed section for important events outside your watches |
+| **Today** | Your own daily brief, each section written around **what changed since yesterday**, a small evidence-backed section for important events outside your watches, and earlier editions |
 | **Flashes** | Short, fast updates — only the ones that pass your intent filter |
 | **Read** | A real reader. Article text extracted and shown in-app, so you don't bounce out to a browser |
 | **Watches** | Tick a preset topic, or write a sentence. Either way you can see and edit exactly how it's searching |

@@ -4,6 +4,7 @@ import { log } from '@pnr/core';
 import type { Watch } from '@pnr/watch';
 import { MATERIAL_COLS, materialBlock, type Material } from './material.ts';
 import { fillFromSearch, type SearchFillResult } from './search-fill.ts';
+import { writingRules } from './style.ts';
 
 export interface Flash {
   id: string;
@@ -153,10 +154,16 @@ export async function generateFlashes(
     '也不要因为报道的媒体多就给高分。',
     '',
     'WRITE（只给 importance >= 6 的写）',
-    '- title：主体 + 发生了什么 + 最新结果，一句话，不用问句不用悬念',
-    '- body：2-3 句。第一句直接报最新事实；有关键数字就补上并注明来源；',
+    '- title：一句话，主体 + 发生了什么 + 最新结果。中文不超过 28 字，其他语言不超过 14 个词；',
+    '  转述某一方的说法可以写成「伊朗：……」。不用问句，不留悬念。',
+    '- body：2-3 句，中文不超过 110 字。第一句直接报最新事实；第二句补最关键的细节或数字，并说明是谁说的；',
     '  材料里没有的就不写，宁可短，不要用"细节尚未披露"之类的话凑句子。',
+    '- follow_up 的正文要让没看过上一条的人也能读懂：用半句话交代前情，再报这次的变化。',
+    '- importanceReason：一句话告诉读者这件事为什么值得知道，例如「这是交火以来伊朗首次提出具体的复谈条件」。',
+    '  不要写「属于重大进展」「符合他的关注」这类打分用语。',
     '- 每个名字、数字、时间、地点都必须来自材料。没确认的要写明未确认。',
+    '',
+    ...writingRules(lang),
     '',
     'ITEMS（"正文"是抓到的原文开头，"摘要"表示只有来源提供的摘要）'
   );

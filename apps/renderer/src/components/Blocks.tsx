@@ -1,17 +1,28 @@
+import { Fragment, type ReactNode } from 'react';
 import type { Block, ItemRef } from '../types.ts';
-import { Cites } from './Cites.tsx';
+import { Cited, Cites, Refs } from './Cites.tsx';
 
 /** Renders the shared RichBlock contract used by AI-written text. When `refs`
- *  is given, paragraphs show the sources they were written from. */
-export function Blocks({ blocks, refs, onOpen }: { blocks: Block[]; refs?: Map<string, ItemRef>; onOpen?: (id: string) => void }) {
+ *  is given, paragraphs show the sources they were written from — as numbered
+ *  marks when the document closes with a numbered source list. `kicker` puts a
+ *  line above a heading that belongs to a watch, as a newspaper names its section. */
+export function Blocks({ blocks, refs, numbers, onOpen, kicker }: {
+  blocks: Block[]; refs?: Map<string, ItemRef>; numbers?: Map<string, number>; onOpen?: (id: string) => void;
+  kicker?: (watchId: string) => ReactNode;
+}) {
   return (
     <>
       {blocks.map((b, i) => {
         switch (b.type) {
           case 'paragraph': return (
-            <p key={i}>{b.text}{refs && onOpen && <Cites ids={b.sourceRefIds} refs={refs} onOpen={onOpen} />}</p>
+            <p key={i}>{refs && onOpen ? <Cited text={b.text}>{numbers
+              ? <Refs ids={b.sourceRefIds} refs={refs} numbers={numbers} onOpen={onOpen} />
+              : <Cites ids={b.sourceRefIds} refs={refs} onOpen={onOpen} />}</Cited> : b.text}</p>
           );
-          case 'heading': return b.level === 2 ? <h2 key={i}>{b.text}</h2> : <h3 key={i}>{b.text}</h3>;
+          case 'heading': {
+            const heading = b.level === 2 ? <h2>{b.text}</h2> : <h3>{b.text}</h3>;
+            return <Fragment key={i}>{b.watchId && kicker?.(b.watchId)}{heading}</Fragment>;
+          }
           case 'quote': return (
             <blockquote key={i}>
               <p>{b.text}</p>

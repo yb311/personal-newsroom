@@ -47,3 +47,6 @@ vendor/rsshub/
 assets/icon.iconset/
 /native/reader/bin/
 /dev/snapshots/
+
+# CodeGraph local index (rebuilt via `codegraph init`)
+.codegraph/

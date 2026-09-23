@@ -14,6 +14,8 @@ import { localDateKey } from '../packages/core/src/index.ts';
 import type { Provider, GenerateOptions, GenerateResult } from '../packages/ai/src/index.ts';
 import { createWatch, getWatch } from '../packages/watch/src/index.ts';
 import { runDaily, runFlashCheck, generateProgress, getDigest, newSinceYesterday, recentFlashes, openQuestions } from '../packages/generate/src/index.ts';
+import { generateDigest } from '../packages/generate/src/digest.ts';
+import { gateWatch, matchKeywords } from '../packages/recall/src/index.ts';
 import { createApi } from '../apps/desktop/src/ipc.ts';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -132,6 +134,12 @@ check(/^Q\d+: 欧盟何时正式实施修订？/m.test(p2.prompt), '上次的悬
 check(openQuestions(db, wA.id).length === 0, '回答了的悬念被标为已解决');
 const fresh = newSinceYesterday(db, wA.id).map((m) => m.summary);
 check(fresh.includes('修订明年生效'), `同一天的第二个新进展没有被丢掉（昨天到今天：${fresh.join('、')}）`);
+const d2 = calls.find((c) => c.kind === 'digest');
+check(Boolean(d2 && /^NEW（/m.test(d2.prompt) && d2.prompt.includes('修订明年生效')), '摘要围绕进展判断出的新进展来写（「昨天到今天」写进摘要）');
+const heads = (getDigest(db, localDateKey())?.blocks ?? []).filter((b) => b.type === 'heading');
+check(heads.length > 0 && heads.every((b) => 'watchId' in b && (b.watchId === wA.id || b.watchId === wB.id)), '摘要每一节都记下所属关注，可以跳到它的进展');
+const t2 = api.today() as { watches: { id: string; newCount: number }[]; changes?: unknown };
+check(t2.changes === undefined && t2.watches.some((w) => w.id === wA.id && w.newCount > 0), '今日不再单列「昨天到今天」，新进展数随关注返回');
 
 // ── 3. told records written after the run started are ignored ─────────────
 console.log('\n=== 进展：本次运行写入的「已告诉」不算 ===');
@@ -171,6 +179,97 @@ check(passedUnjudged.c === 0, '接上 AI 后，只凭关键词通过的会先交
 api.removeWatch(wB.id);
 const left = recentFlashes(db, 24);
 check(left.length === 1 && left[0]!.watchIds.join() === wA.id, '删除关注后，共享的快讯只剩在另一个关注下');
+
+// ── 7. review regressions: rejected evidence, event identity, told text ─────
+console.log('\n=== 审阅回归：纠偏、进展去重与已展示记录 ===');
+{
+  const reviewDb = openDb(':memory:');
+  try {
+    const reviewApi = createApi(reviewDb, dir);
+    reviewDb.prepare("INSERT INTO sources (id,kind,name,url,trust,created_at) VALUES ('s','rss','Source','https://example.com',0.9,?)").run(now);
+    const watch = createWatch(reviewDb, { origin: 'intent', label: 'review', intent: 'policy', keywords: ['policy'] });
+    for (const [id, age] of [['rejected', 1], ['allowed', 1], ['old', 100], ['keyword', 1]] as const) {
+      reviewDb.prepare(`INSERT INTO items (id,dedup_key,source_id,url,title,snippet,published_at,discovered_at)
+        VALUES (?,?,'s',?,'policy','policy',?,?)`).run(id, id, `https://example.com/${id}`, now - age * 3600_000, now);
+      reviewDb.prepare(`INSERT INTO matches (watch_id,item_id,recalled_by,intent_score,passed_gate,judged_at,created_at)
+        VALUES (?,?,'test',9,1,?,?)`).run(watch.id, id, id === 'keyword' ? null : now, now);
+    }
+    const addMilestone = (id: string, summary: string, itemIds: string[]): void => {
+      reviewDb.prepare(`INSERT INTO milestones (id,watch_id,occurred_on,first_seen_at,summary,is_new,created_at)
+        VALUES (?,?,?,?,?,1,?)`).run(id, watch.id, localDateKey(now - 100 * 3600_000), now, summary, now);
+      for (const itemId of itemIds) reviewDb.prepare('INSERT INTO milestone_sources (milestone_id,item_id) VALUES (?,?)').run(id, itemId);
+    };
+    addMilestone('rejected-ms', 'REJECTED_EVENT', ['rejected']);
+    addMilestone('mixed-ms', 'MIXED_EVENT', ['allowed', 'rejected']);
+    addMilestone('old-ms', 'OLD_VALID_EVENT', ['old']);
+    reviewApi.correct(watch.id, 'rejected', 'not_wanted');
+    reviewApi.correct(watch.id, 'keyword', 'not_wanted');
+    gateWatch(reviewDb, watch);
+    matchKeywords(reviewDb, watch);
+    const passed = (id: string): number => (reviewDb.prepare('SELECT passed_gate AS p FROM matches WHERE watch_id=? AND item_id=?').get(watch.id, id) as { p: number }).p;
+    check(passed('rejected') === 0 && passed('keyword') === 0, 'AI 重新过闸和关键词重跑都不能覆盖「不要」');
+    reviewApi.correct(watch.id, 'keyword', 'wanted');
+    gateWatch(reviewDb, watch);
+    check(passed('keyword') === 1, '最新反馈优先：改成「要」后，尚未 AI 判定的文章也保留');
+
+    let digestPrompt = '';
+    const sections = [
+      { watchId: watch.id, heading: 'kept', paragraphs: [
+        { text: 'VISIBLE', itemIds: ['allowed'] }, { text: 'INVALID_UNSHOWN', itemIds: ['invented'] }
+      ] },
+      { watchId: watch.id, heading: 'EMPTY_SECTION', paragraphs: [{ text: 'EMPTY_UNSHOWN', itemIds: [] }] },
+      { watchId: watch.id, heading: '', paragraphs: [{ text: 'NO_HEADING_UNSHOWN', itemIds: ['allowed'] }] }
+    ];
+    const digestProvider: Provider = { ...stub, async generate<T>(prompt: string): Promise<GenerateResult<T>> {
+      digestPrompt = prompt;
+      return { data: { title: 'review', sections } as T, provider: 'gemini', model: 'stub', usedSearch: false };
+    } };
+    const result = await generateDigest(reviewDb, digestProvider, [watch], 'en');
+    check(!digestPrompt.includes('REJECTED_EVENT') && !digestPrompt.includes('MIXED_EVENT') && !/^rejected \|/m.test(digestPrompt),
+      '否定过的材料和依赖它的旧进展不会通过 NEW 重新进入摘要');
+    check(digestPrompt.includes('OLD_VALID_EVENT') && /^old \|/m.test(digestPrompt), '窗口外仍通过判定的进展材料正常补回');
+    check(result?.blocks.length === 2 && result.blocks[1]?.type === 'paragraph' && result.blocks[1].text === 'VISIBLE',
+      '无效引用、空标题和没有有效段落的小节均不展示');
+    const narratives = (): string[] => (reviewDb.prepare("SELECT narrative FROM told_records WHERE surface='digest'").all() as { narrative: string }[]).map((r) => r.narrative);
+    check(narratives().join() === 'VISIBLE', '已告诉记录只包含真正展示的段落');
+    sections[0]!.paragraphs = [{ text: 'REWRITTEN', itemIds: ['allowed'] }];
+    await generateDigest(reviewDb, digestProvider, [watch], 'en');
+    check(narratives().length === 1 && narratives()[0] === 'REWRITTEN', '同日重写替换记录，不残留旧段落');
+
+    // A separate watch exercises baseline behaviour before it has any timeline.
+    const events = createWatch(reviewDb, { origin: 'intent', label: 'events', intent: 'policy' });
+    reviewDb.prepare(`INSERT INTO matches (watch_id,item_id,recalled_by,intent_score,passed_gate,judged_at,created_at)
+      VALUES (?,'allowed','test',9,1,?,?)`).run(events.id, now, now);
+    const eventDay = localDateKey(now - 3600_000);
+    let script: Record<string, unknown>[] = [
+      { occurredOn: eventDay, summary: 'Decision A', itemIds: ['allowed'], isNew: true, existingMilestoneId: '' },
+      { occurredOn: eventDay, summary: 'Decision B', itemIds: ['allowed'], isNew: true, existingMilestoneId: '' }
+    ];
+    let eventPrompt = '';
+    const eventProvider: Provider = { ...stub, async generate<T>(prompt: string): Promise<GenerateResult<T>> {
+      eventPrompt = prompt;
+      return { data: { milestones: script } as T, provider: 'gemini', model: 'stub', usedSearch: false };
+    } };
+    const first = await generateProgress(reviewDb, eventProvider, events, 'en');
+    check(first.length === 2 && first.every((m) => !m.isNew), '同日同一报道的两个不同事件都保留，首次建仓仍不标新');
+    const q = reviewDb.prepare("INSERT INTO open_questions (watch_id,question,asked_at) VALUES (?,'Resolved?',?)").run(events.id, now);
+    script = [{ occurredOn: eventDay, summary: 'Decision A rephrased', itemIds: ['allowed'], isNew: false,
+      existingMilestoneId: first[0]!.id, answersQuestionIds: [`Q${q.lastInsertRowid}`] }];
+    const repeated = await generateProgress(reviewDb, eventProvider, events, 'en');
+    check(eventPrompt.includes(first[0]!.id) && eventPrompt.includes('Decision A') && repeated.length === 0,
+      '换说法的同一事件通过已有节点 id 去重，提示词提供完整叙述');
+    const resolved = reviewDb.prepare('SELECT resolved_by AS id FROM open_questions WHERE id=?').get(q.lastInsertRowid) as { id: string };
+    check(resolved.id === first[0]!.id, '重复事件回答悬念时指向真实存在的节点');
+    script = [
+      { occurredOn: eventDay, summary: 'Decision C', itemIds: ['allowed'], isNew: true, existingMilestoneId: 'rejected-ms' },
+      { occurredOn: eventDay, summary: 'Decision C', itemIds: ['allowed'], isNew: true, existingMilestoneId: '' }
+    ];
+    const next = await generateProgress(reviewDb, eventProvider, events, 'en');
+    check(next.length === 1 && next[0]?.isNew && next[0]?.summary === 'Decision C',
+      '同来源的后续新事件保留，其他关注的 id 无效，同次完全重复仍去重');
+    check((await generateProgress(reviewDb, eventProvider, events, 'en')).length === 0, '完全相同的事件跨次重跑仍去重');
+  } finally { reviewDb.close(); }
+}
 
 db.close(); rmSync(dir, { recursive: true, force: true });
 console.log(bad ? `\n${bad} 项不符合预期` : '\n全部符合预期');

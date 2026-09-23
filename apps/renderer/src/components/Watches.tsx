@@ -1,44 +1,65 @@
 import { Dialog } from './Dialog.tsx';
-import { Plus, Trash2, Search, Bookmark, ArrowLeft, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Trash2, Bookmark, ChevronLeft, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { ItemRef, Milestone, OpenQuestion, OutsidePick, PresetRow, Sensitivity, WatchItem, WatchRow } from '../types.ts';
-import { Cites } from './Cites.tsx';
-import { Group, Row, Switch } from './Form.tsx';
+import { Cited, Cites } from './Cites.tsx';
+import { Group, Row, Select, Switch } from './Form.tsx';
+import { ListPane, Row as ListRow } from './ListPane.tsx';
 import type { OpenReport } from '../App.tsx';
 import { useTranslation } from 'react-i18next';
 import { ago, dateTime } from '../i18n.ts';
 const splitKeywords = (s: string): string[] => s.split(/[,，、;；\n]+/).map((k) => k.trim()).filter(Boolean);
+/** A calendar day ('2026-09-22') in the interface language, as 今日 shows it. */
+const day = (iso: string): string => dateTime(Date.parse(`${iso}T00:00:00`), { month: 'short', day: 'numeric' });
 
-/** Something else in the window asked to add a watch, optionally prefilled. */
-export interface WatchRequest { draft: OutsidePick['suggestion'] | null }
+export type WatchTab = 'timeline' | 'items' | 'settings';
+/** Something else in the window asked to add a watch (optionally prefilled) or to show one. */
+export type WatchRequest = { draft: OutsidePick['suggestion'] | null } | { open: string; section: WatchTab };
 
-/** The 关注 tab. Presets and written intents are the same object; the only
- *  difference is who wrote the sentence. */
-export function Watches({ aiReady, revision, onSetup, onOpen, onReport, onCount, request, onRequestDone }: {
-  aiReady: boolean; revision: number; onSetup: () => void; onOpen: (id: string) => void; onReport: OpenReport;
-  onCount: (n: number) => void; request: WatchRequest | null; onRequestDone: () => void;
+/**
+ * 关注 — the file on each story: how far it has got (进展, the default), the
+ * coverage behind it (相关报道, where the person corrects the judge), and its
+ * settings. Laid out like the other tabs: the watches on the left (searched
+ * from the toolbar), the picked one on the right. Presets and written intents
+ * are the same object; the only difference is who wrote the sentence.
+ */
+export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, onReport, onCount, request, onRequestDone }: {
+  aiReady: boolean; revision: number; query: string; divider: ReactNode; onSetup: () => void; onOpen: (id: string) => void; onReport: OpenReport;
+  /** How many watches, and how many new developments across the active ones. */
+  onCount: (n: number, fresh: number) => void; request: WatchRequest | null; onRequestDone: () => void;
 }) {
   const { t } = useTranslation();
   const [watches, setWatches] = useState<WatchRow[] | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
-  const [adding, setAdding] = useState<WatchRequest | null>(null);
-  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState<string | null>(() => (request && 'open' in request ? request.open : null));
+  /** The section a request asked for; otherwise each watch opens on its timeline. */
+  const [section, setSection] = useState<WatchTab | null>(() => (request && 'open' in request ? request.section : null));
+  /** Narrow windows show one half at a time; the detail only after an explicit pick. */
+  const [picked, setPicked] = useState(() => Boolean(request && 'open' in request));
+  const [adding, setAdding] = useState<{ draft: OutsidePick['suggestion'] | null } | null>(null);
   const [dirty, setDirty] = useState(false);
 
   const load = useCallback(async () => {
     const w = await window.pnr.watches();
-    setWatches(w); onCount(w.length);
+    setWatches(w); onCount(w.length, w.reduce((n, x) => n + (x.active ? x.newCount : 0), 0));
     setOpen((id) => (w.some((x) => x.id === id) ? id : w[0]?.id ?? null));
   }, []);
   useEffect(() => { void load(); }, [load, revision]);
-  useEffect(() => { if (request) { setAdding(request); onRequestDone(); } }, [request, onRequestDone]);
+  useEffect(() => {
+    if (!request) return;
+    if ('open' in request) { setOpen(request.open); setSection(request.section); setPicked(true); }
+    else setAdding(request);
+    onRequestDone();
+  }, [request, onRequestDone]);
 
   const list = watches ?? [];
   const selected = list.find((w) => w.id === open);
   const confirmLeave = (): boolean => !dirty || window.confirm(t('watches.discard'));
-  const pick = (id: string | null): void => {
-    if (id === open || !confirmLeave()) return;
-    setDirty(false); setOpen(id);
+  const pick = (id: string): void => {
+    if (id !== open) {
+      if (!confirmLeave()) return;
+      setDirty(false); setOpen(id); setSection(null);
+    }
+    setPicked(true);
   };
   const rowMenu = async (w: WatchRow): Promise<void> => {
     const choice = await window.pnr.contextMenu([
@@ -50,45 +71,53 @@ export function Watches({ aiReady, revision, onSetup, onOpen, onReport, onCount,
       await window.pnr.removeWatch(w.id); if (open === w.id) setDirty(false); void load();
     }
   };
-  const q = query.trim().toLowerCase();
-  const shown = list.filter((w) => `${w.label} ${w.intent} ${w.keywords.join(' ')}`.toLowerCase().includes(q));
+  const q = query.trim().toLocaleLowerCase();
+  const shown = list.filter((w) => `${w.label} ${w.intent} ${w.keywords.join(' ')}`.toLocaleLowerCase().includes(q));
+  const addDialog = adding && <AddWatch prefill={adding.draft} onClose={() => setAdding(null)}
+    onAdded={async (id) => { setAdding(null); await load(); if (id) { setDirty(false); setOpen(id); setPicked(true); } }} />;
+
+  if (!watches) return <section className="page" />;
+  // Nothing to list yet: one invitation instead of an empty list beside an empty detail.
+  if (list.length === 0) return (
+    <section className="page center">
+      <div className="empty-state">
+        <Bookmark size={30} strokeWidth={1.4} />
+        <h3>{t('watches.emptyTitle')}</h3>
+        <p>{t('watches.empty')}</p>
+        <button className="push" onClick={() => setAdding({ draft: null })}>{t('watches.add')}</button>
+      </div>
+      {addDialog}
+    </section>
+  );
 
   return (
-    <section className={`watch-workspace ${selected ? 'has-selection' : ''}`}>
-      <aside className="watch-browser" aria-label={t('watches.list')}>
-        <div className="list-toolbar">
-          <label className="search-field"><Search size={14} /><input type="search" aria-label={t('watches.search')} placeholder={t('watches.search')} value={query} onChange={(e) => setQuery(e.target.value)} /></label>
-          <button className="tool" title={t('watches.add')} aria-label={t('watches.add')} onClick={() => setAdding({ draft: null })}><Plus size={16} /></button>
+    <div className={`split-view ${picked ? 'has-selection' : ''}`}>
+      <ListPane label={t('watches.list')} ids={shown.map((w) => w.id)} selected={open} onSelect={pick}>
+        {shown.map((w) => (
+          <ListRow key={w.id} selected={open === w.id} className={w.active ? '' : 'paused'} onSelect={() => pick(w.id)} onMenu={() => void rowMenu(w)}>
+            <div className="row-title">
+              <h3>{w.label}</h3>
+              {w.active && w.newCount > 0 && <em className="badge accent" title={t('watches.newTitle', { count: w.newCount })}>{w.newCount}</em>}
+            </div>
+            <p>{w.active ? w.intent : t('watches.paused')}</p>
+          </ListRow>
+        ))}
+        {shown.length === 0 && <div className="empty-state compact"><p>{t('watches.noMatch')}</p></div>}
+      </ListPane>
+      {divider}
+      <section className="watch-detail">
+        <div className="watch-page">
+          <button className="push narrow-only detail-back" onClick={() => setPicked(false)}><ChevronLeft size={14} />{t('watches.list')}</button>
+          {!aiReady && (
+            <div className="notice">{t('watches.noAi')}<button className="link" onClick={onSetup}>{t('common.connectAi')}</button></div>
+          )}
+          {selected ? <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} revision={revision} onChanged={load} initialTab={section}
+              dirty={dirty} onDirty={setDirty} confirmLeave={confirmLeave} onOpen={onOpen} onReport={onReport} />
+            : <div className="empty-state"><Bookmark size={30} strokeWidth={1.4} /><h3>{t('watches.pickTitle')}</h3><p>{t('watches.pickHint')}</p></div>}
         </div>
-        <div className="watch-rows">
-          {shown.map((w) => (
-            <button key={w.id} className={`watch-row ${open === w.id ? 'selected' : ''} ${w.active ? '' : 'paused'}`}
-                    aria-current={open === w.id ? true : undefined} onClick={() => pick(w.id)}
-                    onContextMenu={(e) => { e.preventDefault(); void rowMenu(w); }}>
-              <span><strong>{w.label}</strong><small>{w.active ? w.intent : t('watches.paused')}</small></span>
-              {w.newCount > 0 && <em className="badge" title={t('watches.newTitle', { count: w.newCount })}>{w.newCount}</em>}
-            </button>
-          ))}
-          {watches && list.length === 0 && <div className="empty-state compact">
-            <p>{t('watches.empty')}</p>
-            <button className="primary" onClick={() => setAdding({ draft: null })}>{t('watches.add')}</button>
-          </div>}
-          {list.length > 0 && shown.length === 0 && <p className="section-hint pad">{t('watches.noMatch')}</p>}
-        </div>
-      </aside>
-      <div className="watch-detail">
-        {!aiReady && list.length > 0 && (
-          <div className="notice">{t('watches.noAi')}<button className="link" onClick={onSetup}>{t('common.connectAi')}</button></div>
-        )}
-        {selected ? <>
-          <button className="watch-back push" onClick={() => pick(null)}><ArrowLeft size={15} />{t('watches.list')}</button>
-          <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} revision={revision} onChanged={load}
-            dirty={dirty} onDirty={setDirty} confirmLeave={confirmLeave} onOpen={onOpen} onReport={onReport} />
-        </> : watches && list.length > 0 && <div className="empty-state"><Bookmark size={26} strokeWidth={1.6} /><h3>{t('watches.pickTitle')}</h3><p>{t('watches.pickHint')}</p></div>}
-      </div>
-      {adding && <AddWatch prefill={adding.draft} onClose={() => setAdding(null)}
-        onAdded={async (id) => { setAdding(null); await load(); if (id) { setDirty(false); setOpen(id); } }} />}
-    </section>
+      </section>
+      {addDialog}
+    </div>
   );
 }
 
@@ -186,20 +215,21 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
 
 // ── one watch ───────────────────────────────────────────────────────────────
 
-type Tab = 'items' | 'timeline' | 'settings';
+const TABS: WatchTab[] = ['timeline', 'items', 'settings'];
 
-function WatchDetail({ watch, aiReady, revision: outer, onChanged, dirty, onDirty, confirmLeave, onOpen, onReport }: {
-  watch: WatchRow; aiReady: boolean; revision: number; onChanged: () => void;
+function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, dirty, onDirty, confirmLeave, onOpen, onReport }: {
+  watch: WatchRow; aiReady: boolean; revision: number; onChanged: () => void; initialTab: WatchTab | null;
   dirty: boolean; onDirty: (dirty: boolean) => void; confirmLeave: () => boolean; onOpen: (id: string) => void; onReport: OpenReport;
 }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('items');
+  // The timeline answers "how far has this got"; without AI there is none yet, so the coverage leads.
+  const [tab, setTab] = useState<WatchTab>(() => initialTab ?? (aiReady || watch.timelineCount > 0 ? 'timeline' : 'items'));
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
   const [local, setLocal] = useState(0);
   const revision = outer + local;
   // Leaving the settings form unmounts it; ask first rather than drop edits silently.
-  const switchTab = (next: Tab): void => {
+  const switchTab = (next: WatchTab): void => {
     if (next === tab || (tab === 'settings' && dirty && !confirmLeave())) return;
     if (tab === 'settings') onDirty(false);
     setTab(next);
@@ -226,12 +256,12 @@ function WatchDetail({ watch, aiReady, revision: outer, onChanged, dirty, onDirt
             {' · '}{watch.lastRunAt ? t('watches.lastUpdated', { when: ago(watch.lastRunAt) }) : t('watches.neverUpdated')}
           </p>
         </div>
-        <button className="push" onClick={() => void runNow()} disabled={running || !watch.active} title={watch.active ? undefined : t('watches.paused')}>
-          <RefreshCw size={14} className={running ? 'spinning' : ''} />{t('watches.updateNow')}</button>
+        <button className="push" onClick={() => void runNow()} disabled={running || !watch.active} title={watch.active ? t('watches.updateHint') : t('watches.paused')}>
+          <RefreshCw size={13} className={running ? 'spinning' : ''} />{running ? t('watches.updatingOne') : t('watches.updateNow')}</button>
       </div>
-      {message && <p role="status" className="section-hint">{message}</p>}
+      {message && !running && <p role="status" className="section-hint">{message}</p>}
       <nav className="segmented tabs" aria-label={t('watches.sections')}>
-        {(['items', 'timeline', 'settings'] as const).map((id) => (
+        {TABS.map((id) => (
           <button key={id} className={tab === id ? 'active' : ''} aria-pressed={tab === id} onClick={() => switchTab(id)}>
             {t(`watches.tabs.${id}`)}{id === 'timeline' && watch.newCount ? <em className="badge">{watch.newCount}</em> : null}
           </button>
@@ -283,7 +313,7 @@ function WatchItems({ watch, aiReady, revision, onOpen, onReport, onChanged }: {
             else if (choice === 'report') onReport({ anchorItemId: it.id, itemIds: [it.id], topic: it.title });
           }}>
             <div className="meta">
-              <span className="src">{it.sourceName}</span><span aria-hidden>·</span>
+              <span className="src">{it.sourceName ?? t('common.newsSearch')}</span><span aria-hidden>·</span>
               <time>{dateTime(it.publishedAt, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time>
               {it.arms === 'keyword' ? <span className="tag" title={t('watches.keywordMatchHint')}>{t('watches.keywordMatch')}</span>
                 : it.score !== null ? <span className="tag" title={t('watches.scoreHint')}>{t('watches.score', { score: it.score })}</span> : null}
@@ -323,19 +353,14 @@ function WatchTimeline({ watch, aiReady, revision, onOpen, onReport }: { watch: 
 
   if (!data) return <p className="section-hint">{t('common.loading')}</p>;
   if (!aiReady && data.milestones.length === 0) return <p className="section-hint">{t('watches.timelineNeedsAi')}</p>;
+  // Newest first: people come here to see what moved; the story reads back from there.
+  const newest = [...data.milestones].reverse();
   return (
     <>
-      {data.questions.length > 0 && (
-        <div className="panel">
-          <h4>{t('watches.openQuestions')}</h4>
-          <p className="section-hint">{t('watches.openQuestionsHint')}</p>
-          <ul className="plain">{data.questions.map((q) => <li key={q.id}>{q.question}</li>)}</ul>
-        </div>
-      )}
-      {data.milestones.length === 0
+      {newest.length === 0
         ? <p className="section-hint">{t('watches.noMilestones')}</p>
         : <ul className="timeline-list rail">
-            {data.milestones.map((m) => (
+            {newest.map((m) => (
               <li key={m.id} className={m.isNew ? 'new' : ''} onContextMenu={async (e) => {
                 e.preventDefault();
                 if (!m.itemIds[0]) return;
@@ -343,11 +368,18 @@ function WatchTimeline({ watch, aiReady, revision, onOpen, onReport }: { watch: 
                 if (choice === 'read') onOpen(m.itemIds[0]);
                 else if (choice === 'report') onReport({ anchorItemId: m.itemIds[0], itemIds: m.itemIds, topic: m.summary });
               }}>
-                <time>{m.occurredOn}</time>
-                <p>{m.summary}{m.isNew && <span className="tag accent">{t('watches.new')}</span>}<Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></p>
+                <time dateTime={m.occurredOn}>{day(m.occurredOn)}</time>
+                <p><Cited text={m.summary}>{m.isNew && <span className="tag accent">{t('watches.new')}</span>}</Cited><Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></p>
               </li>
             ))}
           </ul>}
+      {data.questions.length > 0 && (
+        <div className="panel">
+          <h4>{t('watches.openQuestions')}</h4>
+          <p className="section-hint">{t('watches.openQuestionsHint')}</p>
+          <ul className="plain">{data.questions.map((q) => <li key={q.id}>{q.question}</li>)}</ul>
+        </div>
+      )}
     </>
   );
 }
@@ -401,10 +433,10 @@ function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChang
             ))}
           </div></Row>
         <Row label={t('watches.outputLang')}>
-          <select value={form.outputLang} aria-label={t('watches.outputLang')} onChange={(e) => setForm({ ...form, outputLang: e.target.value })}>
+          <Select value={form.outputLang} aria-label={t('watches.outputLang')} onChange={(e) => setForm({ ...form, outputLang: e.target.value })}>
             <option value="">{t('watches.followGlobal')}</option>
             {LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select></Row>
+          </Select></Row>
         <Row label={t('watches.active')} hint={t('watches.activeHint')}>
           <Switch label={t('watches.active')} checked={form.active} onChange={(on) => setForm({ ...form, active: on })} /></Row>
       </Group>
@@ -429,8 +461,9 @@ function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChang
   );
 }
 
+/** Terms read left to right under their label, as a tag field would show them. */
 const Chips = ({ title, items }: { title: string; items: string[] }) =>
   items.length === 0 ? null : (
-    <div className="row"><div className="row-label"><span>{title}</span></div>
-      <div className="row-control chips">{items.map((x) => <span key={x} className="chip static">{x}</span>)}</div></div>
+    <div className="row wide"><div className="row-label"><span>{title}</span></div>
+      <div className="chips">{items.map((x) => <span key={x} className="chip static">{x}</span>)}</div></div>
   );

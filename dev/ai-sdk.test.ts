@@ -74,11 +74,17 @@ try {
     model: (id) => compatible.chatModel(id), checkKeyPresent: () => true,
     capabilities: { structured: 'schema' } });
 
+  const checked = await provider.check();
+  assert.equal(checked.ok, true);
+  const checkRequest = requests.find((r) => r.url.endsWith('/chat/completions'))!;
+  assert.equal(checkRequest.body.max_tokens ?? checkRequest.body.max_completion_tokens, 256);
+
   const generated = await provider.generate<{ ok: boolean }>('', { schema, messages: [
     { role: 'system', content: 'Return JSON.' }, { role: 'user', content: 'NORMAL' }
   ], operation: 'sdk_mock' });
   assert.equal(generated.data.ok, true); assert.deepEqual(generated.usage, { input: 11, output: 5, cacheRead: 2 });
-  const generateRequest = requests.find((r) => r.url.endsWith('/chat/completions') && !r.body.stream)!;
+  const generateRequest = requests.find((r) => r.url.endsWith('/chat/completions') && !r.body.stream
+    && r.body.messages?.some((m: any) => m.content === 'NORMAL'))!;
   assert.deepEqual(generateRequest.body.messages.map((m: any) => m.role), ['system', 'user']);
   assert.equal(generateRequest.body.response_format.type, 'json_schema');
 

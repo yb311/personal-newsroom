@@ -15,7 +15,11 @@ export interface ParagraphBlock {
   /** Bound source ids. Models may reference these but may never invent URLs. */
   sourceRefIds?: string[];
 }
-export interface HeadingBlock { type: 'heading'; level: 2 | 3; text: string }
+export interface HeadingBlock {
+  type: 'heading'; level: 2 | 3; text: string;
+  /** In the daily brief: the watch this section is about. */
+  watchId?: string;
+}
 export interface ListBlock {
   type: 'list'; ordered?: boolean; items: string[]; sourceRefIds?: string[];
 }

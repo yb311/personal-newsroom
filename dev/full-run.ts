@@ -71,7 +71,7 @@ const ws = listWatches(db).map(w => ({ ...w, newCount: newSinceYesterday(db,w.id
   passed: (db.prepare('SELECT COUNT(*) c FROM matches WHERE watch_id=? AND passed_gate=1').get(w.id) as any).c }));
 const onIds = new Set(ws.map(w=>w.id));
 const today = { date: new Date().toISOString().slice(0,10), digest: getDigest(db, new Date().toISOString().slice(0,10)),
-  changes: ws.filter(w=>w.active).map(w=>({watchId:w.id,label:w.label,milestones:newSinceYesterday(db,w.id)})).filter(x=>x.milestones.length>0) };
+  outside: [], refs: [], watches: ws.map(w=>({id:w.id,label:w.label,newCount:w.newCount})), watchCount: ws.filter(w=>w.active).length };
 const timelines: Record<string, unknown> = {};
 for (const w of ws) timelines[w.id] = { milestones: timeline(db, w.id), items: [] };
 writeFileSync('apps/desktop/dist/renderer/mock.json', JSON.stringify({
@@ -79,5 +79,5 @@ writeFileSync('apps/desktop/dist/renderer/mock.json', JSON.stringify({
   watches: ws, presets: PRESETS.map(p=>({...p, enabled: onIds.has(p.id)})), today, timelines,
   ai: { available: Boolean(key), provider: 'gemini', outputLang: 'zh-CN' }
 }));
-console.log(`\n导出 mock：${items.length} 条 · ${Object.keys(bodies).length} 篇正文 · ${ws.length} 个关注 · 摘要 ${today.digest?'有':'无'} · 变化 ${today.changes.length} 组`);
+console.log(`\n导出 mock：${items.length} 条 · ${Object.keys(bodies).length} 篇正文 · ${ws.length} 个关注 · 摘要 ${today.digest?'有':'无'} · 新进展 ${ws.reduce((n,w)=>n+w.newCount,0)} 条`);
 db.close();

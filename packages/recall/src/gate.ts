@@ -1,5 +1,6 @@
 import type { Db } from '@pnr/store';
 import type { Watch, Sensitivity } from '@pnr/watch';
+import { applyLatestCorrections } from './corrections.ts';
 
 export type { Sensitivity };
 
@@ -57,7 +58,6 @@ export function gateWatch(db: Db, watch: Watch, sensitivity: Sensitivity = watch
   ).all(watch.id) as any[];
 
   const upd = db.prepare('UPDATE matches SET passed_gate = ? WHERE watch_id = ? AND item_id = ?');
-  let passed = 0;
   db.transaction(() => {
     // With AI connected only verdicts count: anything that passed on keywords
     // alone while AI was off is withdrawn until the judge has seen it.
@@ -67,9 +67,9 @@ export function gateWatch(db: Db, watch: Watch, sensitivity: Sensitivity = watch
         intentScore: r.intentScore, vectorScore: r.vectorScore ?? undefined,
         sourceTrust: r.sourceTrust ?? 0.5
       }, sensitivity);
-      if (g.pass) passed++;
       upd.run(g.pass ? 1 : 0, watch.id, r.itemId);
     }
+    applyLatestCorrections(db, watch.id);
   })();
-  return passed;
+  return (db.prepare('SELECT COUNT(*) AS n FROM matches WHERE watch_id = ? AND passed_gate = 1').get(watch.id) as { n: number }).n;
 }

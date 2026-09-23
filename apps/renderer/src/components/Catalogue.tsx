@@ -24,7 +24,7 @@ export function Catalogue({ onClose }: { onClose: (changed: boolean) => void }) 
   const mark = (): void => { changed.current = true; };
   const close = (): void => onClose(changed.current);
   return (
-    <Dialog title={t('catalogue.title')} onClose={close} className="catalogue-dialog">
+    <Dialog title={t('catalogue.title')} onClose={close} className={`catalogue-dialog ${tab}`}>
         <header>
           <h2>{t('catalogue.title')}</h2>
           <nav className="segmented" aria-label={t('catalogue.title')}>
