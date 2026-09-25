@@ -87,7 +87,7 @@ type Candidate = Material & { watchIds: string; score: number };
  */
 export async function generateFlashes(
   db: Db, provider: Provider, watches: Watch[], lang: string, searchFill?: SearchFillContext,
-  fill: typeof fillFromSearch = fillFromSearch
+  fill: typeof fillFromSearch = fillFromSearch, opts: { force?: boolean; onSkip?: () => void } = {}
 ): Promise<Flash[]> {
   const active = watches.filter((w) => w.active);
   if (active.length === 0) return [];
@@ -100,16 +100,27 @@ export async function generateFlashes(
   const alreadyFlashed = new Set(recent.flatMap((f) => (f.itemIds ? JSON.parse(f.itemIds) as string[] : [])));
 
   const marks = active.map(() => '?').join(',');
+  const considered = new Set((db.prepare(
+    `SELECT watch_id || char(10) || item_id AS k FROM flash_considered WHERE considered_at >= ? AND watch_id IN (${marks})`
+  ).all(now - DEDUP_WINDOW_HOURS * 3600_000, ...active.map((w) => w.id)) as { k: string }[]).map((r) => r.k));
   const candidates = (db.prepare(
     `SELECT ${MATERIAL_COLS}, group_concat(m.watch_id) AS watchIds, MAX(m.intent_score) AS score
      FROM matches m JOIN items i ON i.id = m.item_id
      LEFT JOIN sources s ON s.id = i.source_id
      WHERE m.passed_gate = 1 AND m.watch_id IN (${marks}) AND i.published_at >= ?
-     GROUP BY i.id ORDER BY score DESC, i.published_at DESC LIMIT 60`
+     GROUP BY i.id ORDER BY score DESC, i.published_at DESC LIMIT 200`
   ).all(...active.map((w) => w.id), now - FLASH_WINDOW_HOURS * 3600_000) as Candidate[])
     .filter((c) => !alreadyFlashed.has(c.id))
+    // Incremental: what an earlier check already showed the model — and it set
+    // aside as minor or already told — is not paid for again. Only a forced
+    // rewrite looks at the whole window once more.
+    .filter((c) => opts.force || c.watchIds.split(',').some((w) => !considered.has(`${w}\n${c.id}`)))
     .slice(0, 30);
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0) {
+    log({ event: 'flashes.skipped', reasonCode: 'nothing_new', attrs: { watches: active.length } });
+    opts.onSkip?.();
+    return [];
+  }
 
   const lines = [
     'ROLE',
@@ -242,7 +253,13 @@ export async function generateFlashes(
   const insTold = db.prepare(
     'INSERT INTO told_records (watch_id, narrative, surface, surface_id, told_at) VALUES (?,?,?,?,?)'
   );
+  const consider = db.prepare(
+    `INSERT INTO flash_considered (watch_id, item_id, considered_at) VALUES (?, ?, ?)
+     ON CONFLICT(watch_id, item_id) DO UPDATE SET considered_at = excluded.considered_at`
+  );
   db.transaction(() => {
+    for (const c of candidates) for (const w of c.watchIds.split(',')) if (activeIds.has(w)) consider.run(w, c.id, now);
+    db.prepare('DELETE FROM flash_considered WHERE considered_at < ?').run(now - 7 * 864e5);
     for (const f of out) {
       ins.run(f.id, f.watchIds[0] ?? null, JSON.stringify(f.watchIds), JSON.stringify(f.itemIds), f.itemPublishedAt,
               f.batchId, f.publishedAt, f.lang, f.title, f.body, f.importance, f.importanceReason,

@@ -53,10 +53,12 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
 
   const list = watches ?? [];
   const selected = list.find((w) => w.id === open);
-  const confirmLeave = (): boolean => !dirty || window.confirm(t('watches.discard'));
-  const pick = (id: string): void => {
+  // Native sheets, as a Mac app asks: never Chromium's own alert box.
+  const confirmLeave = async (): Promise<boolean> => !dirty
+    || window.pnr.confirm({ message: t('watches.discard'), confirm: t('watches.discardConfirm'), cancel: t('common.cancel'), destructive: true });
+  const pick = async (id: string): Promise<void> => {
     if (id !== open) {
-      if (!confirmLeave()) return;
+      if (!await confirmLeave()) return;
       setDirty(false); setOpen(id); setSection(null);
     }
     setPicked(true);
@@ -67,7 +69,8 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
       { separator: true }, { id: 'delete', label: t('watches.delete') }
     ]);
     if (choice === 'pause') { await window.pnr.editWatch(w.id, { active: !w.active }); void load(); }
-    else if (choice === 'delete' && window.confirm(t('watches.confirmDelete', { label: w.label }))) {
+    else if (choice === 'delete' && await window.pnr.confirm({ message: t('watches.confirmDelete', { label: w.label }),
+      confirm: t('watches.delete'), cancel: t('common.cancel'), destructive: true })) {
       await window.pnr.removeWatch(w.id); if (open === w.id) setDirty(false); void load();
     }
   };
@@ -219,7 +222,7 @@ const TABS: WatchTab[] = ['timeline', 'items', 'settings'];
 
 function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, dirty, onDirty, confirmLeave, onOpen, onReport }: {
   watch: WatchRow; aiReady: boolean; revision: number; onChanged: () => void; initialTab: WatchTab | null;
-  dirty: boolean; onDirty: (dirty: boolean) => void; confirmLeave: () => boolean; onOpen: (id: string) => void; onReport: OpenReport;
+  dirty: boolean; onDirty: (dirty: boolean) => void; confirmLeave: () => Promise<boolean>; onOpen: (id: string) => void; onReport: OpenReport;
 }) {
   const { t } = useTranslation();
   // The timeline answers "how far has this got"; without AI there is none yet, so the coverage leads.
@@ -229,8 +232,8 @@ function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, d
   const [local, setLocal] = useState(0);
   const revision = outer + local;
   // Leaving the settings form unmounts it; ask first rather than drop edits silently.
-  const switchTab = (next: WatchTab): void => {
-    if (next === tab || (tab === 'settings' && dirty && !confirmLeave())) return;
+  const switchTab = async (next: WatchTab): Promise<void> => {
+    if (next === tab || (tab === 'settings' && dirty && !await confirmLeave())) return;
     if (tab === 'settings') onDirty(false);
     setTab(next);
   };
@@ -240,7 +243,10 @@ function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, d
     try {
       const r = await window.pnr.runWatch(watch.id);
       setMessage(r.busy ? t('watches.busy') : r.error ? t('watches.updateFailed', { error: r.error.slice(0, 60) })
-        : r.mode === 'keywords' ? t('watches.rematched') : t('watches.updated') + (r.milestones ? t('watches.newMilestones', { count: r.milestones }) : ''));
+        : r.mode === 'keywords' ? t('watches.rematched')
+        // Nothing new passed, so the timeline was not read again — and nothing was spent writing.
+        : r.skipped?.includes('progress') ? t('watches.nothingNew')
+        : t('watches.updated') + (r.milestones ? t('watches.newMilestones', { count: r.milestones }) : ''));
       onChanged(); setLocal((v) => v + 1);
     } catch { setMessage(t('watches.updateError')); }
     finally { setRunning(false); }

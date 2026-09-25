@@ -273,9 +273,13 @@ show = intentMatch ≥ τ_intent
 
 **进程划分**：UI 进程（Electron）只读 SQLite、渲染、编辑 Watch，随时可关；Worker 是无界面 Node 进程，跑抓取/过滤/生成。
 
-**选 `SMAppService`（macOS 13+）而不是手写 `~/Library/LaunchAgents/*.plist`**：plist 嵌在 app bundle 的 `Contents/Library/LaunchAgents/` 里，会出现在「系统设置 → 通用 → 登录项」让用户自己管，**卸载就是把 app 拖进废纸篓**，plist 跟着消失。手写 plist 在 Ventura 之后一样会进登录项列表，没有额外好处，却会在卸载后留垃圾。macOS 12 及更早降级到手写 plist + 设置页里一个明确的卸载按钮。
+**选 `SMAppService`（macOS 13+）而不是手写 `~/Library/LaunchAgents/*.plist`**：plist 嵌在 app bundle 的 `Contents/Library/LaunchAgents/` 里，会出现在「系统设置 → 通用 → 登录项」让用户自己管，**卸载就是把 app 拖进废纸篓**，plist 跟着消失。手写 plist 在 Ventura 之后一样会进登录项列表，没有额外好处，却会在卸载后留垃圾。**SMAppService 只接受带开发者签名的 app**（本地未签名包会报 code signature doesn't meet the requirements），所以本地构建和开发模式退回到 `~/Library/LaunchAgents` 里的手写 plist，关掉开关时删掉。
 
-**调度**：`StartCalendarInterval`（每天早上一次）+ `StartInterval`（快讯每 3 小时）。`launchd` 的行为正是我们要的——**Mac 睡着时不跑，醒来后把错过的合并成一次立刻补跑**。这恰好就是「你早上一打开就能看到」。
+**进程名**：两个任务都运行 app 里单独的 `Contents/Frameworks/所闻 后台更新.app`（从 Electron Helper 复制改名，`packaging/worker-helper.mjs`），活动监视器里显示「所闻 后台更新 Helper」，权限弹窗用 bundle 名「所闻 后台更新」。可执行文件名**必须以 " Helper" 结尾**：Electron 靠这个后缀认出 helper 才去上三级找框架，别的名字启动即崩。
+
+**调度**：只有一个任务，`StartCalendarInterval` 每小时第 16 分钟，worker 的 `auto` 模式判断是写每日摘要（过了用户选的时间、今天还没跑）、查快讯（距上次 ≥ 2 小时 45 分）还是直接退出。改时间不用重新注册，两个任务同时启动、重复判定同一批文章的问题也没有了。
+
+**休眠时更新**：launchd 在 Mac 睡着时什么都不跑，只在醒来后补跑一次，所以要让 Mac 自己醒。`pmset schedule wake` 需要 root，于是开启后台更新时装一个唤醒组件（输一次管理员密码）：`/Library/LaunchDaemons/com.yb311.personal-newsroom.wake.plist` 每小时和配置变化时运行 root 所有的 `schedule-wakes.sh`，只调用 pmset 和 date，约好未来 26 小时的唤醒（每日时间，以及之后每 3 小时，都在 xx:15:50，正好赶上第 16 分钟的任务）。worker 在计划运行时用 `caffeinate -i -s -w <pid>` 不让 Mac 睡回去、等网络就绪再开始，跑完自动放开。配置 `wake.conf` 归用户所有，改模式和时间不用再输密码；它记着 app 的位置，app 被删掉后就不再约唤醒。限制：合盖且用电池时 macOS 可能不允许唤醒；普通（非管理员）账户装不了组件。
 
 **单实例锁**：Redis 没了，用 SQLite 自己。一张 `locks` 表，`BEGIN IMMEDIATE` 事务拿锁，存 `{ name, holderPid, heartbeatAt, expiresAt }`，心跳 15 秒（沿用老项目节奏），过期视为死锁可抢占。WAL 模式让 UI 读不被写阻塞。**不用文件锁**——进程被 `kill -9` 后 flock 在 macOS 上的清理语义不够可靠，而心跳过期是显式的。
 

@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --build",
-    "test:ci": "npm run reader:test && npm run test:schema && npm run test:ai && npm run test:search-fill && npm run test:flash-cap && npm run test:assistant && npm run test:report && npm run test:outside && npm run test:watch && npm run test:today && npm run test:catalogue && npm run test:watches && npm run test:i18n && npm run test:resolve",
+    "test:ci": "npm run reader:test && npm run test:schema && npm run test:ai && npm run test:search-fill && npm run test:flash-cap && npm run test:assistant && npm run test:report && npm run test:outside && npm run test:watch && npm run test:today && npm run test:catalogue && npm run test:watches && npm run test:i18n && npm run test:resolve && npm run test:wake",
     "reader:build": "scripts/build-reader.sh",
     "reader:test": "cd native/reader && go test ./...",
     "doctor": "node --experimental-strip-types dev/doctor.ts",
@@ -46,10 +46,11 @@
     "test:outside": "node --experimental-strip-types dev/outside.test.ts",
     "preview": "dev/preview.sh",
     "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",
+    "test:wake": "node --experimental-strip-types dev/wake.test.ts",
     "icon:build": "electron dev/make-icon.mjs",
     "package:prepare": "npm run reader:build && npm run build --workspace=@pnr/desktop && npm run build --workspace=@pnr/worker && node scripts/prepare-package.mjs",
-    "package:dir": "npm run package:prepare && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dir --arm64",
-    "package:mac": "npm run package:prepare && PNR_RELEASE_SIGN=1 CSC_NAME='Yue Jing (PR3596G4YB)' electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dmg zip --arm64"
+    "package:dir": "npm run package:prepare && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dir --arm64 --publish never && scripts/verify-package.sh release/mac-arm64/所闻.app",
+    "package:mac": "npm run package:prepare && PNR_RELEASE_SIGN=1 CSC_NAME='Yue Jing (PR3596G4YB)' electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dmg zip --arm64 --publish never"
   },
   "devDependencies": {
     "@types/better-sqlite3": "9.6.0",

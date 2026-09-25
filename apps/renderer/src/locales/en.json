@@ -25,7 +25,7 @@
     "justNow": "just now",
     "seenAt": "Seen {{when}}",
     "noDateHint": "The source gave no publication time; this is when it was first seen",
-    "loginItemsHint": "Allow 所闻 to run in the background in System Settings → General → Login Items.",
+    "loginItemsHint": "Allow “所闻” to run in the background in System Settings → General → Login Items & Extensions.",
     "back": "Back",
     "newsSearch": "News search"
   },
@@ -81,7 +81,25 @@
     "aiOff": "Reading mode (no AI)",
     "briefWriting": "Writing today’s brief…",
     "briefDone": "Today’s brief is ready",
-    "briefNone": "Nothing new to write about in your watches; the brief is unchanged"
+    "briefNone": "Nothing new to write about in your watches; the brief is unchanged",
+    "updateAll": "Update All",
+    "updateAllHint": "Fetch subscriptions and update watches, flashes and today’s brief. Parts with nothing new don’t use AI again. Hold ⌥ to regenerate everything.",
+    "regenerateAll": "Regenerate All",
+    "regenerateAllHint": "Fetch subscriptions and rewrite progress, flashes, today’s brief and Beyond Your Watches, even when nothing is new.",
+    "updatingAll": "Updating everything…",
+    "regeneratingAll": "Regenerating everything…",
+    "done": {
+      "fetched_one": "{{count}} new article",
+      "fetched_other": "{{count}} new articles",
+      "milestones_one": "{{count}} new development",
+      "milestones_other": "{{count}} new developments",
+      "flashes_one": "{{count}} new flash",
+      "flashes_other": "{{count}} new flashes",
+      "digest": "today’s brief updated",
+      "nothingNew": "nothing new, so no AI writing",
+      "separator": ", "
+    },
+    "flashNothingNew": "Flashes checked: nothing new, so no AI writing"
   },
   "sidebar": {
     "sources": "Sources",
@@ -229,7 +247,8 @@
     "rewrite": "Write Again",
     "openWatch": "Show this story’s progress in Watches",
     "newDevelopments_one": "{{count}} new development",
-    "newDevelopments_other": "{{count}} new developments"
+    "newDevelopments_other": "{{count}} new developments",
+    "rewriteHint": "Rewrite today’s brief from the articles already picked, without fetching again"
   },
   "flashes": {
     "needAiTitle": "Flashes need AI",
@@ -256,12 +275,15 @@
   "background": {
     "title": "Background Updates",
     "question": "Turn on background updates?",
-    "body": "With the window closed, 所闻 still writes today's brief at 7:15 every morning and checks flashes every 3 hours. It pauses while the Mac sleeps and catches up on waking.",
-    "where": "Turn it off any time in Settings → Background, or in System Settings → General → Login Items.",
+    "body": "After you close the window, 所闻 still writes today’s brief at 7:15 every day and checks for flashes every 3 hours; while your Mac sleeps it is woken on time to update, then sleeps again.",
+    "where": "Turning it on asks once for an administrator password to install the wake component. Turn it off anytime in Settings → Background or System Settings → General → Login Items & Extensions.",
     "failed": "Couldn't turn it on. Try again later in Settings → Background.",
     "ok": "OK",
     "later": "Not Now",
-    "enable": "Turn On"
+    "enable": "Turn On",
+    "wakeTitle": "Update While Asleep",
+    "wakeQuestion": "Update while your Mac sleeps too?",
+    "wakeBody": "Background updates are on, but they don’t run while your Mac sleeps. Turn this on and 所闻 wakes the Mac at the brief’s time and every 3 hours after, updates, and lets it sleep again."
   },
   "settings": {
     "title": "Settings",
@@ -353,9 +375,9 @@
     "instanceFailed": "Couldn't save. Check the address.",
     "xIntro": "X is fetched through Apify, about $0.02 per X source per update, billed by Apify. The token stays on this Mac.",
     "apifyToken": "Apify Token",
-    "backgroundIntro": "Keep updating with the window closed. Pauses while the Mac sleeps and catches up on waking.",
+    "backgroundIntro": "Keeps updating after you close the window; while the Mac sleeps, it is woken on time to update.",
     "allowBackground": "Allow background updates",
-    "loginItems": "Appears in System Settings → General → Login Items.",
+    "loginItems": "It appears as “所闻” in System Settings → General → Login Items & Extensions, and as “{{name}}” in Activity Monitor while it runs.",
     "dailyTime": "Daily Brief Time",
     "flashInterval_one": "Flashes are checked every hour.",
     "flashInterval_other": "Flashes are checked every {{count}} hours.",
@@ -371,11 +393,32 @@
       "failed": "Failed"
     },
     "neverRun": "Hasn't run yet.",
-    "plistPath": "Task file (development): ",
+    "plistPath": "Task file",
     "noLanguages": "Article languages appear here once subscriptions update.",
     "articles_one": "1 article",
     "articles_other": "{{count}} articles",
-    "lastRunLabel": "Last Run"
+    "lastRunLabel": "Last Run",
+    "openLoginItems": "Open Login Items",
+    "backgroundProblem": {
+      "not_registered": "macOS did not register the background job. Allow “所闻” in Login Items & Extensions, then try again.",
+      "worker_missing": "The background worker hasn’t been built. Run npm run build --workspace=@pnr/worker first.",
+      "launchd_failed": "launchd didn’t accept the background job. Try again.",
+      "wake_cancelled": "No administrator password was entered, so nothing updates while the Mac sleeps. You can choose again here anytime.",
+      "wake_failed": "The wake component wasn’t installed. Installing it needs an administrator account; on a standard account, ask an administrator to turn it on."
+    },
+    "workerName": "所闻 后台更新 Helper",
+    "loginItemsLocal": "This build has no developer signature, so the background job runs as a user launch agent; Activity Monitor shows it as “{{name}}” while it runs.",
+    "wake": {
+      "label": "Wake Mac from sleep",
+      "all": "Every 3 hours (brief and flashes)",
+      "daily": "Once a day (brief only)",
+      "off": "Don’t wake",
+      "hint": "While your Mac sleeps it is woken on time to update, then goes back to sleep. Turning this on asks once for an administrator password. With the lid closed on battery, macOS may not allow the wake.",
+      "next": "Next wake: {{when}}",
+      "remove": "Remove Wake Component…",
+      "prompt": "所闻 wants to install a wake component so your Mac wakes on time to update the news while it sleeps.",
+      "removePrompt": "所闻 wants to remove its wake component and cancel the wakes it booked."
+    }
   },
   "catalogue": {
     "title": "Subscriptions",
@@ -594,7 +637,9 @@
     "resumeAction": "Resume",
     "active": "Keep updating",
     "activeHint": "When off, the watch stops updating and keeps what it has.",
-    "updateHint": "Fetch the latest coverage, filter it again and update the progress"
+    "updateHint": "Fetch the latest coverage and filter it; the timeline is updated only when something new passes",
+    "nothingNew": "No new coverage; the timeline is unchanged",
+    "discardConfirm": "Discard Changes"
   },
   "menu": {
     "about": "About 所闻",
@@ -628,7 +673,9 @@
     "openInReader": "Open in Reader",
     "copyLink": "Copy Link",
     "copyText": "Copy Text",
-    "manageSubscriptions": "Manage Subscriptions…"
+    "manageSubscriptions": "Manage Subscriptions…",
+    "updateAll": "Update All",
+    "regenerateAll": "Regenerate All"
   },
   "report": {
     "title": "Deep Report",

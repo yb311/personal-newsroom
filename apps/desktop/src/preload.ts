@@ -24,7 +24,8 @@ contextBridge.exposeInMainWorld('pnr', {
   refresh: () => ipcRenderer.invoke('app:refresh'),
   uiLanguage: () => ipcRenderer.invoke('app:uiLanguage'),
   setUiLanguage: (choice: string) => ipcRenderer.invoke('app:setUiLanguage', choice),
-  runWatches: () => ipcRenderer.invoke('app:runWatches'),
+  runAll: (force?: boolean) => ipcRenderer.invoke('app:runAll', Boolean(force)),
+  rewriteDigest: () => ipcRenderer.invoke('app:rewriteDigest'),
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),
   runWatch: (id: string) => ipcRenderer.invoke('app:runWatch', id),
   reportGet: (selector: unknown) => ipcRenderer.invoke('report:get', selector),
@@ -44,6 +45,7 @@ contextBridge.exposeInMainWorld('pnr', {
     return () => ipcRenderer.off('app:uiLanguage', fn);
   },
   contextMenu: (items: unknown) => ipcRenderer.invoke('app:contextMenu', items),
+  confirm: (opts: unknown) => ipcRenderer.invoke('app:confirm', opts),
   copyText: (text: string) => ipcRenderer.invoke('app:copyText', text),
   assistantList: () => ipcRenderer.invoke('assistant:list'),
   assistantGet: (id: string) => ipcRenderer.invoke('assistant:get', id),
@@ -66,6 +68,9 @@ contextBridge.exposeInMainWorld('pnr', {
     return () => ipcRenderer.off('social:progress', fn);
   },
   setSchedule: (on: boolean, hour?: number) => ipcRenderer.invoke('app:setSchedule', on, hour),
+  openLoginItems: () => ipcRenderer.invoke('app:openLoginItems'),
+  setWake: (choice: string, prompt: string) => ipcRenderer.invoke('app:setWake', choice, prompt),
+  uninstallWake: (prompt: string) => ipcRenderer.invoke('app:uninstallWake', prompt),
   enrichOne: (id: string) => ipcRenderer.invoke('app:enrichOne', id),
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   onProgress: (cb: (p: unknown) => void) => {

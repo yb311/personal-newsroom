@@ -13,7 +13,7 @@ import { openDb } from '../packages/store/src/index.ts';
 import { localDateKey } from '../packages/core/src/index.ts';
 import type { Provider, GenerateOptions, GenerateResult } from '../packages/ai/src/index.ts';
 import { createWatch, getWatch } from '../packages/watch/src/index.ts';
-import { runDaily, runFlashCheck, generateProgress, getDigest, newSinceYesterday, recentFlashes, openQuestions } from '../packages/generate/src/index.ts';
+import { runDaily, runFlashCheck, runWatch, rewriteDigest, generateProgress, getDigest, newSinceYesterday, recentFlashes, openQuestions } from '../packages/generate/src/index.ts';
 import { generateDigest } from '../packages/generate/src/digest.ts';
 import { gateWatch, matchKeywords } from '../packages/recall/src/index.ts';
 import { createApi } from '../apps/desktop/src/ipc.ts';
@@ -49,10 +49,11 @@ const stub: Provider = {
   async generate<T>(prompt: string, opts: GenerateOptions & { model?: string }): Promise<GenerateResult<T>> {
     const keys = Object.keys((opts.schema as { properties: object }).properties);
     const kind = keys.includes('results') ? 'judge' : keys.includes('milestones') ? 'progress'
-      : keys.includes('sections') ? 'digest' : keys.includes('flashes') ? 'flash' : 'aids';
+      : keys.includes('sections') ? 'digest' : keys.includes('flashes') ? 'flash' : keys.includes('picks') ? 'outside' : 'aids';
     calls.push({ kind, prompt });
     let data: unknown;
     if (kind === 'aids') data = { aliases: [], relatedTerms: [], sourceHints: [] };
+    if (kind === 'outside') data = { picks: [] };
     if (kind === 'judge') {
       data = { results: [...prompt.matchAll(/^(i\d+) \| [^|]*\| (.*)$/gm)].map((m) =>
         ({ id: m[1], score: /苹果/.test(m[2]!) ? 2 : 9, reason: 'stub' })) };
@@ -93,7 +94,9 @@ addItem('i3', '苹果发布新手机', 5);
 addItem('i4', '人工智能旧闻：上周的 AI 峰会', 24 * 8);
 const wA = createWatch(db, { origin: 'intent', label: 'AI 监管', intent: '我想跟进人工智能监管', keywords: ['人工智能'] });
 const wB = createWatch(db, { origin: 'intent', label: '欧盟', intent: '我想了解欧盟政策' });
-const opts = { dataDir: dir, lang: 'zh-CN' };
+// The daily runs below leave flashes to 快讯's own check, which section 4 tests;
+// section 5 covers 全部更新 writing them itself.
+const opts = { dataDir: dir, lang: 'zh-CN', flashes: false };
 
 // ── 1. daily run ───────────────────────────────────────────────────────────
 console.log('=== 今日：第一次运行 ===');
@@ -164,6 +167,32 @@ await runFlashCheck(db, stub, opts);
 const again = calls.find((c) => c.kind === 'flash');
 check(!again || !/^i[12] \|/m.test(again.prompt), '已发过的事件不会再次成为候选');
 check(f1.flashes === 1, `运行结果：${JSON.stringify(f1)}`);
+check(!again && calls.every((c) => c.kind !== 'flash'), '没有新材料时，再次检查快讯不调用写作模型');
+
+// ── 4b. incremental writing: nothing new, nothing written ──────────────────
+console.log('\n=== 增量：没有新内容就不再调用 AI 写作 ===');
+const writers = new Set(['progress', 'digest', 'flash', 'outside']);
+calls.length = 0;
+const idle = await runDaily(db, stub, { dataDir: dir, lang: 'zh-CN' });
+check(calls.filter((c) => writers.has(c.kind)).length === 0, `全部更新：没有新文章时不写进展、快讯、摘要和关注之外（${calls.map((c) => c.kind).join(',') || '无调用'}）`);
+check(['progress', 'flashes', 'digest', 'outside'].every((k) => idle.skipped?.includes(k as never)), `结果标出跳过的步骤（${JSON.stringify(idle.skipped)}）`);
+calls.length = 0;
+const one = await runWatch(db, stub, wA.id, opts);
+check(one.skipped?.includes('progress') === true && calls.every((c) => c.kind !== 'progress'), '单个关注「立即更新」：没有新报道时不重读进展');
+calls.length = 0;
+const again2 = await rewriteDigest(db, stub, opts);
+check(again2.digest === true && calls.length === 1 && calls[0]!.kind === 'digest', '「重新生成」只重写摘要，一次调用，不抓取不判定');
+addItem('i6', '欧盟人工智能法案新增条款', 0.5);
+progressScript = (p) => ({ milestones: idsIn(p).includes('i6') ? [{ occurredOn: localDateKey(), summary: '新增条款', itemIds: ['i6'], isNew: true }] : [], openQuestions: [] });
+calls.length = 0;
+const fresh2 = await runDaily(db, stub, { dataDir: dir, lang: 'zh-CN' });
+const progressCalls = calls.filter((c) => c.kind === 'progress').length;
+check(progressCalls >= 1 && calls.some((c) => c.kind === 'digest') && calls.filter((c) => c.kind === 'flash').length === 1,
+  `有新文章时照常写：进展 ${progressCalls} 次、快讯 1 次、摘要重写（${JSON.stringify(fresh2.skipped)}）`);
+check(calls.every((c) => c.kind !== 'outside'), '关注之外一天只写一次');
+calls.length = 0;
+await runDaily(db, stub, { dataDir: dir, lang: 'zh-CN', force: true });
+check(['progress', 'digest', 'outside'].every((k) => calls.some((c) => c.kind === k)), '全部重新生成：不管有没有新内容都重写');
 
 // ── 5. keyword mode without AI ─────────────────────────────────────────────
 console.log('\n=== 没有 AI：关键词匹配 ===');

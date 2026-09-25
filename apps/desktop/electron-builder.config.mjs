@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
+import { makeWorkerHelper } from '../../packaging/worker-helper.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -21,7 +22,13 @@ export default {
   // unsigned app. `package:dir` remains available for unsigned local checks.
   forceCodeSigning: process.env.PNR_RELEASE_SIGN === '1',
   afterPack: async ({ appOutDir, packager }) => {
-    const info = join(appOutDir, `${packager.appInfo.productFilename}.app`, 'Contents', 'Info.plist');
+    const contents = join(appOutDir, `${packager.appInfo.productFilename}.app`, 'Contents');
+    const info = join(contents, 'Info.plist');
+    // The background worker's own bundle, 「所闻 后台更新」, which the launch
+    // agents in Contents/Library/LaunchAgents run (see packaging/worker-helper.mjs).
+    // Release builds are signed after this hook; unsigned ones get an ad-hoc
+    // signature so the edited bundle still verifies.
+    makeWorkerHelper(join(contents, 'Frameworks'), { adhocSign: process.env.PNR_RELEASE_SIGN !== '1' });
     // Electron's template advertises camera, microphone, Bluetooth and audio
     // capture access even when an app never requests them. Remove those stale
     // declarations before signing so 所闻's privacy surface matches its code.

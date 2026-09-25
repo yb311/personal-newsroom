@@ -30,8 +30,13 @@ const LONG_DAY: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric', we
  * Without a brief (no AI yet, or not written today) the list carries the last
  * day's headlines instead, so 今日 is still a front page, never a blank.
  */
-export function Today({ aiReady, revision, writing, busy, divider, onSetup, onWrite, onOpen, onRead, onReport, onFollow, onAddWatch, onOpenWatch }: {
-  aiReady: boolean; revision: number; writing: boolean; busy: boolean; divider: ReactNode; onSetup: () => void; onWrite: () => void;
+export function Today({ aiReady, revision, job, busy, divider, onSetup, onWrite, onRewrite, onOpen, onRead, onReport, onFollow, onAddWatch, onOpenWatch }: {
+  /** 'all' while 全部更新 runs (it writes the first brief), 'digest' while the brief is rewritten. */
+  aiReady: boolean; revision: number; job: 'all' | 'digest' | null; busy: boolean; divider: ReactNode; onSetup: () => void;
+  /** No brief yet: 全部更新 gathers the material and writes it. */
+  onWrite: () => void;
+  /** A brief exists: write it again from what is already judged, nothing else. */
+  onRewrite: () => void;
   onOpen: (id: string) => void; onRead: (id: string) => void; onReport: OpenReport;
   onFollow: (draft: OutsidePick['suggestion']) => void; onAddWatch: () => void; onOpenWatch: (id: string) => void;
 }) {
@@ -126,7 +131,7 @@ export function Today({ aiReady, revision, writing, busy, divider, onSetup, onWr
           onOpen={onOpen} onReport={onReport} onFollow={onFollow} onBack={back} />
       : current.kind === 'edition' ? <PastEdition key={active} date={current.edition.date} onOpen={onOpen} onOpenWatch={onOpenWatch} onBack={back} />
       : digest ? <Brief key={digest.id} edition={data} refs={refs} onOpen={onOpen} onOpenWatch={onOpenWatch} onBack={back}
-          rewrite={aiReady && data.watchCount > 0 ? { busy, writing, onWrite } : undefined} />
+          rewrite={aiReady && data.watchCount > 0 ? { busy, writing: job === 'digest', onWrite: onRewrite } : undefined} />
       : <section className="reader empty"><div className="empty-state">
           <button className="push narrow-only detail-back" onClick={back}><ChevronLeft size={14} />{t('common.back')}</button>
           <Newspaper size={30} strokeWidth={1.4} />
@@ -134,7 +139,7 @@ export function Today({ aiReady, revision, writing, busy, divider, onSetup, onWr
           <p>{t(`today.${missing}Body`)}</p>
           {missing === 'noAi' ? <button className="push" onClick={onSetup}>{t('common.connectAi')}</button>
             : missing === 'noWatches' ? <button className="push" onClick={onAddWatch}>{t('watches.add')}</button>
-            : <button className="push" onClick={onWrite} disabled={busy}>{writing ? t('today.writing') : t('today.write')}</button>}
+            : <button className="push" onClick={onWrite} disabled={busy}>{job === 'all' ? t('today.writing') : t('today.write')}</button>}
         </div></section>}
     </div>
   );
@@ -161,7 +166,7 @@ function Brief({ edition, refs, onOpen, onOpenWatch, onBack, rewrite }: {
           <span className="src">{t('today.brief')}</span><span aria-hidden>·</span>
           <span>{t('today.generatedAt', { date: day(edition.date, LONG_DAY), time: clock(digest.generatedAt) })}</span>
         </div>
-        {rewrite && <button className="push small" disabled={rewrite.busy} onClick={rewrite.onWrite}>
+        {rewrite && <button className="push small" disabled={rewrite.busy} onClick={rewrite.onWrite} title={t('today.rewriteHint')}>
           {rewrite.writing ? <><span className="spinner" aria-hidden />{t('today.writing')}</> : t('today.rewrite')}</button>}
       </div>
       <h1>{digest.title}</h1>

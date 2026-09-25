@@ -124,6 +124,10 @@ export function updateWatch(
       db.prepare('UPDATE watches SET recall_aids_json = NULL WHERE id = ?').run(id);
       db.prepare('UPDATE matches SET judged_at = NULL, passed_gate = 0 WHERE watch_id = ?').run(id);
     }
+    // What passes the gate changed, so the next update reads the timeline again
+    // even when no newly judged article arrives.
+    if (intentChanged || (patch.sensitivity !== undefined && patch.sensitivity !== cur.sensitivity))
+      db.prepare('UPDATE watches SET progress_at = NULL WHERE id = ?').run(id);
   })();
   return getWatch(db, id);
 }
@@ -154,6 +158,8 @@ export function addCorrection(
   db.prepare(
     'INSERT INTO corrections (watch_id, item_id, verdict, user_note, created_at) VALUES (?, ?, ?, ?, ?)'
   ).run(watchId, itemId, verdict, userNote ?? null, Date.now());
+  // A correction moves an article across the gate; let the next update see it.
+  db.prepare('UPDATE watches SET progress_at = NULL WHERE id = ?').run(watchId);
 }
 
 /** Recent corrections, newest first — fed to the judge in the user's own words. */

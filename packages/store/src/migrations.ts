@@ -425,6 +425,31 @@ CREATE TABLE assistant_sources (
 );
 `;
 
+const M011_INCREMENTAL = `-- 增量生成：没有新材料就不调用模型。
+-- progress_at: the last progress pass for a watch. A later pass runs only when
+-- something judged after it passed the gate (or the watch was reset).
+ALTER TABLE watches ADD COLUMN progress_at INTEGER;
+-- Every (watch, item) pair a flash pass has already shown the model, whether it
+-- became a flash or was set aside as minor or already told. Later checks send
+-- only pairs it has not seen, and skip the call when there are none.
+CREATE TABLE flash_considered (
+  watch_id TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
+  item_id  TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  considered_at INTEGER NOT NULL,
+  PRIMARY KEY (watch_id, item_id)
+);
+-- The AI prescreen (providers without embeddings) remembers its verdict per
+-- watch and item. The fingerprint covers the watch's own words and corrections,
+-- so editing either sends the item through again.
+CREATE TABLE prescreen_results (
+  watch_id TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
+  item_id  TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  fingerprint TEXT NOT NULL,
+  relevant INTEGER NOT NULL,
+  PRIMARY KEY (watch_id, item_id)
+);
+`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_init', sql: M001_INIT },
   { name: '002_vectors', sql: M002_VECTORS },
@@ -435,5 +460,6 @@ export const MIGRATIONS: Migration[] = [
   { name: '007_search_fill', sql: M007_SEARCH_FILL },
   { name: '008_report_conversations', sql: M008_REPORT_CONVERSATIONS },
   { name: '009_outside_picks', sql: M009_OUTSIDE_PICKS },
-  { name: '010_assistant', sql: M010_ASSISTANT }
+  { name: '010_assistant', sql: M010_ASSISTANT },
+  { name: '011_incremental', sql: M011_INCREMENTAL }
 ];

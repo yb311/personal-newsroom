@@ -1,6 +1,7 @@
 import { Bookmark, ChevronRight, Circle, Inbox, PanelLeft, Plus, Settings, Star, Sun, Zap } from 'lucide-react';
 import { categoryLabel } from '@pnr/core/catalog-labels';
 import { useTranslation } from 'react-i18next';
+import type { ReactNode } from 'react';
 import type { SourceRow } from '../types.ts';
 import type { Filter, Tab } from '../App.tsx';
 
@@ -15,6 +16,8 @@ interface Props {
   aiReady: boolean;
   /** New developments across the watches, counted on 关注 as unread articles are on 未读. */
   fresh: number;
+  /** 全部更新, which acts on every view and so sits above all of them. */
+  updateAll: ReactNode;
 }
 
 /** A source whose newest article is older than this has stopped publishing. */
@@ -29,7 +32,7 @@ const FILTERS = [['all', Inbox], ['unread', Circle], ['starred', Star]] as const
  * The window's source list: the three AI views, then reading — the library
  * filters and every subscribed source. Exactly one row is selected at a time.
  */
-export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, onPickFilter, onSourceMenu, onAdd, onSettings, onHide, aiReady, fresh }: Props) {
+export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, onPickFilter, onSourceMenu, onAdd, onSettings, onHide, aiReady, fresh, updateAll }: Props) {
   const { t, i18n } = useTranslation();
   const reading = tab === 'read';
   const totalUnread = sources.reduce((a, s) => a + (s.unread ?? 0), 0);
@@ -47,6 +50,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
   return (
     <aside className="sidebar">
       <div className="sidebar-top">
+        {updateAll}
         <button className="tool" title={`${t('app.hideSidebar')} (⌘⌃S)`} aria-label={t('app.hideSidebar')} onClick={onHide}><PanelLeft size={17} /></button>
       </div>
       <nav className="sidebar-scroll" aria-label={t('app.mainNav')}>

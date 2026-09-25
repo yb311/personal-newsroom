@@ -87,12 +87,12 @@ jobs:
       - name: Verify signed and notarized application
         run: |
           app_path="release/mac-arm64/所闻.app"
-          reader_path="$app_path/Contents/Resources/bin/pnr-reader"
           codesign --verify --deep --strict --verbose=2 "$app_path"
-          codesign --verify --strict --verbose=2 "$reader_path"
+          codesign --verify --strict --verbose=2 "$app_path/Contents/Resources/bin/pnr-reader"
+          codesign --verify --strict --verbose=2 "$app_path/Contents/Frameworks/所闻 后台更新.app"
           xcrun stapler validate "$app_path"
           spctl --assess --type execute --verbose=4 "$app_path"
-          printf '%s\n' '{"id":1,"method":"ping","params":{}}' | "$reader_path" | grep '"result":"pong"'
+          scripts/verify-package.sh "$app_path"
 
       - name: Verify application inside DMG
         run: |
@@ -105,6 +105,7 @@ jobs:
           hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" release/*.dmg -quiet
           codesign --verify --deep --strict --verbose=2 "$mount_dir/所闻.app"
           xcrun stapler validate "$mount_dir/所闻.app"
+          scripts/verify-package.sh "$mount_dir/所闻.app"
           spctl --assess --type execute --verbose=4 "$mount_dir/所闻.app"
 
       - name: Create checksums

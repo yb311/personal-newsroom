@@ -25,7 +25,7 @@
     "justNow": "刚刚",
     "seenAt": "发现于 {{when}}",
     "noDateHint": "来源未提供发布时间，此处为首次发现时间",
-    "loginItemsHint": "请在「系统设置 → 通用 → 登录项」中允许「所闻」在后台运行。",
+    "loginItemsHint": "请在「系统设置 → 通用 → 登录项与扩展」中允许「所闻」在后台运行。",
     "back": "返回",
     "newsSearch": "新闻搜索"
   },
@@ -76,7 +76,22 @@
     "aiOff": "阅读模式（未连接 AI）",
     "briefWriting": "正在生成今日摘要…",
     "briefDone": "今日摘要已生成",
-    "briefNone": "关注里暂无可写的新内容，摘要未更新"
+    "briefNone": "关注里暂无可写的新内容，摘要未更新",
+    "updateAll": "全部更新",
+    "updateAllHint": "抓取订阅，更新关注、快讯和今日摘要。没有新内容的部分不再调用 AI。按住 ⌥ 全部重新生成。",
+    "regenerateAll": "全部重新生成",
+    "regenerateAllHint": "抓取订阅，并把进展、快讯、今日摘要和关注之外全部重新撰写，即使没有新内容。",
+    "updatingAll": "正在全部更新…",
+    "regeneratingAll": "正在全部重新生成…",
+    "done": {
+      "fetched": "新增 {{count}} 篇",
+      "milestones": "{{count}} 个新进展",
+      "flashes": "{{count}} 条新快讯",
+      "digest": "今日摘要已更新",
+      "nothingNew": "没有新进展，未调用 AI 撰写",
+      "separator": "，"
+    },
+    "flashNothingNew": "快讯已检查，没有新内容，未调用 AI 撰写"
   },
   "sidebar": {
     "sources": "订阅源",
@@ -220,7 +235,8 @@
     "writing": "正在生成…",
     "rewrite": "重新生成",
     "openWatch": "在「关注」中查看这件事的进展",
-    "newDevelopments": "{{count}} 条新进展"
+    "newDevelopments": "{{count}} 条新进展",
+    "rewriteHint": "用已筛选的报道重写今日摘要，不重新抓取"
   },
   "flashes": {
     "needAiTitle": "快讯需要 AI",
@@ -244,12 +260,15 @@
   "background": {
     "title": "后台更新",
     "question": "开启后台更新？",
-    "body": "关闭窗口后，所闻仍会在每天 7:15 生成今日摘要，并每 3 小时检查一次快讯。Mac 休眠时暂停，唤醒后补上。",
-    "where": "可随时在「设置 → 后台更新」或「系统设置 → 通用 → 登录项」中关闭。",
+    "body": "关闭窗口后，所闻仍会在每天 7:15 生成今日摘要，并每 3 小时检查一次快讯；Mac 休眠时会按时唤醒它来更新，更新完再睡。",
+    "where": "开启时 macOS 会请你输入一次管理员密码，用来安装唤醒组件。可随时在「设置 → 后台更新」或「系统设置 → 通用 → 登录项与扩展」中关闭。",
     "failed": "开启失败，可稍后在「设置 → 后台更新」中重试。",
     "ok": "好",
     "later": "以后再说",
-    "enable": "开启"
+    "enable": "开启",
+    "wakeTitle": "休眠时更新",
+    "wakeQuestion": "Mac 休眠时也更新？",
+    "wakeBody": "后台更新已经开启，但 Mac 休眠时它不会运行。开启后，所闻会在每日摘要时间和之后每 3 小时唤醒 Mac，更新完再让它睡。"
   },
   "settings": {
     "title": "设置",
@@ -341,9 +360,9 @@
     "instanceFailed": "保存失败，请检查地址。",
     "xIntro": "通过 Apify 抓取 X。每次更新一个 X 源约 0.02 美元，由 Apify 收取。令牌仅保存在本机。",
     "apifyToken": "Apify 令牌",
-    "backgroundIntro": "关闭窗口后继续更新。Mac 休眠时暂停，唤醒后补上。",
+    "backgroundIntro": "关闭窗口后继续更新；Mac 休眠时会被按时唤醒来更新。",
     "allowBackground": "允许后台更新",
-    "loginItems": "会出现在「系统设置 → 通用 → 登录项」中。",
+    "loginItems": "在「系统设置 → 通用 → 登录项与扩展」中显示为「所闻」，运行时在「活动监视器」中显示为「{{name}}」。",
     "dailyTime": "每日摘要时间",
     "flashInterval": "快讯每 {{count}} 小时检查一次。",
     "lastRun": "上次运行：{{when}} · {{kind}} · {{outcome}}",
@@ -358,10 +377,31 @@
       "failed": "失败"
     },
     "neverRun": "尚未运行。",
-    "plistPath": "任务文件（开发模式）：",
+    "plistPath": "任务文件",
     "noLanguages": "更新订阅后，这里会列出文章的语言。",
     "articles": "{{count}} 篇",
-    "lastRunLabel": "上次运行"
+    "lastRunLabel": "上次运行",
+    "openLoginItems": "打开登录项设置",
+    "backgroundProblem": {
+      "not_registered": "macOS 没有登记后台任务。请在「登录项与扩展」中允许「所闻」，然后重试。",
+      "worker_missing": "后台程序还没有构建。请先运行 npm run build --workspace=@pnr/worker。",
+      "launchd_failed": "launchd 没有接受后台任务，请重试。",
+      "wake_cancelled": "没有输入管理员密码，休眠时不会更新。可以随时在这里重新选择。",
+      "wake_failed": "唤醒组件没有装上。安装它需要管理员账户；普通账户请让管理员来开启。"
+    },
+    "workerName": "所闻 后台更新 Helper",
+    "loginItemsLocal": "这个版本没有开发者签名，后台任务以用户启动项运行，运行时在「活动监视器」中显示为「{{name}}」。",
+    "wake": {
+      "label": "休眠时唤醒 Mac",
+      "all": "每 3 小时（摘要和快讯）",
+      "daily": "每天一次（只生成摘要）",
+      "off": "不唤醒",
+      "hint": "Mac 休眠时按时唤醒它来更新，更新完再睡。第一次开启需要输入一次管理员密码。合上盖子并使用电池时，macOS 可能不允许唤醒。",
+      "next": "下次唤醒：{{when}}",
+      "remove": "移除唤醒组件…",
+      "prompt": "「所闻」要安装一个唤醒组件，让 Mac 在休眠时按时醒来更新新闻。",
+      "removePrompt": "「所闻」要移除唤醒组件，并取消已预约的唤醒。"
+    }
   },
   "catalogue": {
     "title": "订阅管理",
@@ -573,7 +613,9 @@
     "resumeAction": "恢复更新",
     "active": "更新此关注",
     "activeHint": "关闭后不再更新，已有内容保留。",
-    "updateHint": "获取最新报道，重新筛选并更新进展"
+    "updateHint": "抓取最新报道并筛选；有新报道时才更新进展",
+    "nothingNew": "没有新的相关报道，进展保持不变",
+    "discardConfirm": "放弃修改"
   },
   "menu": {
     "about": "关于所闻",
@@ -607,7 +649,9 @@
     "openInReader": "在阅读中打开",
     "copyLink": "拷贝链接",
     "copyText": "拷贝文字",
-    "manageSubscriptions": "管理订阅…"
+    "manageSubscriptions": "管理订阅…",
+    "updateAll": "全部更新",
+    "regenerateAll": "全部重新生成"
   },
   "report": {
     "title": "深度报道",

@@ -9,15 +9,16 @@ export function Group({ title, footer, children }: { title?: string; footer?: Re
     {footer && <p className="group-footer">{footer}</p>}
   </section>;
 }
-/** Label and hint on the left, the control on the right; `wide` puts the control underneath. */
-export function Row({ label, hint, children, wide }: { label: ReactNode; hint?: ReactNode; children?: ReactNode; wide?: boolean }) {
+/** Label and hint on the left, the control on the right; `wide` puts the control underneath.
+ *  With `htmlFor` the label text is a real label, so clicking it works the control. */
+export function Row({ label, hint, children, wide, htmlFor }: { label: ReactNode; hint?: ReactNode; children?: ReactNode; wide?: boolean; htmlFor?: string }) {
   return <div className={`row ${wide ? 'wide' : ''}`}>
-    <div className="row-label"><span>{label}</span>{hint && <small>{hint}</small>}</div>
+    <div className="row-label">{htmlFor ? <label htmlFor={htmlFor}>{label}</label> : <span>{label}</span>}{hint && <small>{hint}</small>}</div>
     {children && <div className="row-control">{children}</div>}
   </div>;
 }
-export const Switch = ({ checked, onChange, label, disabled }: { checked: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) =>
-  <input type="checkbox" role="switch" className="switch" aria-label={label} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />;
+export const Switch = ({ checked, onChange, label, disabled, id }: { checked: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean; id?: string }) =>
+  <input type="checkbox" role="switch" className="switch" id={id} aria-label={label} checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />;
 
 /** A native select with a consistent macOS-style bezel and disclosure arrow. */
 export function Select({ className, disabled, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {

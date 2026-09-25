@@ -3,7 +3,7 @@
  * bundle. Everything else is bundled into main.cjs / worker.cjs, keeping the
  * application package small and independent of the monorepo's node_modules.
  */
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,9 @@ cpSync(join(root, 'native', 'reader', 'bin', 'pnr-reader'), join(root, 'apps', '
 const packageMetadata = {
   name: 'personal-newsroom',
   productName: '所闻',
-  version: '0.1.0',
+  // The one version number: the root package.json, which the release workflow
+  // checks against the tag. A copy here once shipped every build as 0.1.0.
+  version: JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version,
   description: '本地优先、意图驱动的个人新闻编辑部',
   author: 'yb311',
   license: 'AGPL-3.0-or-later',

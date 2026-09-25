@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Db } from '@pnr/store';
 import type { Provider } from '@pnr/ai';
 import { embedItems } from '@pnr/ai';
@@ -145,7 +146,16 @@ const PRESCREEN_SCHEMA = {
   } } }, required: ['results'], additionalProperties: false
 } as const;
 
-/** One preparation pass for every watch. Failed batches widen, never subtract. */
+/**
+ * One preparation pass for every watch. Failed batches widen, never subtract.
+ *
+ * Verdicts are remembered per watch and article (`prescreen_results`), keyed by
+ * a fingerprint of the watch's own words. A later run sends only the articles
+ * some watch has not seen under its current wording — without this every update
+ * re-sent the whole three-day window. Corrections still go into every prompt,
+ * so they shape what is screened next; they do not void what was screened
+ * (this is a loose pre-filter, and the judge sees them again).
+ */
 export async function aiPrescreenWatches(
   db: Db, provider: Provider, watches: Watch[], windowHours: number
 ): Promise<{ matches: Map<string, Set<string>>; degraded: Map<string, Set<string>> }> {
@@ -154,16 +164,36 @@ export async function aiPrescreenWatches(
   if (watches.length === 0) return { matches, degraded };
   const items = db.prepare(`SELECT id,title,snippet,published_at AS publishedAt FROM items
     WHERE published_at>=? ORDER BY published_at DESC`).all(Date.now() - windowHours * 3600_000) as any[];
-  const watchText = watches.map((w) => {
+  const described = watches.map((w) => {
     const corrections = db.prepare(`SELECT verdict,user_note AS note,i.title FROM corrections c
       LEFT JOIN items i ON i.id=c.item_id WHERE watch_id=? ORDER BY c.created_at DESC LIMIT 12`).all(w.id) as any[];
-    return `${w.id}: ${w.intent}\n纠偏原话: ${corrections.map((c) => `${c.verdict}:${c.title ?? ''}:${c.note ?? ''}`).join(' | ') || '无'}`;
-  }).join('\n');
+    const text = `${w.id}: ${w.intent}\n纠偏原话: ${corrections.map((c) => `${c.verdict}:${c.title ?? ''}:${c.note ?? ''}`).join(' | ') || '无'}`;
+    return { watch: w, text, fingerprint: createHash('sha256').update(w.intent).digest('hex').slice(0, 20) };
+  });
+
+  // What is already known: reuse it, and leave only the unseen pairs.
+  const known = db.prepare('SELECT item_id AS itemId, relevant FROM prescreen_results WHERE watch_id = ? AND fingerprint = ?');
+  const pending = new Map<string, Set<string>>();   // itemId → watches still to ask about
+  for (const { watch, fingerprint } of described) {
+    const seen = new Map((known.all(watch.id, fingerprint) as { itemId: string; relevant: number }[]).map((r) => [r.itemId, r.relevant]));
+    for (const item of items) {
+      const verdict = seen.get(item.id);
+      if (verdict === undefined) (pending.get(item.id) ?? pending.set(item.id, new Set()).get(item.id)!).add(watch.id);
+      else if (verdict) matches.get(watch.id)!.add(item.id);
+    }
+  }
+  const unseen = items.filter((i) => pending.has(i.id));
+  if (unseen.length === 0) return { matches, degraded };
+  const asking = described.filter((d) => unseen.some((i) => pending.get(i.id)!.has(d.watch.id)));
+  const watchText = asking.map((d) => d.text).join('\n');
+  const save = db.prepare(`INSERT INTO prescreen_results (watch_id, item_id, fingerprint, relevant) VALUES (?, ?, ?, ?)
+    ON CONFLICT(watch_id, item_id) DO UPDATE SET fingerprint = excluded.fingerprint, relevant = excluded.relevant`);
+
   const budgetChars = Math.max(12_000, provider.limits.fast.maxInputTokens * 2);
-  for (let offset = 0; offset < items.length;) {
+  for (let offset = 0; offset < unseen.length;) {
     const batch: any[] = []; let chars = watchText.length + 800;
-    while (offset < items.length && batch.length < 300) {
-      const item = items[offset]!; const line = `${item.id}: ${item.title}\n${String(item.snippet ?? '').slice(0, 700)}`;
+    while (offset < unseen.length && batch.length < 300) {
+      const item = unseen[offset]!; const line = `${item.id}: ${item.title}\n${String(item.snippet ?? '').slice(0, 700)}`;
       if (batch.length && chars + line.length > budgetChars) break;
       batch.push(item); chars += line.length; offset++;
     }
@@ -175,17 +205,26 @@ export async function aiPrescreenWatches(
         '返回每篇可能相关报道及所有可能相关 watchId。完全无关的文章可省略。'
       ].join('\n\n'), { schema: PRESCREEN_SCHEMA as unknown as Record<string, unknown>, model: provider.fastModel,
         temperature: 0, operation: 'recall_prescreen' });
-      const validItems = new Set(batch.map((i) => i.id)); const validWatches = new Set(watches.map((w) => w.id));
+      const validItems = new Set(batch.map((i) => i.id)); const validWatches = new Set(asking.map((d) => d.watch.id));
+      const found = new Set<string>();
       for (const row of result.data.results ?? []) if (validItems.has(row.articleId)) {
-        for (const watchId of row.watchIds ?? []) if (validWatches.has(watchId)) matches.get(watchId)!.add(row.articleId);
+        for (const watchId of row.watchIds ?? []) if (validWatches.has(watchId)) {
+          matches.get(watchId)!.add(row.articleId); found.add(`${watchId}\n${row.articleId}`);
+        }
       }
+      db.transaction(() => {
+        for (const item of batch) for (const d of asking) if (pending.get(item.id)!.has(d.watch.id))
+          save.run(d.watch.id, item.id, d.fingerprint, found.has(`${d.watch.id}\n${item.id}`) ? 1 : 0);
+      })();
     } catch (error) {
-      for (const watch of watches) for (const item of batch) {
-        matches.get(watch.id)!.add(item.id); degraded.get(watch.id)!.add(item.id);
+      // Not remembered: a failed batch is asked again next time.
+      for (const d of asking) for (const item of batch) if (pending.get(item.id)!.has(d.watch.id)) {
+        matches.get(d.watch.id)!.add(item.id); degraded.get(d.watch.id)!.add(item.id);
       }
       log({ event: 'recall.prescreen', phase: 'failed', reasonDetail: String(error).slice(0, 160), attrs: { batch: batch.length } });
     }
   }
+  log({ event: 'recall.prescreen', phase: 'completed', attrs: { window: items.length, asked: unseen.length, watches: asking.length } });
   return { matches, degraded };
 }
 

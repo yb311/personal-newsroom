@@ -98,7 +98,11 @@ export interface AssistantEvent { requestId: string; chatId: string; messageId: 
 export interface OpenQuestion { id: number; question: string; askedAt: number }
 export interface RunResult {
   busy?: boolean; error?: string; fetched?: number; watches?: number; failed?: number;
-  mode?: 'ai' | 'keywords'; digest?: boolean; milestones?: number; flashes?: number;
+  mode?: 'ai' | 'keywords'; digest?: boolean; milestones?: number; flashes?: number; outside?: number;
+  /** Writing steps that did not call the model because nothing new arrived. */
+  skipped?: ('progress' | 'flashes' | 'digest' | 'outside')[];
+  /** Set by the fetch-only update. */
+  inserted?: number;
 }
 export interface AiConnection {
   mode: 'gemini' | 'openai' | 'anthropic' | 'openai-compatible' | 'ollama' | 'none';
@@ -124,10 +128,15 @@ export interface SocialStatus {
   pack: { installed: boolean; version: string | null; bytes: number | null };
   installing: boolean;
 }
+export type WakeMode = 'off' | 'daily' | 'all';
 export interface ScheduleState {
   enabled: boolean; mode: 'agentService' | 'launchAgent' | 'unsupported';
   dailyHour: number; flashIntervalHours: number; plistPath: string | null;
   status?: 'not-registered' | 'enabled' | 'requires-approval' | 'not-found';
+  problem?: 'not_registered' | 'worker_missing' | 'launchd_failed' | 'wake_cancelled' | 'wake_failed';
+  workerName?: string;
+  /** Waking the Mac from sleep for updates. */
+  wake?: { installed: boolean; mode: WakeMode; choice: WakeMode; next: number | null };
   lastRun: { kind: string; at: number; outcome: string | null; stats: unknown } | null;
   runs?: unknown[];
 }
@@ -178,7 +187,10 @@ export interface Pnr {
   itemRefs(ids: string[]): Promise<ItemRef[]>;
   runWatch(id: string): Promise<RunResult>;
   watchItems(id: string, limit?: number): Promise<WatchItem[]>;
-  runWatches(): Promise<RunResult>;
+  /** 全部更新: fetch, match and write whatever has something new; `force` writes everything again. */
+  runAll(force?: boolean): Promise<RunResult>;
+  /** Writes today's brief again from the material already judged — one call. */
+  rewriteDigest(): Promise<RunResult>;
   runFlashes(): Promise<RunResult>;
   flashes(hours?: number, watchId?: string): Promise<FlashRow[]>;
   reportGet(selector: { conversationId?: string; anchorItemId?: string; lang?: string }): Promise<ReportConversation | null>;
@@ -199,6 +211,12 @@ export interface Pnr {
   onAssistantEvent(cb: (event: AssistantEvent) => void): () => void;
   scheduleState(): Promise<ScheduleState>;
   setSchedule(on: boolean, hour?: number): Promise<ScheduleState>;
+  /** A native macOS confirmation sheet; true when the first (confirming) button is chosen. */
+  confirm(opts: { message: string; detail?: string; confirm: string; cancel: string; destructive?: boolean }): Promise<boolean>;
+  openLoginItems(): Promise<void>;
+  /** Chooses how the Mac is woken from sleep; the first time asks for the administrator password. */
+  setWake(choice: WakeMode, prompt: string): Promise<ScheduleState>;
+  uninstallWake(prompt: string): Promise<ScheduleState>;
   socialStatus(): Promise<SocialStatus>;
   socialSetInstance(url: string): Promise<void>;
   socialInstall(): Promise<{ ok: boolean; error?: string; version?: string }>;

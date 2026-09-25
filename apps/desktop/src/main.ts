@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, shell, Menu, nativeTheme, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, Menu, nativeTheme, type MenuItemConstructorOptions } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { setSink, withRunContext } from '@pnr/core';
@@ -6,11 +6,11 @@ import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_
 import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr/ai';
-import { runDaily, runFlashCheck, runWatch, getReport, startReport, askReport, recoverReports, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
+import { runDaily, runFlashCheck, runWatch, rewriteDigest, getReport, startReport, askReport, recoverReports, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
          type AssistantEvent, type AssistantAskInput, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
-import { enableSchedule, disableSchedule, scheduleState, recentRuns } from './schedule.ts';
+import { enableSchedule, disableSchedule, scheduleState, recentRuns, refreshSchedule, setWake, uninstallWake } from './schedule.ts';
 import zhCN from '../../renderer/src/locales/zh-CN.json';
 import en from '../../renderer/src/locales/en.json';
 
@@ -123,6 +123,15 @@ ipcMain.handle('app:broadcast', (e, command: string) => {
 
 ipcMain.handle('app:copyText', (_e, text: string) => clipboard.writeText(String(text)));
 
+/** A native confirmation sheet on the asking window; resolves true for the confirming button. */
+ipcMain.handle('app:confirm', async (e, opts: { message: string; detail?: string; confirm: string; cancel: string; destructive?: boolean }) => {
+  const owner = BrowserWindow.fromWebContents(e.sender);
+  const options = { type: 'warning' as const, message: String(opts.message), detail: opts.detail ? String(opts.detail) : '',
+    buttons: [String(opts.confirm), String(opts.cancel)], defaultId: opts.destructive ? 1 : 0, cancelId: 1 };
+  const { response } = owner ? await dialog.showMessageBox(owner, options) : await dialog.showMessageBox(options);
+  return response === 0;
+});
+
 /** A native context menu; resolves with the chosen item's id, or null. */
 ipcMain.handle('app:contextMenu', (e, items: { id?: string; label?: string; enabled?: boolean; checked?: boolean; separator?: boolean }[]) =>
   new Promise<string | null>((resolve) => {
@@ -145,6 +154,7 @@ app.whenReady().then(() => {
     copyright: 'Copyright © 2026 yb311'
   });
   createWindow();
+  void refreshSchedule(db, DATA_DIR).catch(() => undefined);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
@@ -209,6 +219,8 @@ function installApplicationMenu(): void {
       { label: m.assistant, accelerator: 'CmdOrCtrl+J', click: send('assistant') },
       { label: m.search, accelerator: 'CmdOrCtrl+F', click: send('search') },
       { label: m.refresh, accelerator: 'CmdOrCtrl+R', click: send('refresh') },
+      { label: m.updateAll, accelerator: 'Shift+CmdOrCtrl+R', click: send('updateAll') },
+      { label: m.regenerateAll, accelerator: 'Alt+Shift+CmdOrCtrl+R', click: send('regenerateAll') },
       { role: 'togglefullscreen', label: m.fullscreen }
     ] },
     {
@@ -269,7 +281,8 @@ const handle = <K extends keyof ReturnType<typeof createApi>>(name: K): void => 
 };
 for (const k of Object.keys(api) as (keyof typeof api)[]) handle(k);
 
-ipcMain.handle('app:openExternal', (_e, url: string) => shell.openExternal(url));
+// Links come from feeds and search results; only web pages are handed to the system.
+ipcMain.handle('app:openExternal', (_e, url: string) => { if (/^https?:\/\//i.test(String(url))) return shell.openExternal(String(url)); });
 
 let refreshing = false;
 ipcMain.handle('app:refresh', async () => {
@@ -301,14 +314,22 @@ ipcMain.handle('app:enrichOne', async (_e, id: string) => {
 });
 
 /**
- * The runs behind 今日, 快讯 and a single watch's "立即更新". They live in
- * @pnr/generate so the background worker runs exactly the same thing; this
- * only adds locking, run bookkeeping and progress messages for the window.
- * With no AI connected they still run, matching watches by their keywords.
+ * The runs behind 全部更新, 快讯, a single watch's "立即更新" and the brief's
+ * "重新生成". They live in @pnr/generate so the background worker runs exactly
+ * the same thing; this only adds locking, run bookkeeping and progress messages
+ * for the window. With no AI connected they still run, matching watches by
+ * their keywords.
+ *
+ * `locks` are taken in order; the first is required, later ones are optional
+ * and the task learns which it got (全部更新 writes flashes only while no flash
+ * check is running).
  */
-async function run(kind: 'daily' | 'flashes', lock: string, task: (provider: Provider | null, opts: RunOptions) => Promise<RunResult>) {
-  if (!acquireLock(db, lock)) return { busy: true };
-  const beat = setInterval(() => renewLock(db, lock), HEARTBEAT_MS);
+async function run(kind: 'daily' | 'flashes' | 'digest' | 'watch', locks: string[],
+                   task: (provider: Provider | null, opts: RunOptions) => Promise<RunResult>, force = false) {
+  const [first, ...optional] = locks;
+  if (!first || !acquireLock(db, first)) return { busy: true };
+  const held = [first, ...optional.filter((l) => acquireLock(db, l))];
+  const beat = setInterval(() => { for (const l of held) renewLock(db, l); }, HEARTBEAT_MS);
   const runId = `${kind}-${Date.now()}`;
   db.prepare('INSERT INTO runs (id, kind, started_at) VALUES (?, ?, ?)').run(runId, kind, Date.now());
   try {
@@ -316,6 +337,7 @@ async function run(kind: 'daily' | 'flashes', lock: string, task: (provider: Pro
     const result = await withRunContext(runId, () => task(provider, {
       dataDir: DATA_DIR,
       lang: readSettings(db).outputLang ?? 'zh-CN',
+      force, flashes: held.includes('flashes'),
       onProgress: (p) => win?.webContents.send('app:progress', p)
     }));
     db.prepare('UPDATE runs SET finished_at = ?, outcome = ?, stats_json = ? WHERE id = ?')
@@ -325,13 +347,16 @@ async function run(kind: 'daily' | 'flashes', lock: string, task: (provider: Pro
     db.prepare("UPDATE runs SET finished_at = ?, outcome = 'failed', stats_json = ? WHERE id = ?")
       .run(Date.now(), JSON.stringify({ error: String(err) }), runId);
     return { busy: false, error: String(err).slice(0, 160) };
-  } finally { clearInterval(beat); releaseLock(db, lock); }
+  } finally { clearInterval(beat); for (const l of held) releaseLock(db, l); }
 }
 
 // Lock names match the worker's, so the app and a scheduled run never do the same job at once.
-ipcMain.handle('app:runWatches', () => run('daily', 'daily', (p, o) => runDaily(db, p, o)));
-ipcMain.handle('app:runFlashes', () => run('flashes', 'flashes', (p, o) => runFlashCheck(db, p, o)));
-ipcMain.handle('app:runWatch', (_e, id: string) => run('daily', 'daily', (p, o) => runWatch(db, p, id, o)));
+ipcMain.handle('app:runAll', (_e, force?: boolean) => run('daily', ['daily', 'flashes'], (p, o) => runDaily(db, p, o), Boolean(force)));
+ipcMain.handle('app:runFlashes', () => run('flashes', ['flashes'], (p, o) => runFlashCheck(db, p, o)));
+// Recorded as its own kind: one watch is not the day's run the scheduler looks for.
+ipcMain.handle('app:runWatch', (_e, id: string) => run('watch', ['daily'], (p, o) => runWatch(db, p, id, o)));
+ipcMain.handle('app:rewriteDigest', () => run('digest', ['daily'], async (p, o) =>
+  p ? rewriteDigest(db, p, o) : { fetched: 0, watches: 0, failed: 0, mode: 'keywords' as const }));
 
 // ── news assistant ─────────────────────────────────────────────────────────
 const assistantRequests = new Map<string, AbortController>();
@@ -370,6 +395,12 @@ ipcMain.handle('report:cancel', (_e, requestId: string) => { reportRequests.get(
 
 // ── background schedule ────────────────────────────────────────────────────
 ipcMain.handle('app:scheduleState', () => ({ ...scheduleState(db), runs: recentRuns(db) }));
+// Waking the Mac from sleep; the prompt is the administrator dialog's text, in the interface language.
+ipcMain.handle('app:setWake', (_e, choice: 'off' | 'daily' | 'all', prompt: string) =>
+  setWake(db, choice === 'daily' || choice === 'all' ? choice : 'off', String(prompt)));
+ipcMain.handle('app:uninstallWake', (_e, prompt: string) => uninstallWake(db, String(prompt)));
+/** System Settings → General → Login Items & Extensions, where background items are approved. */
+ipcMain.handle('app:openLoginItems', () => shell.openExternal('x-apple.systempreferences:com.apple.LoginItems-Settings.extension'));
 ipcMain.handle('app:setSchedule', async (_e, on: boolean, hour?: number) =>
   on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db));
 

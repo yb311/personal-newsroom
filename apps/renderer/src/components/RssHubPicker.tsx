@@ -136,14 +136,14 @@ export function RssHubPicker({ describe, onAdded }: { describe: (reason?: string
       <div className="picker-body">
         <nav className="platforms" aria-label={t('rsshub.platforms')}>
           {platforms.map((p) => (
-            <button key={p} className={platform === p ? 'active' : ''} onClick={() => { setPlatform(p); setRoute(null); }}>{p}</button>
+            <button key={p} className={platform === p ? 'active' : ''} aria-pressed={platform === p} onClick={() => { setPlatform(p); setRoute(null); }}>{p}</button>
           ))}
         </nav>
         <div className="routes-pane">
           <ul className="route-list">
             {routes.filter((r) => r.platform === platform).map((r) => (
               <li key={r.id}>
-                <button className={route?.id === r.id ? 'active' : ''} onClick={() => choose(r)}>
+                <button className={route?.id === r.id ? 'active' : ''} aria-pressed={route?.id === r.id} onClick={() => choose(r)}>
                   <strong>{r.name}</strong>
                   <small>{r.params.some((p) => !p.advanced && !p.optional) ? t('rsshub.needsInput') : t('rsshub.ready')}{r.sources.length ? t('rsshub.pasteable') : ''}</small>
                 </button>

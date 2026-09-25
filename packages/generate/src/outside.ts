@@ -46,6 +46,13 @@ function localPicks(items:Item[],seen:Set<string>,lang:string):OutsidePick[] {
   }));
 }
 
+/** 关注之外 is part of the daily paper: written once a day, again only when
+ *  the watches, reading languages or output language change. */
+const OUTSIDE_DONE = 'outside.lastRun';
+export function outsideDue(db:Db,watches:Watch[],lang:string):boolean {
+  return outsideEnabled(db) && setting(db,OUTSIDE_DONE) !== `${localDateKey()}|${outsideFingerprint(db,watches,lang)}`;
+}
+
 export async function generateOutsidePicks(db:Db,provider:Provider|null,watches:Watch[],lang:string):Promise<OutsidePick[]> {
   if(!outsideEnabled(db))return []; const items=rows(db); const seen=watchedIds(db,watches); const fp=outsideFingerprint(db,watches,lang); const date=localDateKey();
   let picks:OutsidePick[]=[]; let aiFailed=false;
@@ -63,7 +70,8 @@ export async function generateOutsidePicks(db:Db,provider:Provider|null,watches:
   if(aiFailed){ const existing=readOutsidePicks(db,watches,lang); if(existing.length)return existing; }
   if(!picks.length)picks=localPicks(items,seen,lang);
   if(!picks.length){ const existing=readOutsidePicks(db,watches,lang); if(existing.length)return existing; }
-  db.transaction(()=>{ db.prepare('DELETE FROM outside_picks WHERE edition_date=? AND lang=?').run(date,lang); const ins=db.prepare('INSERT INTO outside_picks (id,edition_date,lang,mode,event_title,importance_reason,item_ids_json,suggestion_json,config_fingerprint,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)'); for(const p of picks)ins.run(p.id,date,lang,p.mode,p.title,p.reason,JSON.stringify(p.itemIds),JSON.stringify(p.suggestion),fp,p.createdAt); })();
+  db.transaction(()=>{ if(provider&&!aiFailed) db.prepare(`INSERT INTO settings (key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).run(OUTSIDE_DONE,`${date}|${fp}`,Date.now());
+    db.prepare('DELETE FROM outside_picks WHERE edition_date=? AND lang=?').run(date,lang); const ins=db.prepare('INSERT INTO outside_picks (id,edition_date,lang,mode,event_title,importance_reason,item_ids_json,suggestion_json,config_fingerprint,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)'); for(const p of picks)ins.run(p.id,date,lang,p.mode,p.title,p.reason,JSON.stringify(p.itemIds),JSON.stringify(p.suggestion),fp,p.createdAt); })();
   return picks;
 }
 

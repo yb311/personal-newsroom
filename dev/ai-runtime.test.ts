@@ -25,8 +25,18 @@ const mapped=await aiPrescreenWatches(db,base(async<T>(_p,o)=>({data:{results:[
 ]} as T,provider:'openai-compatible',model:o.model??'fast',usedSearch:false})),watches,48);
 assert.deepEqual([...mapped.matches.get(watches[0]!.id)!],['i1']);
 assert.deepEqual([...mapped.matches.get(watches[1]!.id)!],['i2']);
-const widened=await aiPrescreenWatches(db,base(async()=>{throw new Error('temporary outage');}),watches,48);
-for(const watch of watches){assert.equal(widened.matches.get(watch.id)?.size,2);assert.equal(widened.degraded.get(watch.id)?.size,2);}
+// Remembered: the same window again asks nothing and returns the same verdicts.
+let asked=0;
+const cached=await aiPrescreenWatches(db,base(async()=>{asked++;throw new Error('should not be asked');}),watches,48);
+assert.equal(asked,0);
+assert.deepEqual([...cached.matches.get(watches[0]!.id)!],['i1']);
+assert.deepEqual([...cached.matches.get(watches[1]!.id)!],['i2']);
+// A new article is the only one sent; when that fails it is kept for every watch, and asked again next time.
+db.prepare(`INSERT INTO items (id,dedup_key,source_id,url,title,published_at,discovered_at,snippet) VALUES ('i3','i3','s','https://x.test/i3','Rocket test',?,?,'Rocket test')`).run(now,now);
+const widened=await aiPrescreenWatches(db,base(async(p)=>{asked++;assert.ok(p.includes('i3:')&&!p.includes('i1:'));throw new Error('temporary outage');}),watches,48);
+assert.equal(asked,1);
+for(const watch of watches){assert.ok(widened.matches.get(watch.id)?.has('i3'));assert.deepEqual([...widened.degraded.get(watch.id)!],['i3']);}
+assert.equal((db.prepare("SELECT COUNT(*) c FROM prescreen_results WHERE item_id='i3'").get() as {c:number}).c,0);
 
 const candidate=(id:string,arms:Candidate['arms'],publishedAt=now):Candidate=>({itemId:id,title:id,snippet:null,sourceName:'s',publishedAt,arms});
 const ranked=rankAndCap([candidate('old-ai',new Set(['r1_ai']),now-10*864e5),candidate('fresh-alias',new Set(['r2_alias'])),candidate('search',new Set(['r3_search']))],1);

@@ -3,25 +3,28 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.yb311.personal-newsroom.flashes</string>
+  <string>com.yb311.personal-newsroom.update</string>
   <key>AssociatedBundleIdentifiers</key>
   <string>com.yb311.personal-newsroom</string>
   <key>BundleProgram</key>
-  <string>Contents/MacOS/所闻</string>
+  <string>Contents/Frameworks/所闻 后台更新.app/Contents/MacOS/所闻 后台更新 Helper</string>
   <key>ProgramArguments</key>
   <array>
-    <string>所闻 · 快讯检查</string>
+    <string>所闻 后台更新</string>
     <string>-e</string>
-    <string>require(require('node:path').join(require('node:path').dirname(process.execPath),'../Resources/app.asar/worker.cjs'))</string>
+    <string>require(require('node:path').join(process.resourcesPath,'app.asar','worker.cjs'))</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>ELECTRON_RUN_AS_NODE</key><string>1</string>
     <key>PNR_SCHEDULED_RUN</key><string>1</string>
-    <key>PNR_WORKER_MODE</key><string>flashes</string>
+    <key>PNR_WORKER_MODE</key><string>auto</string>
   </dict>
-  <key>StartInterval</key>
-  <integer>10800</integer>
+  <!-- Minute 16 of every hour. A time missed while the Mac slept runs once on
+       wake, and the wake component schedules wakes at 15:50 past the hour. The
+       worker decides whether the day's run or a flash check is due. -->
+  <key>StartCalendarInterval</key>
+  <dict><key>Minute</key><integer>16</integer></dict>
   <key>ProcessType</key><string>Background</string>
   <key>LowPriorityIO</key><true/>
   <key>Nice</key><integer>5</integer>

@@ -9,7 +9,7 @@ import { Catalogue } from './components/Catalogue.tsx';
 import { Today } from './components/Today.tsx';
 import { Watches, type WatchRequest } from './components/Watches.tsx';
 import { Flashes } from './components/Flashes.tsx';
-import { BackgroundPrompt } from './components/BackgroundPrompt.tsx';
+import { BackgroundPrompt, WakePrompt } from './components/BackgroundPrompt.tsx';
 import { Assistant } from './components/Assistant.tsx';
 import { Report } from './components/Report.tsx';
 import { SplitDivider, storedWidth } from './components/SplitDivider.tsx';
@@ -24,8 +24,9 @@ export const TABS: Tab[] = ['today', 'flashes', 'watches', 'read'];
 export type OpenReport = (anchor: ReportAnchor) => void;
 
 /** The long operations the window starts. Each has one home: the control that starts it
- *  sits with what it updates, and only that control spins while it runs. */
-type Job = 'fetch' | 'flashes' | 'daily';
+ *  sits with what it updates, and only that control spins while it runs. 全部更新
+ *  ('all') is the one control for everything; it sits in the sidebar's title bar. */
+type Job = 'fetch' | 'flashes' | 'all' | 'digest';
 
 /** How many articles the list loads at a time. */
 const PAGE = 200;
@@ -69,6 +70,7 @@ export default function App() {
   const [lastRun, setLastRun] = useState<number | null>(null);
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [askBackground, setAskBackground] = useState(false);
+  const [askWake, setAskWake] = useState(false);
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [revision, setRevision] = useState(0);
   const [watchRequest, setWatchRequest] = useState<WatchRequest | null>(null);
@@ -141,15 +143,35 @@ export default function App() {
     const r = await window.pnr.runFlashes();
     void loadItems(); void loadSources();
     return r.busy ? t('app.busy') : r.error ? t('app.runFailed', { error: failure(r.error) })
-      : t('app.flashDone', { count: r.flashes ?? 0 }) + (r.failed ? t('app.partial', { count: r.failed }) : '');
+      : (r.skipped?.includes('flashes') ? t('app.flashNothingNew') : t('app.flashDone', { count: r.flashes ?? 0 }))
+        + (r.failed ? t('app.partial', { count: r.failed }) : '');
   });
-  /** Writes today's edition: fetch, update every watch, judge what is new, then the brief. */
-  const runDaily = (): Promise<void> => perform('daily', t('app.briefWriting'), async () => {
-    const r = await window.pnr.runWatches();
+  /**
+   * 全部更新: fetch, match every watch and write whatever has something new —
+   * timelines, flashes, the brief, 关注之外. What has nothing new is not written
+   * again, so pressing it twice costs a fetch, not a second round of AI writing.
+   * `force` (⌥, or the menu) writes everything again.
+   */
+  const runAll = (force = false): Promise<void> => perform('all', t(force ? 'app.regeneratingAll' : 'app.updatingAll'), async () => {
+    const r = await window.pnr.runAll(force);
     void loadItems(); void loadSources();
+    if (r.busy) return t('app.busy');
+    if (r.error) return t('app.runFailed', { error: failure(r.error) });
+    const partial = r.failed ? t('app.partial', { count: r.failed }) : '';
+    if (r.mode === 'keywords') return t('app.watchesKeywords', { count: r.watches ?? 0 }) + partial;
+    const wrote = [
+      r.milestones ? t('app.done.milestones', { count: r.milestones }) : '',
+      r.flashes ? t('app.done.flashes', { count: r.flashes }) : '',
+      r.digest ? t('app.done.digest') : ''
+    ].filter(Boolean);
+    const parts = [t('app.done.fetched', { count: r.fetched ?? 0 }), ...(wrote.length ? wrote : [t('app.done.nothingNew')])];
+    return parts.join(t('app.done.separator')) + partial;
+  });
+  /** 「重新生成」 on today's brief: that document only, from what is already judged. */
+  const rewriteDigest = (): Promise<void> => perform('digest', t('app.briefWriting'), async () => {
+    const r = await window.pnr.rewriteDigest();
     return r.busy ? t('app.busy') : r.error ? t('app.runFailed', { error: failure(r.error) })
-      : r.mode === 'keywords' ? t('app.watchesKeywords', { count: r.watches ?? 0 })
-      : (r.digest ? t('app.briefDone') : t('app.briefNone')) + (r.failed ? t('app.partial', { count: r.failed }) : '');
+      : r.digest ? t('app.briefDone') : t('app.briefNone');
   });
 
   // First launch: fetch once so the app is not empty; open 今日 when a brief exists.
@@ -159,6 +181,9 @@ export default function App() {
       setLastRun(s.lastRun);
       if (s.items === 0 && s.sources > 0) void refresh();
       if ((await window.pnr.today()).digest && !navigated.current) setTab('today');
+      // Background updates already on from before the Mac could be woken for them: ask once.
+      const sched = await window.pnr.scheduleState().catch(() => null);
+      if (sched?.enabled && sched.wake && !sched.wake.installed && sched.wake.choice !== 'off') setAskWake(true);
     })();
   }, []);
 
@@ -191,6 +216,8 @@ export default function App() {
     else if (c === 'search') { if (report || (tab !== 'read' && tab !== 'watches')) go('read'); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.toolbar .search-field input')?.focus()); }
     else if (c === 'subscribe') setShowCatalogue(true);
     else if (c === 'refresh') void refresh();
+    else if (c === 'updateAll') void runAll(false);
+    else if (c === 'regenerateAll') void runAll(true);
     else if ((TABS as string[]).includes(c)) go(c as Tab);
   };
   useEffect(() => window.pnr.onCommand?.((c) => command.current(c)), []);
@@ -276,7 +303,8 @@ export default function App() {
       {sidebarShown && (
         <Sidebar tab={report ? null : tab} onTab={go} sources={sources} sourceId={sourceId} filter={filter} fresh={counts.fresh ?? 0}
           onPickSource={pickSource} onPickFilter={pickFilter} onSourceMenu={(s) => void sourceMenu(s)}
-          onAdd={() => setShowCatalogue(true)} onSettings={() => openSettings()} onHide={() => showSidebar(false)} aiReady={aiReady} />
+          onAdd={() => setShowCatalogue(true)} onSettings={() => openSettings()} onHide={() => showSidebar(false)} aiReady={aiReady}
+          updateAll={<UpdateAll running={job === 'all'} disabled={busy} onRun={(force) => void runAll(force)} />} />
       )}
       <main className="workspace">
         {/* As in Mail: what acts on the list sits above the list, what acts on the
@@ -284,7 +312,10 @@ export default function App() {
             to the name of the list it refreshes. */}
         <header className={`toolbar ${report ? 'whole' : ''}`}>
           <div className="toolbar-list">
-            {!sidebarShown && <button className="tool" aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌘⌃S)`} onClick={() => showSidebar(true)}><PanelLeft size={17} /></button>}
+            {!sidebarShown && <>
+              <button className="tool" aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌘⌃S)`} onClick={() => showSidebar(true)}><PanelLeft size={17} /></button>
+              <UpdateAll running={job === 'all'} disabled={busy} onRun={(force) => void runAll(force)} compact />
+            </>}
             {report && <button className="tool" aria-label={t('common.back')} title={t('common.back')} onClick={() => setReport(null)}><ChevronLeft size={18} /></button>}
             {!report && tab === 'read' && selected && <button className="tool narrow-only" aria-label={t('reader.back')} title={t('reader.back')} onClick={() => setSelected(null)}><ChevronLeft size={18} /></button>}
             <div className="toolbar-title">
@@ -338,8 +369,8 @@ export default function App() {
             {listDivider}
             <Reader id={selected} onLoaded={setCurrent} />
           </div>
-          : tab === 'today' ? <Today aiReady={aiReady} revision={revision} writing={job === 'daily'} busy={busy} divider={listDivider} onSetup={() => openSettings('ai')}
-              onWrite={() => void runDaily()} onOpen={openItem} onRead={(id) => void setRead(id, true)} onReport={openReport} onFollow={followOutside}
+          : tab === 'today' ? <Today aiReady={aiReady} revision={revision} job={job === 'all' || job === 'digest' ? job : null} busy={busy} divider={listDivider} onSetup={() => openSettings('ai')}
+              onWrite={() => void runAll(false)} onRewrite={() => void rewriteDigest()} onOpen={openItem} onRead={(id) => void setRead(id, true)} onReport={openReport} onFollow={followOutside}
               onAddWatch={addWatch} onOpenWatch={openWatch} />
           : tab === 'flashes' ? <Flashes aiReady={aiReady} revision={revision} important={importantOnly} divider={listDivider} onSetup={() => openSettings('ai')}
               onOpen={openItem} onReport={openReport} onOpenWatch={openWatch} onCount={(n) => setCounts((c) => ({ ...c, flashes: n }))} />
@@ -358,6 +389,34 @@ export default function App() {
         if (changed) void refresh();
       }} />}
       {askBackground && <BackgroundPrompt onDone={() => setAskBackground(false)} />}
+      {askWake && !askBackground && <WakePrompt onDone={() => setAskWake(false)} />}
     </div>
   );
+}
+
+/** Tracks the Option key, so a control can show its alternate action as a Mac menu does. */
+function useOptionKey(): boolean {
+  const [down, setDown] = useState(false);
+  useEffect(() => {
+    const key = (e: KeyboardEvent): void => setDown(e.altKey);
+    const off = (): void => setDown(false);
+    window.addEventListener('keydown', key); window.addEventListener('keyup', key); window.addEventListener('blur', off);
+    return () => { window.removeEventListener('keydown', key); window.removeEventListener('keyup', key); window.removeEventListener('blur', off); };
+  }, []);
+  return down;
+}
+
+/**
+ * 全部更新 — brings every view up to date in one run and writes only what has
+ * something new. Holding ⌥ turns it into 全部重新生成, which writes everything
+ * again (after changing the output language, say).
+ */
+function UpdateAll({ running, disabled, onRun, compact = false }: { running: boolean; disabled: boolean; onRun: (force: boolean) => void; compact?: boolean }) {
+  const { t } = useTranslation();
+  const option = useOptionKey();
+  const label = t(option ? 'app.regenerateAll' : 'app.updateAll');
+  return <button className={`tool labeled ${compact ? 'compact' : ''}`} disabled={disabled} onClick={(e) => onRun(e.altKey)}
+    title={`${label} (${option ? '⌥⇧⌘R' : '⇧⌘R'})\n${t(option ? 'app.regenerateAllHint' : 'app.updateAllHint')}`} aria-label={label}>
+    <RefreshCw size={14} className={running ? 'spinning' : ''} />{!compact && <span>{label}</span>}
+  </button>;
 }

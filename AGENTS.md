@@ -67,13 +67,13 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 输出语言 | **用户自己选**，全局默认 + 按 Watch 覆盖 | 顺带简化：daily-brief 的 `titleZh`/`titleEn` 双份字段合并成 `title` + `lang`，token 减半 |
 | 平台 | **只 macOS** | launchd / SMAppService。README 里直说不支持 Win/Linux |
 | 无 key | **能当纯 RSS 阅读器用** | 最好的上手坡道。所有 AI 功能**优雅降级，不报错不空白** |
-| 后台 | **SMAppService**（Electron `setLoginItemSettings` 的 `type: 'agentService'`） | plist 在 bundle 内，卸载即消失 |
+| 后台 | **一个 launch agent**（`com.yb311.personal-newsroom.update`，每小时第 16 分钟），worker 的 `auto` 模式自己判断该写每日摘要、查快讯（每 3 小时）还是什么都不做。签名包走 **SMAppService**（`type: 'agentService'`），未签名构建退回 `~/Library/LaunchAgents` 手写 plist。任务跑 bundle 内的「所闻 后台更新.app」（`packaging/worker-helper.mjs`）。**休眠时也要更新**：唤醒组件（`apps/desktop/src/wake.ts`）装一次、输一次管理员密码，root 脚本用 `pmset schedule wake` 约好每日时间和之后每 3 小时的 xx:15:50 唤醒；worker 运行时用 `caffeinate` 不让 Mac 睡回去 | plist 在 bundle 内，卸载即消失；2026-09-24 用户要求后台进程在系统各处显示指向本 app 的名字，并且**必须在休眠时更新、别人安装后也要能用** |
 | 单实例锁 | **SQLite `locks` 表** + `BEGIN IMMEDIATE` + 15 秒心跳；App 另有 `requestSingleInstanceLock` | 不用文件锁，`kill -9` 后 flock 清理语义不可靠 |
 | 阅读核心 | **Go 程序 `native/reader`（`pnr-reader`）**：Miniflux 的解析/编码/清洗/站点规则 + go-trafilatura 抽正文。**全 TS 决策的唯一例外** | Trafilatura 没有 JS 版；新闻文章 F1：Trafilatura 0.926 vs Readability 0.825（WCXB）。Miniflux 的 reader 包带大量测试。见下文「阅读核心」 |
 | 下载在哪 | **一律在 Node（`@pnr/core` 的 `download`）**，Go 只处理字节，不联网 | France 24 等按 TLS 指纹拦截：Go 客户端和 curl 403，Node fetch 200 |
 | 各板块分工 | **今日** = 每天一份的日报（今日摘要 + 关注之外 + 往期）；**快讯** = 随时的电讯，一条一件事，几小时查一次；**关注** = 每件事的档案（进展时间线为默认页 → 相关报道 → 设置）；**阅读** = RSS 阅读器；**新闻助手** = 问答；**深度报道** = 把一件事讲透。**同一条新闻只有一个家，别处只放链接** | 2026-09-22 用户指出「昨天到今天」与摘要、快讯重复，分工不清 |
 | 进展形态 | 进展判断出的新里程碑 **写进今日摘要**（`generateDigest` 的 `NEW`，「新」= 自上一期摘要生成以来）**+** Watch 页完整时间线（最新在上，新增标「新」）。摘要每节小标题上方标所属关注，点击进该关注的时间线；侧栏「关注」计数 = 新进展数。**今日不再单列「昨天到今天」** | 共用 `firstSeenAt`，一份数据两种渲染，判断只做一次 |
-| 更新按钮 | 工具栏分两半，**左半在列表正上方，放作用于列表的操作**，右半放作用于选中项的操作（同 Mail）。**↻ 只表示「取新内容」**，只在阅读（更新订阅）和快讯（检查新快讯）出现，紧挨列表标题，运行时只有它自己转。**AI 重写用带文字的按钮，放在被重写的东西上**：今日摘要文首「重新生成」、单个关注的「立即更新」（先抓取再筛选）。关注页没有全局更新 | 2026-09-22 用户反馈四个一样的 ↻ 分不清各自更新什么；原「更新全部关注」还会顺带重写摘要 |
+| 更新按钮 | 工具栏分两半，**左半在列表正上方，放作用于列表的操作**，右半放作用于选中项的操作（同 Mail）。**↻ 只表示「取新内容」**，只在阅读（更新订阅）和快讯（检查新快讯）出现，紧挨列表标题。**「全部更新」是唯一的全局按钮**：侧栏标题栏（侧栏收起时在工具栏左端），菜单 ⇧⌘R；按住 ⌥ 变成「全部重新生成」（⌥⇧⌘R）。**AI 重写用带文字的按钮，放在被重写的东西上**：今日摘要文首「重新生成」**只重写摘要这一份**（一次调用，不抓取不判定）；单个关注的「立即更新」（先抓取再筛选，有新报道才重读进展）。**所有写作一律增量**（`pipeline.ts`）：进展只在有新过闸报道时重读（`watches.progress_at`）、快讯只看模型没见过的候选（`flash_considered`）、摘要只在有新进展或新关注有材料时重写（`digestDue`）、关注之外一天一次、AI 初筛按关注原话缓存（`prescreen_results`）；`force` 才全部重写 | 2026-09-22 用户反馈四个一样的 ↻ 分不清；2026-09-24 用户要求以省 token 为目标设计按钮，并要一个全部更新的按钮 |
 | 右侧分栏 | **新闻助手**：通用问答，不绑定文章，可联网（本地订阅 + Google News + 厂商网页搜索） | 侧栏只放助手 |
 | 深度报道 | 保留，但**不在侧栏**：从文章/快讯/进展进入，在主区域以文档视图打开，工具栏返回 | 绑定一条新闻，材料快照存 `conversations` 表；失败的首稿不会被当成已存报道恢复 |
 | 界面形态 | **按 macOS 应用做布局**：设置是独立窗口（⌘,，System Settings 式分组）、原生右键菜单、状态写在工具栏副标题 | 不要加网页式状态栏、卡片、悬停高亮 |
@@ -228,6 +228,7 @@ M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签�
 
 - **打包签名公证**（需 Apple 开发者账号）—— 唯一剩余的高风险项
 - 自动更新、一键卸载、贡献指南
+- CI 在未签名包上跑 `scripts/verify-package.sh`（阅读核心、两个 launch agent 的程序、后台 worker 能否启动），发布流程在签名包和 DMG 里再跑一次
 
 ### 打包时的图标接线（别漏了其中一半）
 
@@ -330,5 +331,15 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
 - **RSSHub 自己往 stdout 写日志**（包括路由不存在时的完整堆栈），而且
   `LOG_LEVEL` 必须在 `import` **之前**设，它在模块求值时就读了。
   适配器另外还拦截了 stdout/stderr 兜底
+- **后台 helper 的可执行文件名必须以 " Helper" 结尾**（「所闻 后台更新 Helper」）。Electron 靠这个后缀判断自己是 helper、去上三级找 Electron Framework；
+  叫「所闻 后台更新」会在启动 Node 时直接 SIGTRAP。bundle 的显示名可以随便取
+- **SMAppService 拒绝没有开发者签名的 app**，Electron 只在 stderr 打一行 `Unable to set login item`，不抛异常。
+  以前开关因此「点了又弹回去」；现在读回状态，失败就改用手写 plist（`schedule.ts`）
+- **唤醒组件以 root 运行，只许执行它自己那个 root 所有的脚本**（只调 pmset 和 date）。它读的 `wake.conf` 归用户所有，
+  只取数字和一个只做存在性检查的 app 路径——**绝不能让 root 执行 app bundle 里的任何东西**（bundle 用户可写，等于提权）。
+  app 被拖进废纸篓后脚本发现路径不在了就不再约唤醒，别人卸载后 Mac 不会继续被叫醒。离线测试 `npm run test:wake`
+- **后台任务被锁跳过时 outcome 记 `skipped`，不能记 `ok`**：worker 靠「今天目标时间之后有没有成功的 daily run」判断是否还要跑
+- **任何 run 的 kind 不要随便写 'daily'**：worker 靠「今天之后有没有成功的 daily run」决定要不要跑每日任务。
+  单个关注的更新记为 `watch`，重写摘要记为 `digest`
 - **不是所有源都有发布时间**（知乎日报等）。契约不许编造日期，但整源丢弃更糟：
   用首次发现时间并置 `publishedAtEstimated`，界面显示「发现于」而不是「发布于」
