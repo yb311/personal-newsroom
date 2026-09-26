@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { Group, Row, Select, Switch } from './Form.tsx';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage, dateTime, languageName } from '../i18n.ts';
-import type { AiConnection, AiStatus, ScheduleState, SocialStatus } from '../types.ts';
+import type { AgentMode, AiConnection, AiStatus, ScheduleState, SocialStatus } from '../types.ts';
+import { AGENT_MODES } from '../types.ts';
 
 type UiChoice = 'system' | 'zh-CN' | 'en';
 type Section = 'general' | 'ai' | 'sources' | 'background';
@@ -208,8 +209,31 @@ function AiForm({ status, onSaved }: { status: AiStatus; onSaved: () => Promise<
         <Switch label={t('settings.searchFill')} checked={options.searchFillEnabled} onChange={(on) => void setOption('searchFillEnabled', on)} /></Row>
       <Row label={t('settings.outsidePicks')} hint={t('settings.outsidePicksHint')}>
         <Switch label={t('settings.outsidePicks')} checked={options.outsidePicksEnabled} onChange={(on) => void setOption('outsidePicksEnabled', on)} /></Row>
+      <AssistantModeRow />
     </Group>
   </>;
+}
+
+/** How freely the news assistant may change things; the chip under its input box sets the same value. */
+function AssistantModeRow() {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<AgentMode | null>(null);
+  useEffect(() => {
+    void window.pnr.assistantMode().then(setMode);
+    return window.pnr.onCommand?.((c) => { if (c === 'assistantMode') void window.pnr.assistantMode().then(setMode); });
+  }, []);
+  const change = async (next: AgentMode): Promise<void> => {
+    if (next === 'full' && !await window.pnr.confirm({ message: t('assistant.fullWarn.message'), detail: t('assistant.fullWarn.detail'),
+      confirm: t('assistant.fullWarn.confirm'), cancel: t('common.cancel') })) return;
+    setMode(await window.pnr.assistantSetMode(next));
+  };
+  if (!mode) return null;
+  return (
+    <Row label={t('settings.assistantMode')} hint={t(`assistant.modeHint.${mode}`)}>
+      <Select value={mode} onChange={(e) => void change(e.target.value as AgentMode)} aria-label={t('settings.assistantMode')}>
+        {AGENT_MODES.map((m) => <option key={m} value={m}>{t(`assistant.mode.${m}`)}</option>)}
+      </Select></Row>
+  );
 }
 
 function Sources() {

@@ -194,6 +194,48 @@ export function createApi(db: Db, dataDir: string) {
         .run(id, read ? now : null, now);
     },
 
+    /**
+     * Articles whose headline or snippet contains every word, newest first —
+     * the assistant's way to find "that article about …". Like the reading
+     * lists, only subscribed sources unless one source is asked for.
+     */
+    searchItems(opts: { q?: string; sourceId?: string; days?: number; unread?: boolean; limit?: number }): ItemRow[] {
+      const where: string[] = []; const params: unknown[] = [];
+      for (const w of (opts.q ?? '').split(/\s+/).filter(Boolean).slice(0, 6)) {
+        where.push('(i.title LIKE ? OR i.snippet LIKE ?)'); params.push(`%${w}%`, `%${w}%`);
+      }
+      if (opts.sourceId) { where.push('i.source_id = ?'); params.push(opts.sourceId); } else where.push('s.enabled = 1');
+      if (opts.days) { where.push('i.published_at >= ?'); params.push(Date.now() - opts.days * 864e5); }
+      if (opts.unread) where.push('r.read_at IS NULL');
+      return db.prepare(`SELECT ${ITEM_COLS} FROM items i JOIN sources s ON s.id = i.source_id
+        LEFT JOIN reading_state r ON r.item_id = i.id WHERE ${where.join(' AND ')}
+        ORDER BY i.published_at DESC LIMIT ?`).all(...params, Math.min(opts.limit ?? 20, 100)) as ItemRow[];
+    },
+
+    /** Marks several articles read or unread, returning what each was before so it can be put back. */
+    markManyRead(ids: string[], read: boolean): { id: string; readAt: number | null }[] {
+      const before = db.prepare('SELECT read_at AS readAt FROM reading_state WHERE item_id = ?');
+      const put = db.prepare(`INSERT INTO reading_state (item_id, read_at, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET read_at = excluded.read_at, updated_at = excluded.updated_at`);
+      const now = Date.now();
+      return db.transaction(() => [...new Set(ids)].filter((id) => db.prepare('SELECT 1 FROM items WHERE id = ?').get(id)).map((id) => {
+        const was = (before.get(id) as { readAt: number | null } | undefined)?.readAt ?? null;
+        put.run(id, read ? (was ?? now) : null, now);
+        return { id, readAt: was };
+      }))();
+    },
+    /** Puts read states back as `markManyRead` found them. */
+    restoreRead(states: { id: string; readAt: number | null }[]): void {
+      const put = db.prepare(`INSERT INTO reading_state (item_id, read_at, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET read_at = excluded.read_at, updated_at = excluded.updated_at`);
+      db.transaction(() => { for (const s of states) put.run(s.id, s.readAt, Date.now()); })();
+    },
+    /** Unread article ids of one source, or of every subscribed one. */
+    unreadIds(sourceId?: string): string[] {
+      return (db.prepare(`SELECT i.id FROM items i JOIN sources s ON s.id = i.source_id LEFT JOIN reading_state r ON r.item_id = i.id
+        WHERE r.read_at IS NULL AND ${sourceId ? 'i.source_id = ?' : 's.enabled = 1'}`).all(...(sourceId ? [sourceId] : [])) as { id: string }[]).map((r) => r.id);
+    },
+
     toggleStar(id: string): boolean {
       const now = Date.now();
       const cur = db.prepare('SELECT starred_at FROM reading_state WHERE item_id = ?').get(id) as { starred_at: number | null } | undefined;
@@ -514,3 +556,5 @@ export function createApi(db: Db, dataDir: string) {
     }
   };
 }
+
+export type Api = ReturnType<typeof createApi>;

@@ -17,7 +17,11 @@ cat > "$OUT/preview.html" <<'HTML'
 <script>
 (async () => {
   const d = await (await fetch('./mock.json')).json();
-  const read = new Set(), star = new Set(); const chats = []; const listeners = [];
+  const read = new Set(), star = new Set(); const chats = []; const listeners = []; let mode = 'ask';
+  const settleAction = (id, change) => {
+    for (const c of chats) for (const m of c.messages) for (const a of (m.actions ?? [])) if (a.id === id) { change(a); return { ok: true, resume: false, chat: structuredClone(c) }; }
+    return { ok: false, error: 'not_pending', chat: null };
+  };
   window.pnr = {
     listSources: async () => d.sources,
     listItems: async (o) => d.items
@@ -71,9 +75,32 @@ cat > "$OUT/preview.html" <<'HTML'
     assistantGet: async (id) => chats.find(c => c.id === id) ?? null,
     assistantDelete: async (id) => { const i = chats.findIndex(c => c.id === id); if (i >= 0) chats.splice(i, 1); return true; },
     assistantCancel: async () => true, onAssistantEvent: (cb) => { listeners.push(cb); return () => {}; },
+    // The agent: a question about following something gets a proposal card to confirm.
+    assistantMode: async () => mode, assistantSetMode: async (m) => (mode = m),
+    assistantAllow: async () => true, onAssistantNavigate: () => () => {},
+    assistantConfirm: async (id, edits) => settleAction(id, a => { a.status = 'done'; a.undoable = true; if (edits?.intent) a.view.fields[1].value = edits.intent; a.view.fields.forEach(f => delete f.editable); a.view.open = { kind: 'watch', watchId: 'w' }; }),
+    assistantReject: async (id) => settleAction(id, a => { a.status = 'cancelled'; }),
+    assistantUndo: async (id) => settleAction(id, a => { a.status = 'undone'; a.undoable = false; }),
     assistantAsk: async (input) => {
       let chat = chats.find(c => c.id === input.chatId);
       if (!chat) { chat = { id: 'chat-' + Date.now(), title: input.question, lang: 'zh-CN', createdAt: Date.now(), updatedAt: Date.now(), messages: [], sources: [] }; chats.unshift(chat); }
+      if (/关注|订阅|follow/i.test(input.question) || d.items.length < 3) {
+        const n = chat.messages.length;
+        for (const [phase, tool] of [['thinking'], ['tools', 'list_watches']]) {
+          listeners.forEach(cb => cb({ requestId: input.requestId, chatId: chat.id, messageId: 'm', type: 'phase', phase, tool }));
+          await new Promise(r => setTimeout(r, 400));
+        }
+        const act = (i, tool, risk, status, view) => ({ id: 'act' + n + i, messageId: 'a' + n, sequence: n * 10 + i, tool, risk, args: {}, status, view, error: null, undoable: false, expired: false, createdAt: Date.now() });
+        chat.messages.push({ id: 'u' + n, sequence: n + 1, role: 'user', content: input.question, answer: null, status: 'complete', web: input.web, error: null, screenLabel: input.screen?.label ?? null, actions: [] });
+        chat.messages.push({ id: 'a' + n, sequence: n + 2, role: 'assistant', content: null, status: 'complete', web: input.web, error: null, screenLabel: null,
+          actions: [act(0, 'list_watches', 'read', 'done', null),
+            act(1, 'create_watch', 'write', mode === 'readonly' ? 'blocked' : 'proposed', { subject: '美国大选', fields: [{ key: 'label', value: '美国大选', editable: true }, { key: 'intent', value: input.question, editable: true }, { key: 'keywords', value: '美国大选、US Election' }] }),
+            act(2, 'update_watch', 'write', 'proposed', { subject: '人工智能与网络安全', fields: [{ key: 'sensitivity', before: 'balanced', value: 'more' }, { key: 'intent', before: '人工智能', value: 'AI safety news only', editable: true, warn: true }] }),
+            act(3, 'delete_watch', 'danger', 'proposed', { subject: '太空探索', fields: [{ key: 'intent', value: '太空探索的进展' }] })],
+          answer: { units: [{ kind: 'note', text: '请确认下面的改动。', sourceRefIds: [], supported: false }] } });
+        chat.updatedAt = Date.now();
+        return { chat: structuredClone(chat) };
+      }
       for (const phase of ['library', input.web ? 'web' : 'writing', 'writing']) {
         listeners.forEach(cb => cb({ requestId: input.requestId, chatId: chat.id, messageId: 'm', type: 'phase', phase }));
         await new Promise(r => setTimeout(r, 400));
@@ -82,9 +109,9 @@ cat > "$OUT/preview.html" <<'HTML'
       picked.forEach((it, i) => { if (!chat.sources.some(s => s.url === it.url)) chat.sources.push({ refId: 's' + (chat.sources.length + 1), kind: i === 2 && input.web ? 'web' : 'library', itemId: it.id, title: it.title, url: it.url, publisher: it.sourceName, publishedAt: it.publishedAt }); });
       const refs = chat.sources.slice(-3).map(s => s.refId);
       const n = chat.messages.length;
-      chat.messages.push({ id: 'u' + n, sequence: n + 1, role: 'user', content: input.question, answer: null, status: 'complete', web: input.web, error: null, screenLabel: input.screen?.label ?? null });
+      chat.messages.push({ id: 'u' + n, sequence: n + 1, role: 'user', content: input.question, answer: null, status: 'complete', web: input.web, error: null, screenLabel: input.screen?.label ?? null, actions: [] });
       console.log('screen', JSON.stringify(input.screen));
-      chat.messages.push({ id: 'a' + n, sequence: n + 2, role: 'assistant', content: null, status: 'complete', web: input.web, error: null, answer: { units: [
+      chat.messages.push({ id: 'a' + n, sequence: n + 2, role: 'assistant', content: null, status: 'complete', web: input.web, error: null, actions: [], answer: { units: [
         { kind: 'paragraph', text: picked[0].title + '。', sourceRefIds: [refs[0]], supported: true },
         { kind: 'listItem', text: picked[1].title, sourceRefIds: [refs[1]], supported: true },
         { kind: 'listItem', text: picked[2].title, sourceRefIds: [refs[2]], supported: true },

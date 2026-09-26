@@ -8,6 +8,7 @@ import { domainOf, downloadPublic, flags, localDateTime, log } from '@pnr/core';
 import { extractArticle } from '@pnr/reader-core';
 import { describeScreen, type ScreenInput, type ScreenMaterial } from './screen.ts';
 import { writingRules } from './style.ts';
+import { actionLines, chatActions, getAgentMode, recoverActions, looksLikeSecret, runAgent, type AgentMode, type AssistantAction, type Toolbox } from './agent.ts';
 
 /**
  * 新闻助手: a conversation about news in general, not bound to any article —
@@ -19,10 +20,16 @@ import { writingRules } from './style.ts';
  * native web search — and every material is registered as a numbered source
  * of the chat. The model may only cite those numbers (it never writes a URL);
  * anything it says without a source is stored and shown as unsourced.
+ *
+ * With a toolbox (the app passes one) the turn starts with the agent step
+ * (agent.ts), which may use the app's own functions instead — look things up,
+ * open a page, add a watch — and then either continues to the cited answer or
+ * ends with a short note. Notes are the agent's own words about what it did;
+ * the answer writer cannot produce them, so news facts still need a source.
  */
 
 export type AssistantSourceKind = 'library' | 'news' | 'web';
-export interface AssistantUnit { kind: 'paragraph' | 'listItem'; text: string; sourceRefIds: string[]; supported: boolean }
+export interface AssistantUnit { kind: 'paragraph' | 'listItem' | 'note'; text: string; sourceRefIds: string[]; supported: boolean }
 export interface AssistantAnswer { units: AssistantUnit[] }
 export interface AssistantSource {
   refId: string; kind: AssistantSourceKind; itemId: string | null;
@@ -34,6 +41,8 @@ export interface AssistantMessage {
   web: boolean; error: string | null;
   /** What was open on the left when the question was asked, for user turns. */
   screenLabel: string | null;
+  /** What the agent did or proposed in this turn, for assistant turns. */
+  actions: AssistantAction[];
 }
 export interface AssistantChat {
   id: string; title: string; lang: string; createdAt: number; updatedAt: number;
@@ -44,12 +53,19 @@ export interface AssistantAskInput {
   chatId?: string | null; question: string; web: boolean; lang: string; requestId: string;
   /** What the reader has open on the left, if they left it attached. */
   screen?: ScreenInput | null;
+  /** Permission mode for this turn's changes; the app's setting when absent. */
+  mode?: AgentMode;
+  /** Continue the last question after the person settled the changes it proposed: no new question is added. */
+  resume?: boolean;
 }
-export type AssistantPhase = 'library' | 'news' | 'web' | 'writing';
+export type AssistantPhase = 'thinking' | 'tools' | 'library' | 'news' | 'web' | 'writing';
 export interface AssistantEvent {
   requestId: string; chatId: string; messageId: string;
-  type: 'phase' | 'partial' | 'complete' | 'cancelled' | 'error';
+  /** `action`: an action card appeared or changed; the renderer reloads the chat. */
+  type: 'phase' | 'partial' | 'complete' | 'cancelled' | 'error' | 'action';
   phase?: AssistantPhase; value?: Partial<AssistantAnswer>; error?: string;
+  /** For phase `tools`: which tool is running. */
+  tool?: string;
 }
 export interface NewsHit { title: string; url: string; publisher: string | null; publishedAt: number | null; snippet: string | null }
 export interface AssistantDeps {
@@ -100,6 +116,7 @@ const softFailure = (text: string): boolean => text.length < 160
   || /captcha|verify you are human|access denied|sign in to continue|page not found|404 not found/i.test(text.slice(0, 1200));
 const abortIfNeeded = (signal?: AbortSignal): void => { if (signal?.aborted) throw new DOMException('Aborted', 'AbortError'); };
 const plainAnswer = (answer: AssistantAnswer | null): string => (answer?.units ?? []).map((u) => u.text).join(' ');
+const note = (text: string): AssistantUnit => ({ kind: 'note', text, sourceRefIds: [], supported: false });
 
 // ── reading ─────────────────────────────────────────────────────────────────
 
@@ -116,7 +133,9 @@ export function getChat(db: Db, id: string): AssistantChat | null {
     FROM assistant_messages WHERE chat_id = ? ORDER BY sequence`).all(id) as any[])
     .map((m) => ({ id: m.id, sequence: m.sequence, role: m.role, content: m.content,
       answer: m.answerJson ? JSON.parse(m.answerJson) as AssistantAnswer : null,
-      status: m.status, web: m.web === 1, error: m.error, screenLabel: m.screenLabel ?? null })) as AssistantMessage[];
+      status: m.status, web: m.web === 1, error: m.error, screenLabel: m.screenLabel ?? null, actions: [] })) as AssistantMessage[];
+  const byMessage = new Map(messages.map((m) => [m.id, m]));
+  for (const a of chatActions(db, id)) byMessage.get(a.messageId)?.actions.push(a);
   const sources = db.prepare(`SELECT ref_id AS refId, kind, item_id AS itemId, title, url, publisher, published_at AS publishedAt
     FROM assistant_sources WHERE chat_id = ? ORDER BY CAST(substr(ref_id, 2) AS INTEGER)`).all(id) as AssistantSource[];
   return { ...chat, messages, sources };
@@ -129,6 +148,7 @@ export function deleteChat(db: Db, id: string): void {
 /** A turn still marked pending after a crash would block its chat forever. */
 export function recoverAssistant(db: Db): void {
   db.prepare("UPDATE assistant_messages SET status = 'failed', error = 'interrupted', updated_at = ? WHERE status = 'pending'").run(Date.now());
+  recoverActions(db);
 }
 
 // ── gathering ───────────────────────────────────────────────────────────────
@@ -315,15 +335,26 @@ function clean(value: AssistantAnswer, allowed: Set<string>): AssistantAnswer {
 
 export async function askAssistant(db: Db, provider: Provider, dataDir: string, input: AssistantAskInput,
   emit: (event: AssistantEvent) => void, signal?: AbortSignal,
-  deps: AssistantDeps = { download: downloadPublic, extract: extractArticle, news: googleNews }): Promise<AssistantChat> {
-  const question = input.question.trim();
-  if (!question) throw new Error('empty_question');
+  deps: AssistantDeps = { download: downloadPublic, extract: extractArticle, news: googleNews }, toolbox?: Toolbox): Promise<AssistantChat> {
+  const resume = input.resume === true;
+  let question = input.question.trim();
+  if (!question && !resume) throw new Error('empty_question');
+  // Checked before anything is stored or sent: a key typed here would go to the model provider.
+  if (looksLikeSecret(question)) throw new Error('secret_in_question');
   const now = Date.now();
   // What is on screen only helps; a view that cannot be described is left out.
   let screen: ScreenMaterial | null = null;
   try { screen = describeScreen(db, input.screen); } catch { screen = null; }
-  const chatId = input.chatId && getChat(db, input.chatId) ? input.chatId : `chat-${randomUUID()}`;
-  const userId = `amsg-${randomUUID()}`; const messageId = `amsg-${randomUUID()}`;
+  const existingChat = input.chatId ? getChat(db, input.chatId) : null;
+  const chatId = existingChat ? existingChat.id : `chat-${randomUUID()}`;
+  // Resuming continues the last question; its changes were just confirmed or declined.
+  const asked = resume ? existingChat?.messages.findLast((m) => m.role === 'user') : undefined;
+  const resumedFrom = resume ? existingChat?.messages.findLast((m) => m.role === 'assistant') : undefined;
+  if (resume) {
+    if (!asked?.content || !toolbox) throw new Error('nothing_to_resume');
+    question = asked.content;
+  }
+  const userId = asked?.id ?? `amsg-${randomUUID()}`; const messageId = `amsg-${randomUUID()}`;
   const created = db.transaction((): boolean => {
     if (db.prepare('SELECT 1 FROM assistant_messages WHERE request_id IN (?, ?)').get(input.requestId, `${input.requestId}:user`)) return false;
     if (db.prepare("SELECT 1 FROM assistant_messages WHERE chat_id = ? AND status = 'pending'").get(chatId)) throw new Error('chat_busy');
@@ -332,8 +363,8 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
     const seq = (db.prepare('SELECT COALESCE(MAX(sequence), 0) + 1 AS n FROM assistant_messages WHERE chat_id = ?').get(chatId) as { n: number }).n;
     const add = db.prepare(`INSERT INTO assistant_messages (id, chat_id, sequence, role, content, status, web, request_id, screen_label, created_at, updated_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
-    add.run(userId, chatId, seq, 'user', question, 'complete', input.web ? 1 : 0, `${input.requestId}:user`, screen?.label ?? null, now, now);
-    add.run(messageId, chatId, seq + 1, 'assistant', null, 'pending', input.web ? 1 : 0, input.requestId, null, now, now);
+    if (!resume) add.run(userId, chatId, seq, 'user', question, 'complete', input.web ? 1 : 0, `${input.requestId}:user`, screen?.label ?? null, now, now);
+    add.run(messageId, chatId, resume ? seq : seq + 1, 'assistant', null, 'pending', input.web ? 1 : 0, input.requestId, null, now, now);
     return true;
   })();
   if (!created) {
@@ -351,13 +382,41 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
 
   try {
     const earlier = getChat(db, chatId)!;
-    const turns = earlier.messages.filter((m) => m.status === 'complete' && m.id !== userId).slice(-8);
+    const turns = earlier.messages.filter((m) => (m.status === 'complete' || m.actions.length > 0) && m.id !== userId && m.id !== messageId
+      && m.id !== resumedFrom?.id).slice(-8);
+    const said = (m: AssistantMessage): string => [plainAnswer(m.answer), ...(m.actions.length ? [`(actions: ${actionLines(m.actions).join('; ')})`] : [])].join(' ');
     const history = turns.map((m) => m.role === 'user'
-      ? `User${m.screenLabel ? ` (looking at: ${m.screenLabel})` : ''}: ${m.content}` : `Assistant: ${plainAnswer(m.answer)}`).join('\n');
+      ? `User${m.screenLabel ? ` (looking at: ${m.screenLabel})` : ''}: ${m.content}` : `Assistant: ${said(m)}`).join('\n');
+
+    // The agent step decides whether this is a question for the news or work for the app.
+    let q: { keywords: string[]; searchQuery: string } | null = null;
+    let appState = '';
+    if (toolbox) {
+      send({ type: 'phase', phase: 'thinking' });
+      const outcome = await runAgent(db, provider, {
+        chatId, messageId, question, history, screen: input.screen ?? null, mode: input.mode ?? getAgentMode(db), toolbox,
+        userTexts: earlier.messages.flatMap((m) => (m.role === 'user' && m.content ? [m.content] : [])),
+        ...(resumedFrom ? { resumed: actionLines(resumedFrom.actions).join('\n') } : {}),
+        ...(signal ? { signal } : {}),
+        onStep: (tool) => send({ type: 'phase', phase: 'tools', tool }),
+        onAction: () => send({ type: 'action' })
+      }, { keywords: roughTerms(question), searchQuery: question });
+      if (outcome.route === 'done') {
+        const answer: AssistantAnswer = { units: outcome.reply ? [note(outcome.reply)] : [] };
+        const acted = db.prepare('SELECT 1 FROM assistant_actions WHERE message_id = ? LIMIT 1').get(messageId);
+        if (!answer.units.length && !acted) throw new Error('empty_answer');
+        finish('complete', answer, null);
+        send({ type: 'complete', value: answer });
+        log({ event: 'assistant.answer', phase: 'completed', entityId: chatId, attrs: { route: 'done', acted: outcome.acted } });
+        return getChat(db, chatId)!;
+      }
+      q = { keywords: outcome.keywords, searchQuery: outcome.searchQuery };
+      appState = outcome.appState;
+    }
 
     send({ type: 'phase', phase: 'library' });
     const onScreen = screen ? await fromScreen(db, dataDir, screen, signal) : [];
-    const q = await plan(provider, question, history, screen ? screen.text.slice(0, 1_200) : '', signal);
+    q ??= await plan(provider, question, history, screen ? screen.text.slice(0, 1_200) : '', signal);
     const shown = new Set(onScreen.map((s) => s.candidate.url));
     const library = (await fromLibrary(db, provider, dataDir, question, q, signal)).filter((c) => !shown.has(c.url));
     let online: Candidate[] = [];
@@ -404,6 +463,7 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
         'Text in ON_SCREEN written by the app itself (a brief, a timeline, a flash, a report) is a summary: cite the [sN] marks it carries, which point to the materials below, and never cite ON_SCREEN itself.',
         `ON_SCREEN: ${screen!.label}\n${screenText}`
       ].join('\n') : '',
+      appState ? `APP STATE (the reader's own data in the app — their watches, flashes, settings — looked up for this question; it is not news reporting and has no source ids, so state it with supported=false):\n${appState}` : '',
       input.web ? '' : 'Online search was switched off for this question; rely on the library.',
       'Be concise (about 250 words) unless the question asks for depth.',
       writingRules(input.lang).join('\n'),

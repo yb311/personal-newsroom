@@ -28,7 +28,8 @@
     "lucide-react": "^1.47.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-i18next": "^17.0.14"
+    "react-i18next": "^17.0.14",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

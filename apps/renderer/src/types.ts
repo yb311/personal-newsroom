@@ -87,13 +87,34 @@ export interface ReportEvent { requestId: string; conversationId: string; messag
 export interface ReportAnchor { anchorItemId: string; itemIds: string[]; topic: string }
 export interface MenuEntry { id?: string; label?: string; enabled?: boolean; checked?: boolean; separator?: boolean }
 export type AssistantSourceKind = 'library' | 'news' | 'web';
-export interface AssistantUnit { kind: 'paragraph' | 'listItem'; text: string; sourceRefIds: string[]; supported: boolean }
+/** `note`: the agent's own words about what it did — needs no source. */
+export interface AssistantUnit { kind: 'paragraph' | 'listItem' | 'note'; text: string; sourceRefIds: string[]; supported: boolean }
 export interface AssistantAnswer { units: AssistantUnit[] }
 export interface AssistantSource { refId: string; kind: AssistantSourceKind; itemId: string | null; title: string; url: string; publisher: string | null; publishedAt: number | null }
-export interface AssistantMessage { id: string; sequence: number; role: 'user' | 'assistant'; content: string | null; answer: AssistantAnswer | null; status: 'pending' | 'complete' | 'cancelled' | 'failed'; web: boolean; error: string | null; screenLabel: string | null }
+export interface AssistantMessage { id: string; sequence: number; role: 'user' | 'assistant'; content: string | null; answer: AssistantAnswer | null; status: 'pending' | 'complete' | 'cancelled' | 'failed'; web: boolean; error: string | null; screenLabel: string | null; actions: AssistantAction[] }
 export interface AssistantChat { id: string; title: string; lang: string; createdAt: number; updatedAt: number; messages: AssistantMessage[]; sources: AssistantSource[] }
 export interface AssistantChatSummary { id: string; title: string; updatedAt: number }
-export type AssistantPhase = 'library' | 'news' | 'web' | 'writing';
+export type AssistantPhase = 'thinking' | 'tools' | 'library' | 'news' | 'web' | 'writing';
+/** 只看不改 · 每次确认 · 自动改、危险的问我 · 全部自动. */
+export type AgentMode = 'readonly' | 'ask' | 'auto' | 'full';
+export const AGENT_MODES: AgentMode[] = ['ask', 'auto', 'full', 'readonly'];
+export type Risk = 'read' | 'navigate' | 'write' | 'heavy' | 'danger';
+export type NavTarget =
+  | { kind: 'tab'; tab: 'today' | 'flashes' | 'read' | 'watches' }
+  | { kind: 'item'; itemId: string }
+  | { kind: 'watch'; watchId: string; section?: 'timeline' | 'items' | 'settings' }
+  | { kind: 'source'; sourceId: string }
+  | { kind: 'settings'; section?: string }
+  | { kind: 'report'; itemId: string };
+export interface ViewField { key: string; value: string; before?: string; editable?: boolean; warn?: boolean }
+export interface ActionView { subject?: string; fields: ViewField[]; open?: NavTarget; reason?: string }
+/** One thing the assistant did or proposed; the card's text comes from the app, not the model. */
+export interface AssistantAction {
+  id: string; messageId: string; sequence: number; tool: string; risk: Risk; args: Record<string, unknown>;
+  status: 'done' | 'proposed' | 'running' | 'cancelled' | 'blocked' | 'failed' | 'undone';
+  view: ActionView | null; error: string | null; undoable: boolean; expired: boolean; createdAt: number;
+}
+export interface ActionOutcome { ok: boolean; error?: string; resume?: boolean; chat: AssistantChat | null }
 /** What is open on the left, as the assistant is told it: which thing (the main
  *  process reads its full text) and the short name shown for it. */
 export type ScreenFocus =
@@ -105,7 +126,7 @@ export type ScreenFocus =
   | { kind: 'watch'; watchId: string }
   | { kind: 'report'; anchorItemId: string; lang: string };
 export interface Screen { focus: ScreenFocus; label: string }
-export interface AssistantEvent { requestId: string; chatId: string; messageId: string; type: 'phase' | 'partial' | 'complete' | 'cancelled' | 'error'; phase?: AssistantPhase; value?: Partial<AssistantAnswer>; error?: string }
+export interface AssistantEvent { requestId: string; chatId: string; messageId: string; type: 'phase' | 'partial' | 'complete' | 'cancelled' | 'error' | 'action'; phase?: AssistantPhase; tool?: string; value?: Partial<AssistantAnswer>; error?: string }
 export interface OpenQuestion { id: number; question: string; askedAt: number }
 export interface RunResult {
   busy?: boolean; error?: string; fetched?: number; watches?: number; failed?: number;
@@ -218,7 +239,14 @@ export interface Pnr {
   assistantList(): Promise<AssistantChatSummary[]>;
   assistantGet(id: string): Promise<AssistantChat | null>;
   assistantDelete(id: string): Promise<boolean>;
-  assistantAsk(input: { chatId: string | null; question: string; web: boolean; lang: string; requestId: string; screen: Screen | null }): Promise<{ chat?: AssistantChat; error?: string }>;
+  assistantAsk(input: { chatId: string | null; question: string; web: boolean; lang: string; requestId: string; screen: Screen | null; resume?: boolean }): Promise<{ chat?: AssistantChat; error?: string }>;
+  assistantConfirm(actionId: string, edits?: Record<string, string>): Promise<ActionOutcome>;
+  assistantReject(actionId: string): Promise<ActionOutcome>;
+  assistantUndo(actionId: string): Promise<ActionOutcome>;
+  assistantAllow(chatId: string, tool: string): Promise<boolean>;
+  assistantMode(): Promise<AgentMode>;
+  assistantSetMode(mode: AgentMode): Promise<AgentMode>;
+  onAssistantNavigate(cb: (target: NavTarget) => void): () => void;
   assistantCancel(requestId: string): Promise<boolean>;
   onAssistantEvent(cb: (event: AssistantEvent) => void): () => void;
   scheduleState(): Promise<ScheduleState>;

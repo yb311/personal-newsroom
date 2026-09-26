@@ -7,9 +7,11 @@ import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr/ai';
 import { runDaily, runFlashCheck, runWatch, rewriteDigest, getReport, startReport, askReport, recoverReports, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
+         confirmAction, rejectAction, undoAction, allowTool, getAgentMode, setAgentMode, type AgentMode, type NavTarget,
          type AssistantEvent, type AssistantAskInput, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig } from './social.ts';
+import { buildToolbox } from './agent-tools.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns, refreshSchedule, setWake, uninstallWake } from './schedule.ts';
 import zhCN from '../../renderer/src/locales/zh-CN.json';
 import en from '../../renderer/src/locales/en.json';
@@ -171,12 +173,13 @@ function uiLanguage(): { choice: UiChoice; resolved: 'zh-CN' | 'en' } {
   return { choice, resolved: choice === 'system' ? (system.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en') : choice };
 }
 ipcMain.handle('app:uiLanguage', () => uiLanguage());
-ipcMain.handle('app:setUiLanguage', (_e, choice: UiChoice) => {
+function setUiLanguage(choice: UiChoice): ReturnType<typeof uiLanguage> {
   writeSetting(db, UI_LANGUAGE_KEY, choice === 'zh-CN' || choice === 'en' ? choice : 'system');
   installApplicationMenu();
   broadcast('app:uiLanguage', uiLanguage().resolved);
   return uiLanguage();
-});
+}
+ipcMain.handle('app:setUiLanguage', (_e, choice: UiChoice) => setUiLanguage(choice));
 
 /** The menu, from the same dictionaries as the window. */
 function installApplicationMenu(): void {
@@ -285,7 +288,8 @@ for (const k of Object.keys(api) as (keyof typeof api)[]) handle(k);
 ipcMain.handle('app:openExternal', (_e, url: string) => { if (/^https?:\/\//i.test(String(url))) return shell.openExternal(String(url)); });
 
 let refreshing = false;
-ipcMain.handle('app:refresh', async () => {
+/** 阅读 ↻: fetch every subscribed source, then extract what is new. */
+async function refreshFeeds(): Promise<Record<string, unknown>> {
   if (refreshing) return { busy: true };
   if (!acquireLock(db, 'fetch')) return { busy: true };
   refreshing = true;
@@ -304,7 +308,8 @@ ipcMain.handle('app:refresh', async () => {
       .run(Date.now(), JSON.stringify({ error: String(err) }), runId);
     return { busy: false, error: String(err) };
   } finally { clearInterval(beat); refreshing = false; releaseLock(db, 'fetch'); }
-});
+}
+ipcMain.handle('app:refresh', () => refreshFeeds());
 
 ipcMain.handle('app:enrichOne', async (_e, id: string) => {
   const row = db.prepare('SELECT id, url FROM items WHERE id = ?').get(id) as { id: string; url: string } | undefined;
@@ -351,12 +356,18 @@ async function run(kind: 'daily' | 'flashes' | 'digest' | 'watch', locks: string
 }
 
 // Lock names match the worker's, so the app and a scheduled run never do the same job at once.
-ipcMain.handle('app:runAll', (_e, force?: boolean) => run('daily', ['daily', 'flashes'], (p, o) => runDaily(db, p, o), Boolean(force)));
-ipcMain.handle('app:runFlashes', () => run('flashes', ['flashes'], (p, o) => runFlashCheck(db, p, o)));
-// Recorded as its own kind: one watch is not the day's run the scheduler looks for.
-ipcMain.handle('app:runWatch', (_e, id: string) => run('watch', ['daily'], (p, o) => runWatch(db, p, id, o)));
-ipcMain.handle('app:rewriteDigest', () => run('digest', ['daily'], async (p, o) =>
-  p ? rewriteDigest(db, p, o) : { fetched: 0, watches: 0, failed: 0, mode: 'keywords' as const }));
+const runs = {
+  all: (force: boolean) => run('daily', ['daily', 'flashes'], (p, o) => runDaily(db, p, o), force),
+  flashes: () => run('flashes', ['flashes'], (p, o) => runFlashCheck(db, p, o)),
+  // Recorded as its own kind: one watch is not the day's run the scheduler looks for.
+  watch: (id: string) => run('watch', ['daily'], (p, o) => runWatch(db, p, id, o)),
+  digest: () => run('digest', ['daily'], async (p, o) =>
+    p ? rewriteDigest(db, p, o) : { fetched: 0, watches: 0, failed: 0, mode: 'keywords' as const })
+};
+ipcMain.handle('app:runAll', (_e, force?: boolean) => runs.all(Boolean(force)));
+ipcMain.handle('app:runFlashes', () => runs.flashes());
+ipcMain.handle('app:runWatch', (_e, id: string) => runs.watch(id));
+ipcMain.handle('app:rewriteDigest', () => runs.digest());
 
 // ── news assistant ─────────────────────────────────────────────────────────
 const assistantRequests = new Map<string, AbortController>();
@@ -367,11 +378,25 @@ ipcMain.handle('assistant:delete', (_e, id: string) => { deleteChat(db, id); ret
 ipcMain.handle('assistant:ask', async (_e, input: AssistantAskInput) => {
   const provider = await resolveProvider(db); if (!provider) return { error: 'no_provider' };
   const controller = new AbortController(); assistantRequests.set(input.requestId, controller);
-  try { return { chat: await askAssistant(db, provider, DATA_DIR, input, assistantEvent, controller.signal) }; }
+  try { return { chat: await askAssistant(db, provider, DATA_DIR, { ...input, mode: getAgentMode(db) }, assistantEvent, controller.signal, undefined, toolbox) }; }
   catch (error) { return { error: String((error as Error)?.message ?? error).slice(0, 160) }; }
   finally { assistantRequests.delete(input.requestId); }
 });
 ipcMain.handle('assistant:cancel', (_e, requestId: string) => { assistantRequests.get(requestId)?.abort(); return true; });
+
+// The assistant as an agent: its tools are the functions behind the buttons
+// (agent-tools.ts). Whether a change waits for confirmation is decided in
+// @pnr/generate from the tool's risk and the mode — the renderer only shows it.
+const chatOf = (actionId: string): string | null =>
+  (db.prepare('SELECT chat_id AS c FROM assistant_actions WHERE id = ?').get(actionId) as { c: string } | undefined)?.c ?? null;
+const withChat = <T extends object>(actionId: string, result: T) => { const c = chatOf(actionId); return { ...result, chat: c ? getChat(db, c) : null }; };
+ipcMain.handle('assistant:confirm', async (_e, actionId: string, edits?: Record<string, unknown>) =>
+  withChat(actionId, await confirmAction(db, toolbox, String(actionId), edits ?? {})));
+ipcMain.handle('assistant:reject', (_e, actionId: string) => withChat(actionId, rejectAction(db, String(actionId))));
+ipcMain.handle('assistant:undo', async (_e, actionId: string) => withChat(actionId, await undoAction(db, toolbox, String(actionId))));
+ipcMain.handle('assistant:allow', (_e, chatId: string, tool: string) => { allowTool(db, String(chatId), String(tool)); return true; });
+ipcMain.handle('assistant:mode', () => getAgentMode(db));
+ipcMain.handle('assistant:setMode', (_e, mode: AgentMode) => { const next = setAgentMode(db, mode); broadcast('app:command', 'assistantMode'); return next; });
 
 // ── deep report ────────────────────────────────────────────────────────────
 const reportRequests = new Map<string, AbortController>();
@@ -406,6 +431,27 @@ ipcMain.handle('app:setSchedule', async (_e, on: boolean, hour?: number) =>
 
 // ── social sources pack ────────────────────────────────────────────────────
 const social = socialApi(db, () => win);
+
+// ── the assistant's toolbox ───────────────────────────────────────────────
+const dictionary = () => (uiLanguage().resolved === 'en' ? en : zhCN);
+const toolbox = buildToolbox(db, api, {
+  refresh: refreshFeeds,
+  runAll: (force) => runs.all(force), runFlashes: () => runs.flashes(), runWatch: (id) => runs.watch(id), rewriteDigest: () => runs.digest(),
+  uiLanguage, setUiLanguage,
+  scheduleState: () => ({ ...scheduleState(db), runs: recentRuns(db) }),
+  setSchedule: (on, hour) => (on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db)),
+  setWake: (mode) => setWake(db, mode, dictionary().settings.wake.prompt),
+  rssHub: {
+    status: () => social.status(), setInstance: (url) => social.setInstance(url), install: () => social.install(), remove: () => social.remove(),
+    instance: () => (db.prepare("SELECT value FROM settings WHERE key = 'rsshub.instanceUrl'").get() as { value: string } | undefined)?.value ?? ''
+  }
+}, {
+  navigate: (target: NavTarget) => {
+    if (target.kind === 'settings') { openSettings(target.section); return; }
+    if (win && !win.isDestroyed()) { win.webContents.send('assistant:navigate', target); win.show(); }
+  },
+  changed: () => broadcast('app:command', 'dataChanged')
+});
 for (const name of Object.keys(social) as (keyof typeof social)[]) {
   ipcMain.handle(`social:${String(name)}`, (_e, ...args: unknown[]) => (social[name] as never as (...a: unknown[]) => unknown)(...args));
 }

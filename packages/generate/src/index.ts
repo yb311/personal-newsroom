@@ -5,6 +5,8 @@ export { runDaily, runFlashCheck, runWatch, rewriteDigest, progressDue, digestDu
 export { fillFromSearch, type SearchFillInput, type SearchFillResult, type SearchFillSource } from './search-fill.ts';
 export { getReport, startReport, askReport, recoverReports, type ReportConversation, type ReportEvent, type ReportStartInput, type ReportAnswer, type ReportSource } from './report.ts';
 export { askAssistant, getChat, listChats, deleteChat, recoverAssistant, type AssistantChat, type AssistantChatSummary, type AssistantAskInput,
-  type AssistantEvent, type AssistantAnswer, type AssistantSource, type AssistantMessage, type AssistantDeps, type NewsHit } from './assistant.ts';
+  type AssistantEvent, type AssistantAnswer, type AssistantSource, type AssistantMessage, type AssistantDeps, type AssistantUnit, type AssistantPhase, type NewsHit } from './assistant.ts';
 export { generateOutsidePicks, readOutsidePicks, outsideEnabled, outsideDue, type OutsidePick, type OutsideSuggestion } from './outside.ts';
+export { runAgent, gate, getAgentMode, setAgentMode, allowTool, confirmAction, rejectAction, undoAction, chatActions, looksLikeSecret, AGENT_MODES, MAX_STEPS, PROPOSAL_TTL,
+  type AgentTool, type AgentMode, type Toolbox, type ToolResult, type ActionView, type ViewField, type NavTarget, type Risk, type AssistantAction, type ActionStatus, type ResolveResult } from './agent.ts';
 export { describeScreen, type ScreenFocus, type ScreenInput, type ScreenMaterial } from './screen.ts';

@@ -236,6 +236,17 @@ Google News（只当标题 + 摘要，kind `news`）和厂商原生网页搜索�
 快讯、关注、深度报道），主进程从数据库完整读取（`screen.ts`）。打开的文章整篇作为 s1；
 App 自己写的摘要、时间线、快讯原样给模型，背后的文章登记成 `sN` 供引用。
 
+**助手也是 agent**（`agent.ts` + `apps/desktop/src/agent-tools.ts`，2026-09-25 用户要求）：
+每轮先跑一步「agent 步骤」（快模型，`operation: assistant_agent`，替代原来的检索规划，所以纯提问不多花一次调用）。
+它决定走 `answer`（原来的带引用回答）、`tools`（调用工具，看到结果再走下一步，最多 6 步）还是 `done`（一句说明，单元 kind 为 `note`，不需要来源）。
+
+- **工具 = 按钮背后的同一个函数**：`createApi`（ipc.ts）和 main.ts 的 `runs.*` / `refreshFeeds` 等，锁、`runs` 记录、进度消息照旧。约 45 个：关注（增删改、纠偏、立即更新）、订阅源（目录搜索、订阅/退订、添加/删除、RSSHub 路由）、阅读状态、今日/快讯/全部更新、深度报道、设置、后台、跳转页面。
+- **风险等级写在工具定义里**（read / navigate / write / heavy / danger），模型改不了；**权限模式**（只看不改 / 每次确认 / 自动改危险的问我 / 全部自动，`settings.assistant.mode`，输入框胶囊和 ⇧Tab 切换）由 `gate()` 在主进程判定。卡片上「本对话不再询问此类」记在 `assistant_chats.allow_json`。
+- 每次调用记一行 `assistant_actions`；卡片文字由工具从数据库算出（`view_json`），不用模型写的字。可撤销的记 `undo_json`，「撤销」调工具的 `undo`。待确认的 24 小时后过期；崩溃时进行中的记失败。模型标了 `more` 的改动确认后，界面以 `resume` 续跑同一个问题。
+- **第一原则照旧**：关注的 `intent`、纠偏的 `note` 必须是用户原话；不是用户说过的话时卡片标黄，任何模式都改为确认。`update_watch` 没有 exclude 字段。
+- **安全**：文章正文从不进 agent 步骤（工具只返回标题和 id，工具结果在 prompt 里标为不可信数据）；**填 API key / token 不做成工具**，像密钥的输入在本地拦下，不发给模型也不存。
+- 离线测试 `npm run test:agent`（脚本化模型 + 真实工具 + 临时数据库）。
+
 ## 9. AI 层（`packages/ai`）
 
 业务层只依赖项目自己的 `Provider` 接口（`generate` / `stream` / `embed` / `search`），
@@ -275,7 +286,7 @@ schema 嵌在 `migrations.ts` 里（打包后的主进程读不到源码旁边�
 | 产出 | `digests` · `milestones` · `milestone_sources` · `told_records` · `flashes` · `flash_considered` · `outside_picks` |
 | 搜索补全 | `search_materials` · `search_material_sources` |
 | 深度报道 | `conversations` · `conversation_messages` · `conversation_sources` |
-| 新闻助手 | `assistant_chats` · `assistant_messages` · `assistant_sources` |
+| 新闻助手 | `assistant_chats` · `assistant_messages` · `assistant_sources` · `assistant_actions` |
 | AI | `ai_runtime` · `embedding_cache_meta` · `watch_vector_meta` · `ai_requests` · `embeddings`、`watch_vectors`（sqlite-vec） |
 | 基础设施 | `locks` · `runs` · `events` · `circuit_breakers` · `settings` |
 

@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, CircleDot, ExternalLink, FileSearch, ListFilter, MessageSquareText, PanelLeft, Plus, RefreshCw, RotateCcw, Search, Star } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AiStatus, ItemRow, MenuEntry, OutsidePick, ReportAnchor, Screen, SourceRow } from './types.ts';
+import type { AiStatus, ItemRow, MenuEntry, NavTarget, OutsidePick, ReportAnchor, Screen, SourceRow } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { ItemList } from './components/ItemList.tsx';
 import { Reader } from './components/Reader.tsx';
@@ -210,7 +210,8 @@ export default function App() {
   // Menu and cross-window commands. A ref keeps the handler current without re-subscribing.
   const command = useRef<(c: string) => void>(() => {});
   command.current = (c: string) => {
-    if (c === 'settingsChanged') { void loadAi(); void loadItems(); void loadSources(); setRevision((v) => v + 1); return; }
+    // dataChanged: the assistant changed something (a watch, a subscription) that is on screen.
+    if (c === 'settingsChanged' || c === 'dataChanged') { void loadAi(); void loadItems(); void loadSources(); setRevision((v) => v + 1); return; }
     if (document.querySelector('dialog[open]')) return;
     if (c === 'sidebar') showSidebar(!sidebarShown);
     else if (c === 'assistant') toggleAssistant();
@@ -247,6 +248,19 @@ export default function App() {
   /** Opens one watch, by default on its timeline — where its developments are told. */
   const openWatch = (id: string, section: WatchTab = 'timeline'): void => { setWatchRequest({ open: id, section }); go('watches'); };
   const pickSource = (id: string | undefined): void => { go('read'); setFilter('all'); setSourceId(id); setSelected(null); setQuery(''); };
+  /** Pages the assistant opens; the same functions the sidebar and citations use. */
+  const navigateTo = useRef<(target: NavTarget) => void>(() => {});
+  navigateTo.current = (target) => {
+    if (target.kind === 'tab') go(target.tab);
+    else if (target.kind === 'item') openItem(target.itemId);
+    else if (target.kind === 'watch') openWatch(target.watchId, target.section);
+    else if (target.kind === 'source') pickSource(target.sourceId);
+    else if (target.kind === 'settings') openSettings(target.section);
+    else if (target.kind === 'report') void window.pnr.getItem(target.itemId).then((it) => {
+      if (it) openReport({ anchorItemId: it.id, itemIds: [it.id], topic: it.title });
+    });
+  };
+  useEffect(() => window.pnr.onAssistantNavigate((target) => navigateTo.current(target)), []);
   const pickFilter = (value: Filter): void => { go('read'); setSourceId(undefined); setFilter(value); setSelected(null); setQuery(''); };
 
   /** The native context menu for one article, wherever it is shown. */
@@ -392,7 +406,7 @@ export default function App() {
       {assistantOpen && <>
         <SplitDivider width={panelWidth} onChange={setPanelWidth} min={PANEL.min} max={PANEL.max} fallback={PANEL.fallback}
           storageKey={PANEL.key} edge="after" label={t('assistant.resize')} />
-        <ErrorBoundary><Assistant ai={ai} screen={screen} onOpenItem={openItem} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
+        <ErrorBoundary><Assistant ai={ai} screen={screen} onOpenItem={openItem} onNavigate={(target) => navigateTo.current(target)} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
       </>}
       {showCatalogue && <Catalogue onClose={(changed) => {
         setShowCatalogue(false); void loadSources(); void loadItems();

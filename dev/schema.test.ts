@@ -49,6 +49,7 @@ db.close();
 const db2 = openDb(p);
 const t2 = (db2.prepare("SELECT count(*) c FROM sqlite_master WHERE type='table'").get() as {c:number}).c;
 console.log(`\n重复打开（迁移幂等）: 表数仍为 ${t2 - 1} + _migrations`);
+if (!db2.prepare("SELECT 1 FROM sqlite_master WHERE name = 'assistant_actions'").get()) throw new Error('assistant_actions missing');
 db2.close();
 for (const s of ['','-wal','-shm']) rmSync(p+s,{force:true});
 
@@ -61,6 +62,7 @@ let refused = false;
 try { openDb(stale).close(); } catch { refused = true; }
 for (const s of ['','-wal','-shm']) rmSync(stale+s,{force:true});
 if (!refused) throw new Error('stale development database was opened');
-if (MIGRATIONS.length !== 1) throw new Error('expected one schema migration before the first release');
+// 001 是完整结构；之后只追加（已有的库只跑新加的那几条）。
+if (MIGRATIONS[0]?.name !== '001_schema') throw new Error('001_schema must stay the base schema');
 
 console.log('\n✅ schema 新建、幂等、拒绝旧开发库 验证通过');

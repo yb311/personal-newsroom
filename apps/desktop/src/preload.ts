@@ -52,6 +52,17 @@ contextBridge.exposeInMainWorld('pnr', {
   assistantDelete: (id: string) => ipcRenderer.invoke('assistant:delete', id),
   assistantAsk: (input: unknown) => ipcRenderer.invoke('assistant:ask', input),
   assistantCancel: (requestId: string) => ipcRenderer.invoke('assistant:cancel', requestId),
+  assistantConfirm: (actionId: string, edits?: Record<string, unknown>) => ipcRenderer.invoke('assistant:confirm', actionId, edits),
+  assistantReject: (actionId: string) => ipcRenderer.invoke('assistant:reject', actionId),
+  assistantUndo: (actionId: string) => ipcRenderer.invoke('assistant:undo', actionId),
+  assistantAllow: (chatId: string, tool: string) => ipcRenderer.invoke('assistant:allow', chatId, tool),
+  assistantMode: () => ipcRenderer.invoke('assistant:mode'),
+  assistantSetMode: (mode: string) => ipcRenderer.invoke('assistant:setMode', mode),
+  onAssistantNavigate: (cb: (target: unknown) => void) => {
+    const fn = (_e: unknown, target: unknown): void => cb(target);
+    ipcRenderer.on('assistant:navigate', fn);
+    return () => ipcRenderer.off('assistant:navigate', fn);
+  },
   onAssistantEvent: (cb: (p: unknown) => void) => {
     const fn = (_e: unknown, p: unknown): void => cb(p);
     ipcRenderer.on('assistant:event', fn);
