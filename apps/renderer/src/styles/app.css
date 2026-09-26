@@ -108,7 +108,6 @@ button svg { flex: none; }
 .tool-group { display: flex; }
 /* A toolbar button that names its action, for the one that is not obvious from an icon. */
 .tool.labeled { width: auto; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; font-size: var(--text-sm); white-space: nowrap; }
-.tool.labeled.compact { padding: 0; width: 28px; justify-content: center; }
 
 /* Push buttons. */
 .push, .primary { height: 22px; padding: 0 10px; border-radius: var(--radius-md); font-size: var(--text-md); }
@@ -397,7 +396,6 @@ button.ref:hover { background: var(--accent); color: var(--on-accent); }
 .banner > div { flex: 1; display: grid; gap: 2px; }
 .banner strong { font-size: var(--text-md); }
 .banner p { font-size: var(--text-sm); line-height: 1.5; color: var(--fg3); }
-.banner-icon { color: var(--accent); }
 .banner.warn p { color: var(--red); flex: 1; }
 
 .timeline-list { list-style: none; display: grid; }
@@ -477,10 +475,11 @@ button.ref:hover { background: var(--accent); color: var(--on-accent); }
 .assistant-welcome { padding: 28px 18px; display: grid; gap: 8px; }
 .assistant-welcome h3 { font-size: var(--text-lg); font-weight: 600; }
 .assistant-welcome p { font-size: var(--text-md); line-height: 1.55; color: var(--label-2); }
-.suggestions { display: grid; gap: 6px; margin-top: 10px; }
-.suggestions button { height: auto; min-height: 28px; padding: 6px 10px; justify-content: flex-start; white-space: normal; text-align: left; }
 .assistant-thread { padding: 16px 14px 8px; display: grid; gap: 14px; align-content: start; }
 .bubble { justify-self: end; max-width: 86%; padding: 6px 11px; border-radius: var(--radius-xl); background: var(--bg2); box-shadow: inset 0 0 0 .5px var(--border); color: var(--fg); font-size: var(--text-md); line-height: 1.45; white-space: pre-wrap; }
+/* What was open on the left when the question was asked, tucked under its bubble. */
+.bubble-context { justify-self: end; max-width: 86%; margin-top: -10px; display: flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--label-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bubble-context svg { flex: none; }
 .answer { display: grid; gap: 7px; font-size: var(--text-md); line-height: 1.6; }
 .answer ul { padding-left: 1.2em; display: grid; gap: 3px; }
 .answer .ref { background: var(--fill-strong); color: var(--label-2); }
@@ -506,13 +505,17 @@ button.ref:hover { background: var(--accent); color: var(--on-accent); }
 .history-open { flex: 1; min-width: 0; display: grid; justify-items: start; gap: 1px; padding: 7px 10px; text-align: left; white-space: normal; }
 .history-open strong { font-size: var(--text-md); font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .history-open small { font-size: var(--text-xs); color: var(--label-2); }
-.composer { flex: none; padding: 8px 10px 10px; display: grid; gap: 5px; }
-.composer-box { display: grid; gap: 6px; padding: 7px 7px 6px 10px; border-radius: var(--radius-lg); background: var(--control); box-shadow: 0 0 0 .5px var(--control-edge), 0 1px 3px rgb(0 0 0 / .08); color: var(--label); }
+.composer { flex: none; padding: 8px 10px 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; }
+.composer-box { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 7px 7px 6px 10px; border-radius: var(--radius-lg); background: var(--control); box-shadow: 0 0 0 .5px var(--control-edge), 0 1px 3px rgb(0 0 0 / .08); color: var(--label); }
 .composer-box:focus-within { box-shadow: 0 0 0 .5px var(--control-accent), 0 0 0 3.5px color-mix(in srgb, var(--control-accent) 35%, transparent); }
 .composer-box textarea, .composer-box textarea:focus { padding: 0; background: none; box-shadow: none; resize: none; font-size: var(--text-md); line-height: 1.5; max-height: 140px; }
-.composer-actions { display: flex; align-items: center; gap: 6px; }
+.composer-actions { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .chip-toggle { height: 20px; padding: 0 7px; border-radius: var(--radius-full); gap: 4px; font-size: var(--text-xs); color: var(--label-2); box-shadow: inset 0 0 0 .5px var(--control-edge); }
 .chip-toggle.on { color: var(--control-accent); background: color-mix(in srgb, var(--control-accent) 12%, transparent); box-shadow: none; }
+/* The screen chip names what is open on the left; it gives way first when the row is tight. */
+.chip-toggle.screen-chip { min-width: 0; flex: 0 1 auto; }
+.chip-toggle.screen-chip svg { flex: none; }
+.chip-toggle.screen-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .send { width: 24px; height: 24px; border-radius: 50%; background: var(--control-accent); color: var(--on-accent); }
 .send:disabled { background: var(--fill-strong); color: var(--label-3); opacity: 1; }
 .composer-hint { font-size: var(--text-xs); color: var(--label-3); text-align: center; }

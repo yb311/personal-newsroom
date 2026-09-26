@@ -1,19 +1,20 @@
 /**
- * Schema migrations, embedded rather than read from .sql files on disk.
+ * The database schema, embedded rather than read from .sql files on disk.
  *
  * The app ships as a bundled Electron main process, where `import.meta.url` is
  * undefined and loose .sql files are not part of the build output. Embedding
- * removes that whole class of packaging failure, and migrations are append-only
- * anyway: never edit an applied one, always add the next.
+ * removes that whole class of packaging failure.
+ *
+ * Migrations are append-only once a version has been released: never edit an
+ * applied one, add the next. Nothing has been released yet, so everything is
+ * still the one schema below.
  */
 export interface Migration { name: string; sql: string }
 
-const M001_INIT = `-- personal-newsroom initial schema
+// Needs the sqlite-vec extension loaded first (openDb does).
+const SCHEMA = `-- personal-newsroom schema
 -- Design rule (see AGENTS.md "少做有损压缩"): anything the AI needs to reason over
 -- is stored as full original text, never as a hash or a compressed summary.
-
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
 
 -- ───────────────────────── sources ─────────────────────────
 CREATE TABLE sources (
@@ -38,7 +39,11 @@ CREATE TABLE sources (
   last_fetch_at        INTEGER,
   last_ok_at           INTEGER,
   last_error           TEXT,
-  consecutive_failures INTEGER NOT NULL DEFAULT 0
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  -- HTTP cache validators from the last successful download, sent back as
+  -- If-None-Match / If-Modified-Since so an unchanged feed costs a 304.
+  etag                 TEXT,
+  last_modified        TEXT
 );
 CREATE INDEX sources_enabled ON sources(enabled, kind);
 CREATE INDEX sources_category ON sources(category) WHERE enabled = 1;
@@ -52,6 +57,10 @@ CREATE TABLE items (
   url             TEXT NOT NULL,
   title           TEXT NOT NULL,
   published_at    INTEGER NOT NULL,
+  -- Some upstreams publish items with no date at all. Dropping them loses whole
+  -- sources and inventing a date is worse, so the item keeps the time we first
+  -- saw it and this flag says so; the reader shows 「发现于」 not 「发布于」.
+  date_estimated  INTEGER NOT NULL DEFAULT 0,
   discovered_at   INTEGER NOT NULL,
   snippet         TEXT,
   author          TEXT,
@@ -61,7 +70,7 @@ CREATE TABLE items (
   body_state      TEXT NOT NULL DEFAULT 'pending',  -- pending|ok|blocked|failed|skipped
   body_path       TEXT,
   body_words      INTEGER,
-  body_engine     TEXT,                    -- defuddle | extractus | structural
+  body_engine     TEXT,                    -- which extractor produced it (reader core | feed)
   body_fetched_at INTEGER,
   body_error      TEXT
 );
@@ -82,8 +91,17 @@ CREATE TABLE watches (
   -- Recall aids only ever WIDEN the candidate set. Deliberately no exclude list:
   -- keyword-level exclusion is lossy compression (see AGENTS.md).
   recall_aids_json TEXT,                   -- { aliases[], relatedTerms[], sourceHints[], updatedAt }
+  -- The only matching available with AI off, and extra recall terms with it on.
+  keywords_json   TEXT,
+  sensitivity     TEXT NOT NULL DEFAULT 'balanced',   -- the intent gate: more | balanced | less
   created_at      INTEGER NOT NULL,
-  last_run_at     INTEGER
+  last_run_at     INTEGER,
+  -- The last progress pass. A later pass runs only when something judged after
+  -- it passed the gate (or the watch was reset). 增量生成：没有新材料就不调用模型。
+  progress_at     INTEGER,
+  -- When the person last looked at the timeline: a development is 「新」 until
+  -- then, like unread mail.
+  seen_at         INTEGER
 );
 
 -- ★ Full user text, not a normalised label.
@@ -105,7 +123,6 @@ CREATE TABLE matches (
   vector_score REAL,
   intent_score REAL,                       -- 0..10 from the batched LLM judge
   reason       TEXT,                       -- ★ the judge's own words, kept for the user
-  novelty      REAL,
   passed_gate  INTEGER NOT NULL DEFAULT 0,
   judged_at    INTEGER,
   created_at   INTEGER NOT NULL,
@@ -126,7 +143,11 @@ CREATE TABLE digests (
 
 CREATE TABLE flashes (
   id            TEXT PRIMARY KEY,
-  watch_id      TEXT REFERENCES watches(id) ON DELETE SET NULL,
+  -- One flash can serve several watches (the same event matters to more than
+  -- one) and records every item it was written from, so later runs skip them.
+  watch_ids_json TEXT NOT NULL,
+  item_ids_json  TEXT NOT NULL,
+  item_published_at INTEGER,
   batch_id      TEXT NOT NULL,
   published_at  INTEGER NOT NULL,
   lang          TEXT NOT NULL,
@@ -135,17 +156,27 @@ CREATE TABLE flashes (
   importance    INTEGER NOT NULL,          -- 0..10
   importance_reason TEXT,
   category      TEXT,
-  -- Ported from daily-brief: records whether this was written from the article
-  -- or filled in via googleSearch because the body could not be fetched.
+  -- Whether this was written from the article or filled in via search because
+  -- the body could not be fetched (see search_materials).
   basis         TEXT NOT NULL DEFAULT 'article',   -- article | search
+  search_material_id TEXT REFERENCES search_materials(id) ON DELETE SET NULL,
   follow_up_of  TEXT REFERENCES flashes(id) ON DELETE SET NULL,
   created_at    INTEGER NOT NULL
 );
 CREATE INDEX flashes_recent ON flashes(published_at DESC);
-CREATE INDEX flashes_watch ON flashes(watch_id, published_at DESC);
 
--- Timeline milestones. first_seen_at is what powers BOTH the "since yesterday"
--- panel (first_seen_at = today) and the full watch timeline (everything).
+-- Every (watch, item) pair a flash pass has already shown the model, whether it
+-- became a flash or was set aside as minor or already told. Later checks send
+-- only pairs it has not seen, and skip the call when there are none.
+CREATE TABLE flash_considered (
+  watch_id      TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
+  item_id       TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  considered_at INTEGER NOT NULL,
+  PRIMARY KEY (watch_id, item_id)
+);
+
+-- Timeline milestones. first_seen_at powers both the NEW part of the daily
+-- brief (first seen since the last brief) and the full watch timeline.
 -- One dataset, two renderings, one judgement.
 CREATE TABLE milestones (
   id            TEXT PRIMARY KEY,
@@ -177,39 +208,16 @@ CREATE TABLE told_records (
 );
 CREATE INDEX told_watch ON told_records(watch_id, told_at DESC);
 
-CREATE TABLE deep_summaries (
-  id           TEXT PRIMARY KEY,
-  item_id      TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-  lang         TEXT NOT NULL,
-  body_json    TEXT NOT NULL,              -- RichBlock[] with bound sourceRefIds
-  sources_json TEXT NOT NULL,              -- the bound source list; model may not invent URLs
-  generated_at INTEGER NOT NULL,
-  model        TEXT,
-  UNIQUE(item_id, lang)
-);
 
 -- ───────────────────────── reader ─────────────────────────
 CREATE TABLE reading_state (
   item_id       TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
   read_at       INTEGER,
   starred_at    INTEGER,
-  scroll_offset REAL,
   updated_at    INTEGER NOT NULL
 );
 CREATE INDEX reading_starred ON reading_state(starred_at DESC) WHERE starred_at IS NOT NULL;
 
--- v2 (translation). Table exists now so v2 needs no migration.
--- Keyed by paragraph hash so switching reading modes never re-pays.
-CREATE TABLE translations (
-  para_hash    TEXT NOT NULL,
-  target_lang  TEXT NOT NULL,
-  item_id      TEXT REFERENCES items(id) ON DELETE CASCADE,
-  source_text  TEXT NOT NULL,
-  target_text  TEXT NOT NULL,
-  model        TEXT,
-  created_at   INTEGER NOT NULL,
-  PRIMARY KEY (para_hash, target_lang)
-);
 
 -- ───────────────────────── infrastructure ─────────────────────────
 -- Generation lock. Replaces the Upstash Redis lock. BEGIN IMMEDIATE + heartbeat;
@@ -227,10 +235,10 @@ CREATE TABLE locks (
 -- the worker writes here and the UI reads it on next launch.
 CREATE TABLE runs (
   id          TEXT PRIMARY KEY,
-  kind        TEXT NOT NULL,               -- daily | flashes | backfill | fetch
+  kind        TEXT NOT NULL,               -- daily | flashes | fetch | watch | digest
   started_at  INTEGER NOT NULL,
   finished_at INTEGER,
-  outcome     TEXT,                        -- ok | partial | failed
+  outcome     TEXT,                        -- ok | partial | failed | skipped
   stats_json  TEXT
 );
 CREATE INDEX runs_recent ON runs(started_at DESC);
@@ -255,7 +263,7 @@ CREATE INDEX events_run ON events(run_id, at);
 
 -- Circuit breakers for rate-limited upstreams (GDELT especially).
 -- Community testing shows exponential BACKOFF makes GDELT worse; the correct
--- pattern is to open a circuit and fail fast. See docs/SPIKES.zh-CN.md §3.
+-- pattern is to open a circuit and fail fast. See docs/ARCHITECTURE.zh-CN.md §12.
 CREATE TABLE circuit_breakers (
   endpoint      TEXT PRIMARY KEY,
   state         TEXT NOT NULL DEFAULT 'closed',   -- closed | open
@@ -270,15 +278,217 @@ CREATE TABLE settings (
   value      TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
-`;
 
-/** Separate because it requires the sqlite-vec extension to be loaded first. */
-const M002_VECTORS = `-- Requires the sqlite-vec extension to be loaded first.
--- 768 dims matches gemini-embedding-2 as used by daily-brief.
---
--- NOTE (docs/SPIKES.zh-CN.md §1): each vector costs ~3224 bytes on disk,
--- i.e. ~2.3 GB/year at 2000 items/day. Mitigation is a retention policy
--- (see prune_vectors) plus optional Matryoshka truncation to 256 dims.
+-- Open questions a progress pass left without an answer, carried to the next
+-- runs as extra things to look for, until answered or stale.
+CREATE TABLE open_questions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  watch_id    TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
+  question    TEXT NOT NULL,
+  asked_at    INTEGER NOT NULL,
+  resolved_at INTEGER,
+  resolved_by TEXT                          -- milestone id that answered it, or 'expired'
+);
+CREATE INDEX open_questions_watch ON open_questions(watch_id, resolved_at, asked_at DESC);
+
+-- The AI prescreen (providers without embeddings) remembers its verdict per
+-- watch and item. The fingerprint covers the watch's own words and corrections,
+-- so editing either sends the item through again.
+CREATE TABLE prescreen_results (
+  watch_id    TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
+  item_id     TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  fingerprint TEXT NOT NULL,
+  relevant    INTEGER NOT NULL,
+  PRIMARY KEY (watch_id, item_id)
+);
+
+-- 「关注之外」: what mattered today outside every watch, once a day.
+CREATE TABLE outside_picks (
+  id                 TEXT PRIMARY KEY,
+  edition_date       TEXT NOT NULL,
+  lang               TEXT NOT NULL,
+  mode               TEXT NOT NULL,
+  event_title        TEXT NOT NULL,
+  importance_reason  TEXT NOT NULL,
+  item_ids_json      TEXT NOT NULL,
+  suggestion_json    TEXT NOT NULL,
+  config_fingerprint TEXT NOT NULL,
+  created_at         INTEGER NOT NULL
+);
+CREATE INDEX outside_picks_current ON outside_picks(edition_date, lang, config_fingerprint, created_at DESC);
+
+-- ───────────────────────── search fill ─────────────────────────
+-- Only when an article body cannot be fetched: search fills in details of that
+-- one already-known event. Every source it cites is downloaded and checked.
+CREATE TABLE search_materials (
+  id             TEXT PRIMARY KEY,
+  target_item_id TEXT REFERENCES items(id) ON DELETE SET NULL,
+  event_title    TEXT NOT NULL,
+  event_time     INTEGER NOT NULL,
+  date_estimated INTEGER NOT NULL DEFAULT 0,
+  provider       TEXT NOT NULL,
+  model          TEXT NOT NULL,
+  search_text    TEXT NOT NULL,
+  filled_text    TEXT,
+  publishable    INTEGER NOT NULL DEFAULT 0,
+  created_at     INTEGER NOT NULL
+);
+CREATE INDEX search_materials_item ON search_materials(target_item_id, created_at DESC);
+
+CREATE TABLE search_material_sources (
+  material_id   TEXT NOT NULL REFERENCES search_materials(id) ON DELETE CASCADE,
+  ref_id        TEXT NOT NULL,
+  url           TEXT NOT NULL,
+  title         TEXT,
+  publisher     TEXT,
+  item_id       TEXT REFERENCES items(id) ON DELETE SET NULL,
+  accessible    INTEGER NOT NULL DEFAULT 0,
+  relevant      INTEGER NOT NULL DEFAULT 0,
+  supported     INTEGER NOT NULL DEFAULT 0,
+  evidence_text TEXT,
+  PRIMARY KEY (material_id, ref_id)
+);
+
+-- ───────────────────────── deep report ─────────────────────────
+-- A report is bound to one article. Its material snapshot is stored in full,
+-- and every answer may cite only sources registered here.
+CREATE TABLE conversations (
+  id                    TEXT PRIMARY KEY,
+  anchor_item_id        TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  lang                  TEXT NOT NULL,
+  topic                 TEXT NOT NULL,
+  initial_item_ids_json TEXT NOT NULL,
+  status                TEXT NOT NULL DEFAULT 'active',
+  created_at            INTEGER NOT NULL,
+  updated_at            INTEGER NOT NULL
+);
+CREATE INDEX conversations_anchor ON conversations(anchor_item_id, lang, updated_at DESC);
+
+CREATE TABLE conversation_messages (
+  id              TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sequence        INTEGER NOT NULL,
+  role            TEXT NOT NULL,
+  question        TEXT,
+  answer_json     TEXT,
+  status          TEXT NOT NULL,
+  model           TEXT,
+  request_id      TEXT UNIQUE,
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL,
+  UNIQUE(conversation_id, sequence)
+);
+CREATE INDEX conversation_messages_order ON conversation_messages(conversation_id, sequence);
+
+CREATE TABLE conversation_sources (
+  conversation_id    TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  ref_id             TEXT NOT NULL,
+  item_id            TEXT REFERENCES items(id) ON DELETE SET NULL,
+  basis              TEXT NOT NULL,
+  title              TEXT NOT NULL,
+  url                TEXT NOT NULL,
+  publisher          TEXT,
+  published_at       INTEGER,
+  material_text      TEXT NOT NULL,
+  search_material_id TEXT REFERENCES search_materials(id) ON DELETE SET NULL,
+  created_at         INTEGER NOT NULL,
+  PRIMARY KEY (conversation_id, ref_id),
+  UNIQUE(conversation_id, item_id)
+);
+
+-- ───────────────────────── news assistant ─────────────────────────
+-- 新闻助手：不绑定任何文章的问答会话。每一轮的材料快照完整保存，
+-- 回答里的每条事实只能引用本会话登记过的来源编号。
+CREATE TABLE assistant_chats (
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  lang       TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX assistant_chats_recent ON assistant_chats(updated_at DESC);
+
+CREATE TABLE assistant_messages (
+  id           TEXT PRIMARY KEY,
+  chat_id      TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
+  sequence     INTEGER NOT NULL,
+  role         TEXT NOT NULL,              -- user | assistant
+  content      TEXT,                       -- the question, for user turns
+  answer_json  TEXT,                       -- { units }, for assistant turns
+  status       TEXT NOT NULL,              -- pending | complete | cancelled | failed
+  web          INTEGER NOT NULL DEFAULT 0, -- whether this turn was allowed to go online
+  -- What the reader had open on the left when the question was asked, shown
+  -- beside the question (「看着：…」).
+  screen_label TEXT,
+  error        TEXT,
+  model        TEXT,
+  request_id   TEXT UNIQUE,
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  UNIQUE(chat_id, sequence)
+);
+
+CREATE TABLE assistant_sources (
+  chat_id       TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
+  ref_id        TEXT NOT NULL,
+  kind          TEXT NOT NULL,             -- library | news | web
+  item_id       TEXT REFERENCES items(id) ON DELETE SET NULL,
+  title         TEXT NOT NULL,
+  url           TEXT NOT NULL,
+  publisher     TEXT,
+  published_at  INTEGER,
+  material_text TEXT NOT NULL,
+  created_at    INTEGER NOT NULL,
+  PRIMARY KEY (chat_id, ref_id),
+  UNIQUE(chat_id, url)
+);
+
+-- ───────────────────────── AI runtime ─────────────────────────
+-- Which embedding model produced the stored vectors. Switching model bumps the
+-- generation, and vectors of an older generation are rebuilt, never mixed.
+CREATE TABLE ai_runtime (
+  id                INTEGER PRIMARY KEY CHECK (id = 1),
+  vector_profile    TEXT,
+  vector_generation INTEGER NOT NULL DEFAULT 0,
+  updated_at        INTEGER NOT NULL
+);
+INSERT INTO ai_runtime (id, vector_generation, updated_at) VALUES (1, 0, 0);
+
+CREATE TABLE embedding_cache_meta (
+  item_id           TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+  vector_profile    TEXT NOT NULL,
+  vector_generation INTEGER NOT NULL,
+  created_at        INTEGER NOT NULL
+);
+
+CREATE TABLE watch_vector_meta (
+  watch_id          TEXT PRIMARY KEY REFERENCES watches(id) ON DELETE CASCADE,
+  vector_profile    TEXT NOT NULL,
+  vector_generation INTEGER NOT NULL,
+  created_at        INTEGER NOT NULL
+);
+
+-- Every model call with its tokens and price, for the cost figures.
+CREATE TABLE ai_requests (
+  id                 TEXT PRIMARY KEY,
+  run_id             TEXT REFERENCES runs(id) ON DELETE SET NULL,
+  provider           TEXT NOT NULL,
+  model              TEXT NOT NULL,
+  operation          TEXT NOT NULL,
+  input_tokens       INTEGER,
+  output_tokens      INTEGER,
+  cache_read_tokens  INTEGER,
+  cache_write_tokens INTEGER,
+  search_calls       INTEGER,
+  cost_usd           REAL,
+  cost_known         INTEGER NOT NULL DEFAULT 0,
+  created_at         INTEGER NOT NULL
+);
+CREATE INDEX ai_requests_run ON ai_requests(run_id, created_at);
+
+-- ───────────────────────── vectors (sqlite-vec) ─────────────────────────
+-- 768 dims. Each vector costs ~3224 bytes on disk (~2.3 GB/year at 2000
+-- items/day); pruneVectors keeps that in check.
 CREATE VIRTUAL TABLE embeddings USING vec0(
   item_id   TEXT PRIMARY KEY,
   embedding float[768]
@@ -290,176 +500,6 @@ CREATE VIRTUAL TABLE watch_vectors USING vec0(
 );
 `;
 
-const M003_ESTIMATED_DATES = `-- Some upstreams (several RSSHub routes, a few sitemaps) publish items with no
--- date at all. Dropping those silently loses whole sources; inventing a date
--- would be worse. So the item is kept with the time we first saw it, and this
--- flag records that the timestamp is a discovery time, not a publication time.
--- The reader shows "发现于" rather than "发布于" for these.
-ALTER TABLE items ADD COLUMN date_estimated INTEGER NOT NULL DEFAULT 0;
-`;
-
-const M004_FEED_CACHE = `-- HTTP cache validators from the last successful download of each source.
--- Sent back as If-None-Match / If-Modified-Since so an unchanged feed costs a
--- 304 instead of a full download and parse.
-ALTER TABLE sources ADD COLUMN etag TEXT;
-ALTER TABLE sources ADD COLUMN last_modified TEXT;
-`;
-
-const M005_WATCH_OUTPUTS = `-- Open questions a progress pass left without an answer, carried to the next
--- runs as extra things to look for ("明天优先找"), until answered or stale.
-CREATE TABLE open_questions (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  watch_id    TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
-  question    TEXT NOT NULL,
-  asked_at    INTEGER NOT NULL,
-  resolved_at INTEGER,
-  resolved_by TEXT                          -- milestone id that answered it
-);
-CREATE INDEX open_questions_watch ON open_questions(watch_id, resolved_at, asked_at DESC);
-
--- One flash can serve several watches (the same event matters to more than one),
--- and it records every item it was written from, so later runs skip them.
-ALTER TABLE flashes ADD COLUMN watch_ids_json TEXT;
-ALTER TABLE flashes ADD COLUMN item_ids_json TEXT;
-ALTER TABLE flashes ADD COLUMN item_published_at INTEGER;
-
--- Keywords: the only matching available with AI off, and extra recall terms
--- with it on. Sensitivity: the intent gate's more / balanced / less setting.
-ALTER TABLE watches ADD COLUMN keywords_json TEXT;
-ALTER TABLE watches ADD COLUMN sensitivity TEXT NOT NULL DEFAULT 'balanced';
-`;
-
-const M006_AI_RUNTIME = `-- Vendor-neutral AI runtime and vector identity.
-CREATE TABLE ai_runtime (
-  id INTEGER PRIMARY KEY CHECK (id = 1), vector_profile TEXT,
-  vector_generation INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL
-);
-INSERT INTO ai_runtime (id, vector_generation, updated_at) VALUES (1, 0, 0);
-CREATE TABLE embedding_cache_meta (
-  item_id TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
-  vector_profile TEXT NOT NULL, vector_generation INTEGER NOT NULL, created_at INTEGER NOT NULL
-);
-CREATE TABLE watch_vector_meta (
-  watch_id TEXT PRIMARY KEY REFERENCES watches(id) ON DELETE CASCADE,
-  vector_profile TEXT NOT NULL, vector_generation INTEGER NOT NULL, created_at INTEGER NOT NULL
-);
-CREATE TABLE ai_requests (
-  id TEXT PRIMARY KEY, run_id TEXT REFERENCES runs(id) ON DELETE SET NULL,
-  provider TEXT NOT NULL, model TEXT NOT NULL, operation TEXT NOT NULL,
-  input_tokens INTEGER, output_tokens INTEGER, cache_read_tokens INTEGER,
-  cache_write_tokens INTEGER, search_calls INTEGER, cost_usd REAL,
-  cost_known INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL
-);
-CREATE INDEX ai_requests_run ON ai_requests(run_id, created_at);
-`;
-
-const M007_SEARCH_FILL = `CREATE TABLE search_materials (
-  id TEXT PRIMARY KEY, target_item_id TEXT REFERENCES items(id) ON DELETE SET NULL,
-  event_title TEXT NOT NULL, event_time INTEGER NOT NULL, date_estimated INTEGER NOT NULL DEFAULT 0,
-  provider TEXT NOT NULL, model TEXT NOT NULL, search_text TEXT NOT NULL, filled_text TEXT,
-  publishable INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL
-);
-CREATE INDEX search_materials_item ON search_materials(target_item_id, created_at DESC);
-CREATE TABLE search_material_sources (
-  material_id TEXT NOT NULL REFERENCES search_materials(id) ON DELETE CASCADE,
-  ref_id TEXT NOT NULL, url TEXT NOT NULL, title TEXT, publisher TEXT,
-  item_id TEXT REFERENCES items(id) ON DELETE SET NULL, accessible INTEGER NOT NULL DEFAULT 0,
-  relevant INTEGER NOT NULL DEFAULT 0, supported INTEGER NOT NULL DEFAULT 0, evidence_text TEXT,
-  PRIMARY KEY (material_id, ref_id)
-);
-ALTER TABLE flashes ADD COLUMN search_material_id TEXT REFERENCES search_materials(id) ON DELETE SET NULL;
-`;
-
-const M008_REPORT_CONVERSATIONS = `ALTER TABLE deep_summaries RENAME TO legacy_deep_summaries;
-CREATE TABLE conversations (id TEXT PRIMARY KEY, anchor_item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE, lang TEXT NOT NULL, topic TEXT NOT NULL, initial_item_ids_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
-CREATE INDEX conversations_anchor ON conversations(anchor_item_id, lang, updated_at DESC);
-CREATE TABLE conversation_messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, sequence INTEGER NOT NULL, role TEXT NOT NULL, question TEXT, answer_json TEXT, status TEXT NOT NULL, model TEXT, request_id TEXT UNIQUE, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(conversation_id, sequence));
-CREATE INDEX conversation_messages_order ON conversation_messages(conversation_id, sequence);
-CREATE TABLE conversation_sources (conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, ref_id TEXT NOT NULL, item_id TEXT REFERENCES items(id) ON DELETE SET NULL, basis TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL, publisher TEXT, published_at INTEGER, material_text TEXT NOT NULL, search_material_id TEXT REFERENCES search_materials(id) ON DELETE SET NULL, created_at INTEGER NOT NULL, PRIMARY KEY (conversation_id, ref_id), UNIQUE(conversation_id, item_id));
-`;
-
-const M009_OUTSIDE_PICKS = `CREATE TABLE outside_picks (id TEXT PRIMARY KEY, edition_date TEXT NOT NULL, lang TEXT NOT NULL, mode TEXT NOT NULL, event_title TEXT NOT NULL, importance_reason TEXT NOT NULL, item_ids_json TEXT NOT NULL, suggestion_json TEXT NOT NULL, config_fingerprint TEXT NOT NULL, created_at INTEGER NOT NULL);
-CREATE INDEX outside_picks_current ON outside_picks(edition_date, lang, config_fingerprint, created_at DESC);`;
-
-const M010_ASSISTANT = `-- 新闻助手：不绑定任何文章的问答会话。每一轮的材料快照完整保存，
--- 回答里的每条事实只能引用本会话登记过的来源编号。
-CREATE TABLE assistant_chats (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  lang TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-CREATE INDEX assistant_chats_recent ON assistant_chats(updated_at DESC);
-
-CREATE TABLE assistant_messages (
-  id TEXT PRIMARY KEY,
-  chat_id TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
-  sequence INTEGER NOT NULL,
-  role TEXT NOT NULL,              -- user | assistant
-  content TEXT,                    -- the question, for user turns
-  answer_json TEXT,                -- { units }, for assistant turns
-  status TEXT NOT NULL,            -- pending | complete | cancelled | failed
-  web INTEGER NOT NULL DEFAULT 0,  -- whether this turn was allowed to go online
-  error TEXT,
-  model TEXT,
-  request_id TEXT UNIQUE,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  UNIQUE(chat_id, sequence)
-);
-
-CREATE TABLE assistant_sources (
-  chat_id TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
-  ref_id TEXT NOT NULL,
-  kind TEXT NOT NULL,              -- library | news | web
-  item_id TEXT REFERENCES items(id) ON DELETE SET NULL,
-  title TEXT NOT NULL,
-  url TEXT NOT NULL,
-  publisher TEXT,
-  published_at INTEGER,
-  material_text TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  PRIMARY KEY (chat_id, ref_id),
-  UNIQUE(chat_id, url)
-);
-`;
-
-const M011_INCREMENTAL = `-- 增量生成：没有新材料就不调用模型。
--- progress_at: the last progress pass for a watch. A later pass runs only when
--- something judged after it passed the gate (or the watch was reset).
-ALTER TABLE watches ADD COLUMN progress_at INTEGER;
--- Every (watch, item) pair a flash pass has already shown the model, whether it
--- became a flash or was set aside as minor or already told. Later checks send
--- only pairs it has not seen, and skip the call when there are none.
-CREATE TABLE flash_considered (
-  watch_id TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
-  item_id  TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-  considered_at INTEGER NOT NULL,
-  PRIMARY KEY (watch_id, item_id)
-);
--- The AI prescreen (providers without embeddings) remembers its verdict per
--- watch and item. The fingerprint covers the watch's own words and corrections,
--- so editing either sends the item through again.
-CREATE TABLE prescreen_results (
-  watch_id TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
-  item_id  TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-  fingerprint TEXT NOT NULL,
-  relevant INTEGER NOT NULL,
-  PRIMARY KEY (watch_id, item_id)
-);
-`;
-
 export const MIGRATIONS: Migration[] = [
-  { name: '001_init', sql: M001_INIT },
-  { name: '002_vectors', sql: M002_VECTORS },
-  { name: '003_estimated_dates', sql: M003_ESTIMATED_DATES },
-  { name: '004_feed_cache', sql: M004_FEED_CACHE },
-  { name: '005_watch_outputs', sql: M005_WATCH_OUTPUTS },
-  { name: '006_ai_runtime', sql: M006_AI_RUNTIME },
-  { name: '007_search_fill', sql: M007_SEARCH_FILL },
-  { name: '008_report_conversations', sql: M008_REPORT_CONVERSATIONS },
-  { name: '009_outside_picks', sql: M009_OUTSIDE_PICKS },
-  { name: '010_assistant', sql: M010_ASSISTANT },
-  { name: '011_incremental', sql: M011_INCREMENTAL }
+  { name: '001_schema', sql: SCHEMA }
 ];

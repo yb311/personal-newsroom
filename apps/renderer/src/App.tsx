@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, CircleDot, ExternalLink, FileSearch, ListFilter, MessageSquareText, PanelLeft, Plus, RefreshCw, RotateCcw, Search, Star } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AiStatus, ItemRow, MenuEntry, OutsidePick, ReportAnchor, SourceRow } from './types.ts';
+import type { AiStatus, ItemRow, MenuEntry, OutsidePick, ReportAnchor, Screen, SourceRow } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { ItemList } from './components/ItemList.tsx';
 import { Reader } from './components/Reader.tsx';
@@ -74,6 +74,8 @@ export default function App() {
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [revision, setRevision] = useState(0);
   const [watchRequest, setWatchRequest] = useState<WatchRequest | null>(null);
+  /** What 今日, 快讯 or 关注 has open, as they report it for the assistant. */
+  const [viewScreen, setViewScreen] = useState<Screen | null>(null);
   const requestId = useRef(0);
   const operation = useRef(false);
   /** Set once the person picks a view, so the launch check below never overrides them. */
@@ -203,7 +205,7 @@ export default function App() {
   const sidebarFits = windowWidth - SIDEBAR - 1 - (docked ? panelWidth + 1 : 0) >= SPLIT_MIN;
   const sidebarShown = sidebarVisible && (sidebarFits || sidebarPinned);
   const showSidebar = (show: boolean): void => { setSidebarVisible(show); setSidebarPinned(show && !sidebarFits); };
-  const go = (next: Tab): void => { navigated.current = true; setReport(null); setTab(next); };
+  const go = (next: Tab): void => { navigated.current = true; setReport(null); if (next !== tab) setViewScreen(null); setTab(next); };
 
   // Menu and cross-window commands. A ref keeps the handler current without re-subscribing.
   const command = useRef<(c: string) => void>(() => {});
@@ -282,9 +284,18 @@ export default function App() {
     if (next) onSelect(next.id);
   };
   const article = selected && current?.id === selected ? current : null;
+  const source = sources.find((s) => s.id === sourceId);
+  /** What the assistant is told is open on the left. 阅读 and a deep report are known
+   *  here; the other views report their own selection through `onScreen`. */
+  const screen: Screen | null = report
+    ? { focus: { kind: 'report', anchorItemId: report.anchorItemId, lang: ai?.outputLang ?? 'zh-CN' }, label: report.topic.split('\n')[0]!.slice(0, 120) }
+    : tab !== 'read' ? viewScreen
+    : selected ? { focus: { kind: 'article', itemId: selected }, label: article?.title ?? items.find((i) => i.id === selected)?.title ?? '' }
+    : visibleItems.length ? { focus: { kind: 'articles', title: source?.name ?? t(`filters.${filter}`), itemIds: visibleItems.slice(0, 30).map((i) => i.id) },
+        label: source?.name ?? t(`filters.${filter}`) }
+    : null;
 
   // Title and subtitle, as in Mail: what is shown, and its state.
-  const source = sources.find((s) => s.id === sourceId);
   const title = report ? t('report.title') : tab === 'read' ? (source?.name ?? t(`filters.${filter}`)) : t(`tabs.${tab}`);
   const today = new Intl.DateTimeFormat(i18n.language, { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
   const subtitle = note || (report ? report.topic.split('\n')[0]
@@ -312,10 +323,10 @@ export default function App() {
             to the name of the list it refreshes. */}
         <header className={`toolbar ${report ? 'whole' : ''}`}>
           <div className="toolbar-list">
-            {!sidebarShown && <>
-              <button className="tool" aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌘⌃S)`} onClick={() => showSidebar(true)}><PanelLeft size={17} /></button>
-              <UpdateAll running={job === 'all'} disabled={busy} onRun={(force) => void runAll(force)} compact />
-            </>}
+            {/* 全部更新 lives in the sidebar and hides with it, as a sidebar's own controls
+                do on the Mac; ⇧⌘R still runs it. An icon-only copy here stood next to the
+                list's own ↻ and the two could not be told apart. */}
+            {!sidebarShown && <button className="tool" aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌘⌃S)`} onClick={() => showSidebar(true)}><PanelLeft size={17} /></button>}
             {report && <button className="tool" aria-label={t('common.back')} title={t('common.back')} onClick={() => setReport(null)}><ChevronLeft size={18} /></button>}
             {!report && tab === 'read' && selected && <button className="tool narrow-only" aria-label={t('reader.back')} title={t('reader.back')} onClick={() => setSelected(null)}><ChevronLeft size={18} /></button>}
             <div className="toolbar-title">
@@ -371,17 +382,17 @@ export default function App() {
           </div>
           : tab === 'today' ? <Today aiReady={aiReady} revision={revision} job={job === 'all' || job === 'digest' ? job : null} busy={busy} divider={listDivider} onSetup={() => openSettings('ai')}
               onWrite={() => void runAll(false)} onRewrite={() => void rewriteDigest()} onOpen={openItem} onRead={(id) => void setRead(id, true)} onReport={openReport} onFollow={followOutside}
-              onAddWatch={addWatch} onOpenWatch={openWatch} />
+              onAddWatch={addWatch} onOpenWatch={openWatch} onScreen={setViewScreen} />
           : tab === 'flashes' ? <Flashes aiReady={aiReady} revision={revision} important={importantOnly} divider={listDivider} onSetup={() => openSettings('ai')}
-              onOpen={openItem} onReport={openReport} onOpenWatch={openWatch} onCount={(n) => setCounts((c) => ({ ...c, flashes: n }))} />
+              onOpen={openItem} onReport={openReport} onOpenWatch={openWatch} onCount={(n) => setCounts((c) => ({ ...c, flashes: n }))} onScreen={setViewScreen} />
           : <Watches aiReady={aiReady} revision={revision} query={watchQuery} divider={listDivider} onSetup={() => openSettings('ai')} onOpen={openItem} onReport={openReport}
-              onCount={(n, fresh) => setCounts((c) => ({ ...c, watches: n, fresh }))} request={watchRequest} onRequestDone={() => setWatchRequest(null)} />}
+              onCount={(n, fresh) => setCounts((c) => ({ ...c, watches: n, fresh }))} request={watchRequest} onRequestDone={() => setWatchRequest(null)} onScreen={setViewScreen} />}
         </ErrorBoundary></div>
       </main>
       {assistantOpen && <>
         <SplitDivider width={panelWidth} onChange={setPanelWidth} min={PANEL.min} max={PANEL.max} fallback={PANEL.fallback}
           storageKey={PANEL.key} edge="after" label={t('assistant.resize')} />
-        <ErrorBoundary><Assistant ai={ai} onOpenItem={openItem} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
+        <ErrorBoundary><Assistant ai={ai} screen={screen} onOpenItem={openItem} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
       </>}
       {showCatalogue && <Catalogue onClose={(changed) => {
         setShowCatalogue(false); void loadSources(); void loadItems();
@@ -411,12 +422,12 @@ function useOptionKey(): boolean {
  * something new. Holding ⌥ turns it into 全部重新生成, which writes everything
  * again (after changing the output language, say).
  */
-function UpdateAll({ running, disabled, onRun, compact = false }: { running: boolean; disabled: boolean; onRun: (force: boolean) => void; compact?: boolean }) {
+function UpdateAll({ running, disabled, onRun }: { running: boolean; disabled: boolean; onRun: (force: boolean) => void }) {
   const { t } = useTranslation();
   const option = useOptionKey();
   const label = t(option ? 'app.regenerateAll' : 'app.updateAll');
-  return <button className={`tool labeled ${compact ? 'compact' : ''}`} disabled={disabled} onClick={(e) => onRun(e.altKey)}
+  return <button className="tool labeled" disabled={disabled} onClick={(e) => onRun(e.altKey)}
     title={`${label} (${option ? '⌥⇧⌘R' : '⇧⌘R'})\n${t(option ? 'app.regenerateAllHint' : 'app.updateAllHint')}`} aria-label={label}>
-    <RefreshCw size={14} className={running ? 'spinning' : ''} />{!compact && <span>{label}</span>}
+    <RefreshCw size={14} className={running ? 'spinning' : ''} /><span>{label}</span>
   </button>;
 }

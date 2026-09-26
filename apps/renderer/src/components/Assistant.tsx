@@ -1,27 +1,33 @@
-import { ArrowUp, ChevronRight, Globe, History, MessageSquareText, Plus, Square, Trash2, X } from 'lucide-react';
+import { ArrowUp, ChevronRight, Eye, EyeOff, Globe, History, MessageSquareText, Plus, Square, Trash2, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AiStatus, AssistantChat, AssistantChatSummary, AssistantEvent, AssistantMessage, AssistantPhase, AssistantSource, AssistantUnit } from '../types.ts';
+import type { AiStatus, AssistantChat, AssistantChatSummary, AssistantEvent, AssistantMessage, AssistantPhase, AssistantSource, AssistantUnit, Screen } from '../types.ts';
 import { ago } from '../i18n.ts';
 import { Cited } from './Cites.tsx';
 
 const CHAT_KEY = 'pnr.assistantChat';
 const WEB_KEY = 'pnr.assistantWeb';
-const SUGGESTIONS = ['today', 'library', 'explain'] as const;
 const remember = (key: string, value: string | null): void => {
   try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* optional */ }
 };
 const recall = (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } };
 
-interface Pending { requestId: string; question: string; phase: AssistantPhase | null; units: AssistantUnit[] }
+interface Pending { requestId: string; question: string; screenLabel: string | null; phase: AssistantPhase | null; units: AssistantUnit[] }
+
+/** One thing on the left; a list keeps its identity while its rows change. */
+const screenKey = (s: Screen | null): string =>
+  !s ? '' : s.focus.kind === 'articles' ? `articles:${s.focus.title}` : JSON.stringify(s.focus);
 
 /**
- * 新闻助手: ask about any news, or about what is in the subscriptions. Not tied
- * to the article on screen. Answers cite numbered sources the app gathered —
- * the reader's library, news search and, when switched on, the web.
+ * 新闻助手: ask about any news, or about what is in the subscriptions. It is told
+ * what is open on the left (`screen`) — an article, a watch, today's brief — so
+ * 「这篇讲了什么」 needs no restating; the chip above the input shows it and
+ * leaves it out for the next question when clicked. Answers cite numbered
+ * sources the app gathered — the reader's library, news search and, when
+ * switched on, the web.
  */
-export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
-  ai: AiStatus | null; onOpenItem: (id: string) => void; onSetup: () => void; onClose: () => void;
+export function Assistant({ ai, screen, onOpenItem, onSetup, onClose }: {
+  ai: AiStatus | null; screen: Screen | null; onOpenItem: (id: string) => void; onSetup: () => void; onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [chat, setChat] = useState<AssistantChat | null>(null);
@@ -31,6 +37,9 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
   const [web, setWeb] = useState(() => recall(WEB_KEY) !== '0');
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState('');
+  /** The screen the person left out; anything newly opened is included again. */
+  const [leftOut, setLeftOut] = useState('');
+  const attached = screen && screen.label && screenKey(screen) !== leftOut ? screen : null;
   const input = useRef<HTMLTextAreaElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const pendingRef = useRef<Pending | null>(null);
@@ -101,9 +110,9 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
     if (!question || pending || !ai?.available) return;
     const requestId = crypto.randomUUID();
     requestRef.current = requestId;
-    setPending({ requestId, question, phase: null, units: [] }); setError(''); setDraft(''); setShowHistory(false);
+    setPending({ requestId, question, screenLabel: attached?.label ?? null, phase: null, units: [] }); setError(''); setDraft(''); setShowHistory(false);
     try {
-      const result = await window.pnr.assistantAsk({ chatId: chat?.id ?? null, question, web, lang: ai.outputLang, requestId });
+      const result = await window.pnr.assistantAsk({ chatId: chat?.id ?? null, question, web, lang: ai.outputLang, requestId, screen: attached });
       if (requestRef.current !== requestId) return;
       if (result.chat) { setChat(result.chat); remember(CHAT_KEY, result.chat.id); }
       else { setError(describe(result.error)); setDraft((d) => d || question); }
@@ -123,6 +132,7 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
     onClose();
   };
   const toggleWeb = (): void => { setWeb((on) => { remember(WEB_KEY, on ? '0' : '1'); return !on; }); };
+  const toggleScreen = (): void => setLeftOut((k) => (screen && k !== screenKey(screen) ? screenKey(screen) : ''));
   const remove = async (id: string): Promise<void> => {
     if (requestRef.current) return;
     await window.pnr.assistantDelete(id);
@@ -162,18 +172,15 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
     <div className="assistant-welcome">
       <h3>{t('assistant.welcomeTitle')}</h3>
       <p>{t('assistant.welcomeBody')}</p>
-      <div className="suggestions">
-        {SUGGESTIONS.map((k) => <button key={k} className="push" onClick={() => void ask(t(`assistant.suggest.${k}`))}>{t(`assistant.suggest.${k}`)}</button>)}
-      </div>
     </div>
   ) : (
     <div className="assistant-thread">
       {chat?.messages.map((m) => m.role === 'user'
-        ? <div key={m.id} className="bubble">{m.content}</div>
+        ? <Question key={m.id} text={m.content ?? ''} screenLabel={m.screenLabel} />
         : <Answer key={m.id} message={m} sources={sources} onSource={openSource}
             retry={m.status === 'failed' && m.id === last?.id ? questionBefore(m) : null} onRetry={(q) => void ask(q)} describe={describe} />)}
       {pending && <>
-        <div className="bubble">{pending.question}</div>
+        <Question text={pending.question} screenLabel={pending.screenLabel} />
         <div className="answer">
           {pending.units.length > 0 && <Units units={pending.units} sources={new Map()} onSource={openSource} />}
           <p className="working"><span className="spinner" aria-hidden />{t(`assistant.phase.${pending.phase ?? 'library'}`)}</p>
@@ -204,6 +211,9 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
             <div className="composer-actions">
               <button className={`chip-toggle ${web ? 'on' : ''}`} aria-pressed={web} title={webTitle} onClick={toggleWeb}>
                 <Globe size={13} />{t('assistant.web')}</button>
+              {screen?.label && <button className={`chip-toggle screen-chip ${attached ? 'on' : ''}`} aria-pressed={Boolean(attached)}
+                title={t(attached ? 'assistant.screenOn' : 'assistant.screenOff', { label: screen.label })} onClick={toggleScreen}>
+                {attached ? <Eye size={13} /> : <EyeOff size={13} />}<span>{screen.label}</span></button>}
               <span className="grow" />
               {pending
                 ? <button className="send" title={t('assistant.stop')} aria-label={t('assistant.stop')} onClick={stop}><Square size={12} fill="currentColor" /></button>
@@ -215,6 +225,15 @@ export function Assistant({ ai, onOpenItem, onSetup, onClose }: {
       )}
     </aside>
   );
+}
+
+/** A question, with what was open on the left when it was asked. */
+function Question({ text, screenLabel }: { text: string; screenLabel: string | null }) {
+  const { t } = useTranslation();
+  return <>
+    <div className="bubble">{text}</div>
+    {screenLabel && <p className="bubble-context" title={screenLabel}><Eye size={11} aria-hidden />{t('assistant.askedAbout', { label: screenLabel })}</p>}
+  </>;
 }
 
 function Answer({ message, sources, onSource, retry, onRetry, describe }: {

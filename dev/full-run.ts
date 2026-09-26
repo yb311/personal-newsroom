@@ -6,7 +6,7 @@ import { enrichPending } from '../packages/reader/src/index.ts';
 import { resolveProvider, writeSetting, invalidateProvider, geminiCost } from '../packages/ai/src/index.ts';
 import { createWatch, enablePreset, prepareWatch, listWatches, PRESETS } from '../packages/watch/src/index.ts';
 import { recallForWatch, judgeAll, gateWatch } from '../packages/recall/src/index.ts';
-import { generateDigest, generateProgress, newSinceYesterday, timeline, getDigest } from '../packages/generate/src/index.ts';
+import { generateDigest, generateProgress, unseenDevelopments, timeline, getDigest } from '../packages/generate/src/index.ts';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const key = process.env.GEMINI_API_KEY ?? '';
@@ -66,7 +66,7 @@ for (const it of items) {
   const b = readBody(it.bodyPath);
   if (b) bodies[it.id] = { html: b.html, words: b.words, source: b.source };
 }
-const ws = listWatches(db).map(w => ({ ...w, newCount: newSinceYesterday(db,w.id).length,
+const ws = listWatches(db).map(w => ({ ...w, newCount: unseenDevelopments(db,w.id).length,
   timelineCount: timeline(db,w.id).length,
   passed: (db.prepare('SELECT COUNT(*) c FROM matches WHERE watch_id=? AND passed_gate=1').get(w.id) as any).c }));
 const onIds = new Set(ws.map(w=>w.id));

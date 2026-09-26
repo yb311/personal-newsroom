@@ -1,6 +1,6 @@
 import { ChevronRight, Zap } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { FlashRow, ItemRef } from '../types.ts';
+import type { FlashRow, ItemRef, Screen } from '../types.ts';
 import { Cited, numberSources, Refs, SourceList } from './Cites.tsx';
 import { Detail, ListPane, Row } from './ListPane.tsx';
 import type { OpenReport } from '../App.tsx';
@@ -15,9 +15,9 @@ const IMPORTANT = 8;
  * per flash, checked every few hours. The headline leads each row; the watches
  * it belongs to are only a note. A follow-up names the flash it continues.
  */
-export function Flashes({ aiReady, revision, important, divider, onSetup, onOpen, onReport, onOpenWatch, onCount }: {
+export function Flashes({ aiReady, revision, important, divider, onSetup, onOpen, onReport, onOpenWatch, onCount, onScreen }: {
   aiReady: boolean; revision: number; important: boolean; divider: ReactNode; onSetup: () => void; onOpen: (id: string) => void;
-  onReport: OpenReport; onOpenWatch: (id: string) => void; onCount: (n: number) => void;
+  onReport: OpenReport; onOpenWatch: (id: string) => void; onCount: (n: number) => void; onScreen: (screen: Screen | null) => void;
 }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<FlashRow[] | null>(null);
@@ -43,6 +43,9 @@ export function Flashes({ aiReady, revision, important, divider, onSetup, onOpen
   const shown = useMemo(() => (important ? (rows ?? []).filter((f) => f.importance >= IMPORTANT) : rows ?? []), [rows, important]);
   // The toolbar counts what the list shows, filtered or not.
   useEffect(() => { if (rows) onCount(shown.length); }, [rows, shown]);
+  // The assistant is told which flash is open.
+  const open = shown.find((f) => f.id === selected) ?? shown[0];
+  useEffect(() => { onScreen(open ? { focus: { kind: 'flash', flashId: open.id }, label: open.title } : null); }, [open?.id, open?.title]);
 
   if (!rows) return <section className="page" />;
   if (shown.length === 0) {

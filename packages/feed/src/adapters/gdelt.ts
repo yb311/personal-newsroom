@@ -1,12 +1,12 @@
 import type { DiscoveredItem } from '@pnr/core';
 import { cleanUrl, log } from '@pnr/core';
 import type { Db } from '@pnr/store';
-import type { Adapter, ParseResult, SourceRecord } from './types.ts';
+import type { Adapter } from './types.ts';
 
 /**
  * GDELT DOC 2.0. Optional, off by default.
  *
- * Measured behaviour (docs/SPIKES.zh-CN.md §3): the documented "one request per
+ * Measured behaviour (docs/ARCHITECTURE.zh-CN.md §12): the documented "one request per
  * five seconds" is optimistic. Once tripped, the IP stays blocked for tens of
  * minutes, and community testing shows that BACKING OFF MAKES IT WORSE — at a
  * 6s interval only 1 request in 7 succeeds, at 16s only 4 in 12. The correct

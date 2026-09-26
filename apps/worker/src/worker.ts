@@ -62,9 +62,6 @@ function flashesDue(now = Date.now()): boolean {
 }
 
 const mode: Mode | null = requested === 'auto' ? (dailyDue() ? 'daily' : flashesDue() ? 'flashes' : null)
-  // Agents registered by earlier versions name their mode; they get the same checks.
-  : scheduled && requested === 'daily' ? (dailyDue() ? 'daily' : null)
-  : scheduled && requested === 'flashes' ? (flashesDue() ? 'flashes' : null)
   : requested;
 if (!mode) {
   db.close();

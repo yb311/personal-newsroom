@@ -11,7 +11,7 @@ export type Db = Database.Database;
  *
  * sqlite-vec is a *runtime* SQLite extension, not a Node native module, so it
  * needs no electron-rebuild. better-sqlite3 13.x ships Node-API prebuilds and
- * is likewise ABI-stable across Node and Electron (docs/SPIKES.zh-CN.md §1).
+ * is likewise ABI-stable across Node and Electron (docs/ARCHITECTURE.zh-CN.md §12).
  */
 export function openDb(path: string): Db {
   mkdirSync(dirname(path), { recursive: true });
@@ -32,6 +32,12 @@ function migrate(db: Db): void {
   const done = new Set(
     db.prepare('SELECT name FROM _migrations').all().map((r) => (r as { name: string }).name)
   );
+  const known = new Set(MIGRATIONS.map((m) => m.name));
+  const foreign = [...done].filter((name) => !known.has(name));
+  if (foreign.length) {
+    throw new Error(`Database was created by an unreleased development build (${foreign.join(', ')}). `
+      + `Move ${db.name} aside and start again.`);
+  }
   const record = db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)');
   for (const m of MIGRATIONS) {
     if (done.has(m.name)) continue;

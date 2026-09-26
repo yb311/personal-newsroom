@@ -4,7 +4,6 @@ import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import * as sqliteVec from 'sqlite-vec';
 import { MIGRATIONS } from '../packages/store/src/migrations.ts';
 
 const p = join(tmpdir(), `pnr-verify-${Date.now()}.db`);
@@ -53,23 +52,15 @@ console.log(`\n重复打开（迁移幂等）: 表数仍为 ${t2 - 1} + _migrati
 db2.close();
 for (const s of ['','-wal','-shm']) rmSync(p+s,{force:true});
 
-// 真实升级路径：保留已经使用到 M005 的旧库和旧版深度总结，再应用 M006-M010。
-const upgrade = join(tmpdir(), `pnr-upgrade-${Date.now()}.db`);
-const legacy = new Database(upgrade); legacy.loadExtension(sqliteVec.getLoadablePath()); legacy.pragma('journal_mode=WAL'); legacy.pragma('foreign_keys=ON');
-legacy.exec('CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)');
-for (const migration of MIGRATIONS.slice(0,5)) legacy.transaction(()=>{
-  legacy.exec(migration.sql); legacy.prepare('INSERT INTO _migrations VALUES (?,?)').run(migration.name,now);
-})();
-legacy.prepare("INSERT INTO sources (id,kind,name,url,created_at) VALUES ('old-s','rss','Old','https://old.test/rss',?)").run(now);
-legacy.prepare("INSERT INTO items (id,dedup_key,source_id,url,title,published_at,discovered_at) VALUES ('old-i','old','old-s','https://old.test/a','Old item',?,?)").run(now,now);
-legacy.prepare("INSERT INTO deep_summaries (id,item_id,lang,body_json,sources_json,generated_at,model) VALUES ('old-d','old-i','en','[]','[]',?,'old-model')").run(now);
-legacy.close();
-const upgraded=openDb(upgrade);
-const applied=(upgraded.prepare('SELECT name FROM _migrations ORDER BY name').all() as {name:string}[]).map(r=>r.name);
-if(applied.length!==MIGRATIONS.length)throw new Error(`migration chain incomplete: ${applied.join(',')}`);
-if((upgraded.prepare('SELECT COUNT(*) c FROM legacy_deep_summaries').get() as {c:number}).c!==1)throw new Error('legacy deep summary lost');
-if(upgraded.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='deep_summaries'").get())throw new Error('old table name survived');
-for(const name of ['ai_runtime','search_materials','conversations','outside_picks','assistant_chats','assistant_messages','assistant_sources'])
-  if(!upgraded.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name))throw new Error(`missing upgraded table ${name}`);
-upgraded.close();for(const s of ['','-wal','-shm'])rmSync(upgrade+s,{force:true});
-console.log('\n✅ schema 新建、幂等与 005→010 真实升级验证通过');
+// 未发布的开发版留下的库（迁移名不认识）要明确报错，不能在旧表上继续跑。
+const stale = join(tmpdir(), `pnr-stale-${Date.now()}.db`);
+const old = new Database(stale);
+old.exec("CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL); INSERT INTO _migrations VALUES ('001_init', 0)");
+old.close();
+let refused = false;
+try { openDb(stale).close(); } catch { refused = true; }
+for (const s of ['','-wal','-shm']) rmSync(stale+s,{force:true});
+if (!refused) throw new Error('stale development database was opened');
+if (MIGRATIONS.length !== 1) throw new Error('expected one schema migration before the first release');
+
+console.log('\n✅ schema 新建、幂等、拒绝旧开发库 验证通过');

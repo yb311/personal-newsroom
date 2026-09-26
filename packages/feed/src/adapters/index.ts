@@ -1,6 +1,6 @@
 import type { SourceKind } from '@pnr/core';
 import { fetchFeed } from '../parse.ts';
-import type { Adapter, AdapterRegistry, AdapterCtx } from './types.ts';
+import type { Adapter } from './types.ts';
 import { newsSitemapAdapter, newsSitemapIndexAdapter } from './sitemap.ts';
 import { telegramAdapter } from './telegram.ts';
 import { hackerNewsAdapter, redditAdapter, githubAdapter } from './api.ts';
@@ -16,7 +16,7 @@ const rssAdapter: Adapter = (source) => fetchFeed(source, { conditional: true })
  * judging, extraction and ranking are written once and work for all of them.
  * Adding a source type means adding one entry here.
  */
-export const adapters: AdapterRegistry = {
+export const adapters: Partial<Record<SourceKind, Adapter>> = {
   rss: rssAdapter,
   news_sitemap: newsSitemapAdapter,
   news_sitemap_index: newsSitemapIndexAdapter,
@@ -32,9 +32,8 @@ export const adapters: AdapterRegistry = {
 };
 
 export const adapterFor = (kind: SourceKind): Adapter | undefined => adapters[kind];
-export { siteProbeQuery } from './search.ts';
 export { channelOf } from './telegram.ts';
-export { rssHubAvailable, rssHubMode, configureRssHub, normalizeRoute,
+export { rssHubMode, configureRssHub, normalizeRoute,
          type RssHubMode, type RssHubConfig } from './rsshub.ts';
 export { APIFY_TOKEN_KEY } from './apify.ts';
-export type { Adapter, AdapterCtx, AdapterRegistry } from './types.ts';
+export type { Adapter, AdapterCtx } from './types.ts';

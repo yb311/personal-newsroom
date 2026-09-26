@@ -144,7 +144,6 @@ export function deleteWatch(db: Db, id: string): void {
       if (rest.length) db.prepare('UPDATE flashes SET watch_ids_json = ? WHERE id = ?').run(JSON.stringify(rest), r.id);
       else db.prepare('DELETE FROM flashes WHERE id = ?').run(r.id);
     }
-    db.prepare('DELETE FROM flashes WHERE watch_id IS NULL AND watch_ids_json IS NULL').run();
   })();
 }
 

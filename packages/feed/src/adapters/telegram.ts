@@ -5,7 +5,7 @@ import type { Adapter, ParseResult, SourceRecord } from './types.ts';
 /**
  * Reads a public Telegram channel through its web preview.
  *
- * Verified (docs/SPIKES.zh-CN.md §5): t.me/s/<channel> needs no login, no API
+ * Verified (docs/ARCHITECTURE.zh-CN.md §12): t.me/s/<channel> needs no login, no API
  * key and no proxy, returns 20 messages per page and supports ?before= paging.
  * Implemented here rather than via RSSHub so the highest-value social source
  * does not depend on an external process.

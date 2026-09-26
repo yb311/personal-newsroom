@@ -13,7 +13,7 @@ import { openDb } from '../packages/store/src/index.ts';
 import { localDateKey } from '../packages/core/src/index.ts';
 import type { Provider, GenerateOptions, GenerateResult } from '../packages/ai/src/index.ts';
 import { createWatch, getWatch } from '../packages/watch/src/index.ts';
-import { runDaily, runFlashCheck, runWatch, rewriteDigest, generateProgress, getDigest, newSinceYesterday, recentFlashes, openQuestions } from '../packages/generate/src/index.ts';
+import { runDaily, runFlashCheck, runWatch, rewriteDigest, generateProgress, getDigest, unseenDevelopments, recentFlashes, openQuestions } from '../packages/generate/src/index.ts';
 import { generateDigest } from '../packages/generate/src/digest.ts';
 import { gateWatch, matchKeywords } from '../packages/recall/src/index.ts';
 import { createApi } from '../apps/desktop/src/ipc.ts';
@@ -135,7 +135,7 @@ check(judged.length > 0 && judged.every((id) => id === 'i5'), `只判定新文�
 const p2 = calls.find((c) => c.kind === 'progress' && c.prompt.includes('我想跟进人工智能监管'))!;
 check(/^Q\d+: 欧盟何时正式实施修订？/m.test(p2.prompt), '上次的悬念进入这次的进展判断');
 check(openQuestions(db, wA.id).length === 0, '回答了的悬念被标为已解决');
-const fresh = newSinceYesterday(db, wA.id).map((m) => m.summary);
+const fresh = unseenDevelopments(db, wA.id).map((m) => m.summary);
 check(fresh.includes('修订明年生效'), `同一天的第二个新进展没有被丢掉（昨天到今天：${fresh.join('、')}）`);
 const d2 = calls.find((c) => c.kind === 'digest');
 check(Boolean(d2 && /^NEW（/m.test(d2.prompt) && d2.prompt.includes('修订明年生效')), '摘要围绕进展判断出的新进展来写（「昨天到今天」写进摘要）');

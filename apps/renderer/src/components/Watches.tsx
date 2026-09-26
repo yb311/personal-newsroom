@@ -1,7 +1,7 @@
 import { Dialog } from './Dialog.tsx';
 import { Trash2, Bookmark, ChevronLeft, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { ItemRef, Milestone, OpenQuestion, OutsidePick, PresetRow, Sensitivity, WatchItem, WatchRow } from '../types.ts';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { ItemRef, Milestone, OpenQuestion, OutsidePick, PresetRow, Screen, Sensitivity, WatchItem, WatchRow } from '../types.ts';
 import { Cited, Cites } from './Cites.tsx';
 import { Group, Row, Select, Switch } from './Form.tsx';
 import { ListPane, Row as ListRow } from './ListPane.tsx';
@@ -23,10 +23,12 @@ export type WatchRequest = { draft: OutsidePick['suggestion'] | null } | { open:
  * from the toolbar), the picked one on the right. Presets and written intents
  * are the same object; the only difference is who wrote the sentence.
  */
-export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, onReport, onCount, request, onRequestDone }: {
+export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, onReport, onCount, request, onRequestDone, onScreen }: {
   aiReady: boolean; revision: number; query: string; divider: ReactNode; onSetup: () => void; onOpen: (id: string) => void; onReport: OpenReport;
   /** How many watches, and how many new developments across the active ones. */
   onCount: (n: number, fresh: number) => void; request: WatchRequest | null; onRequestDone: () => void;
+  /** Tells the assistant which watch is open. */
+  onScreen: (screen: Screen | null) => void;
 }) {
   const { t } = useTranslation();
   const [watches, setWatches] = useState<WatchRow[] | null>(null);
@@ -53,6 +55,7 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
 
   const list = watches ?? [];
   const selected = list.find((w) => w.id === open);
+  useEffect(() => { onScreen(selected ? { focus: { kind: 'watch', watchId: selected.id }, label: selected.label } : null); }, [selected?.id, selected?.label]);
   // Native sheets, as a Mac app asks: never Chromium's own alert box.
   const confirmLeave = async (): Promise<boolean> => !dirty
     || window.pnr.confirm({ message: t('watches.discard'), confirm: t('watches.discardConfirm'), cancel: t('common.cancel'), destructive: true });
@@ -274,7 +277,7 @@ function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, d
         ))}
       </nav>
       {tab === 'items' && <WatchItems watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} onReport={onReport} onChanged={onChanged} />}
-      {tab === 'timeline' && <WatchTimeline watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} onReport={onReport} />}
+      {tab === 'timeline' && <WatchTimeline watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} onReport={onReport} onSeen={onChanged} />}
       {tab === 'settings' && <WatchSettings watch={watch} onChanged={onChanged} onDirty={onDirty} />}
     </section>
   );
@@ -347,15 +350,37 @@ function WatchItems({ watch, aiReady, revision, onOpen, onReport, onChanged }: {
   );
 }
 
-function WatchTimeline({ watch, aiReady, revision, onOpen, onReport }: { watch: WatchRow; aiReady: boolean; revision: number; onOpen: (id: string) => void; onReport: OpenReport }) {
+/**
+ * The watch's developments, newest first. 「新」 works like unread mail: once the
+ * timeline has actually been on screen, what it showed is marked seen. The marks
+ * stay while it is open, so one can still tell what was new; they are gone the
+ * next time, and the badges drop at once.
+ */
+function WatchTimeline({ watch, aiReady, revision, onOpen, onReport, onSeen }: {
+  watch: WatchRow; aiReady: boolean; revision: number; onOpen: (id: string) => void; onReport: OpenReport; onSeen: () => void;
+}) {
   const { t } = useTranslation();
-  const [data, setData] = useState<{ milestones: Milestone[]; refs: ItemRef[]; questions: OpenQuestion[] } | null>(null);
+  const [data, setData] = useState<{ milestones: Milestone[]; refs: ItemRef[]; questions: OpenQuestion[]; loadedAt: number } | null>(null);
+  const list = useRef<HTMLUListElement>(null);
   useEffect(() => {
     let live = true;
-    void window.pnr.watchTimeline(watch.id).then((d) => { if (live) setData(d); });
+    const loadedAt = Date.now();
+    void window.pnr.watchTimeline(watch.id).then((d) => { if (live) setData({ ...d, loadedAt }); });
     return () => { live = false; };
   }, [watch.id, revision]);
   const refs = useMemo(() => new Map((data?.refs ?? []).map((r) => [r.id, r])), [data]);
+  // Seen only when it is really in view: a narrow window shows the list alone.
+  useEffect(() => {
+    const el = list.current;
+    if (!el || !data?.milestones.some((m) => m.isNew)) return;
+    const watcher = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      watcher.disconnect();
+      void window.pnr.watchSeen(watch.id, data.loadedAt).then(onSeen);
+    });
+    watcher.observe(el);
+    return () => watcher.disconnect();
+  }, [data, watch.id]);
 
   if (!data) return <p className="section-hint">{t('common.loading')}</p>;
   if (!aiReady && data.milestones.length === 0) return <p className="section-hint">{t('watches.timelineNeedsAi')}</p>;
@@ -365,7 +390,7 @@ function WatchTimeline({ watch, aiReady, revision, onOpen, onReport }: { watch: 
     <>
       {newest.length === 0
         ? <p className="section-hint">{t('watches.noMilestones')}</p>
-        : <ul className="timeline-list rail">
+        : <ul className="timeline-list rail" ref={list}>
             {newest.map((m) => (
               <li key={m.id} className={m.isNew ? 'new' : ''} onContextMenu={async (e) => {
                 e.preventDefault();
@@ -375,7 +400,7 @@ function WatchTimeline({ watch, aiReady, revision, onOpen, onReport }: { watch: 
                 else if (choice === 'report') onReport({ anchorItemId: m.itemIds[0], itemIds: m.itemIds, topic: m.summary });
               }}>
                 <time dateTime={m.occurredOn}>{day(m.occurredOn)}</time>
-                <p><Cited text={m.summary}>{m.isNew && <span className="tag accent">{t('watches.new')}</span>}</Cited><Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></p>
+                <p><Cited text={m.summary}>{m.isNew && <span className="tag accent" title={t('watches.newHint')}>{t('watches.new')}</span>}</Cited><Cites ids={m.itemIds} refs={refs} onOpen={onOpen} /></p>
               </li>
             ))}
           </ul>}

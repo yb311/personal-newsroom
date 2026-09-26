@@ -4,10 +4,10 @@
 
 Local-first, intent-driven personal news intelligence for macOS.
 
-> 🚧 **Status: feature-complete with an unsigned directory build verified, but not yet distributed.** Everything in the roadmap
-> below works and is covered by tests. What is
-> missing is the signed, notarised `.dmg` — until then you have to build it
-> yourself. Star the repo to hear when that ships.
+> 🚧 **Status: feature-complete, first release not out yet.** Everything in the
+> roadmap below works and is covered by tests, and the signed, notarised release
+> pipeline is in place. Until the first `.dmg` ships you have to
+> [build it yourself](#building-it-yourself). Star the repo to hear when it does.
 
 [中文说明](README.zh-CN.md)
 
@@ -30,7 +30,7 @@ personalization.
 
 | | |
 |---|---|
-| **Today** | Your own daily brief, each section written around **what changed since yesterday**, a small evidence-backed section for important events outside your watches, and earlier editions |
+| **Today** | Your own daily brief, each section written around **what changed since the last edition**, a few important stories several outlets are covering that none of your watches follow, and earlier editions |
 | **Flashes** | Short, fast updates — only the ones that pass your intent filter |
 | **Read** | A real reader. Article text extracted and shown in-app, so you don't bounce out to a browser |
 | **Watches** | Tick a preset topic, or write a sentence. Either way you can see and edit exactly how it's searching |
@@ -51,8 +51,12 @@ personalization.
 
 We'd rather you know before you install.
 
-- **macOS only.** Background scheduling, notifications and packaging are built on
-  launchd / `SMAppService`. Windows and Linux are not supported and not promised.
+- **macOS only (Apple silicon).** Background scheduling, notifications and packaging
+  are built on launchd / `SMAppService`. Windows and Linux are not supported and not promised.
+- **Updating while the Mac sleeps needs your administrator password once.** Waking the
+  Mac on schedule takes a small system component (it only books wakes with `pmset`).
+  Without it, updates run only while the Mac is awake. With the lid closed on battery,
+  macOS may refuse to wake.
 - **Social sources are a separate 63 MB download.** Weibo, Bilibili, Zhihu,
   Xiaohongshu and X have no RSS, so they go through RSSHub — which is 370 MB
   installed and therefore not in the app. Enable it in settings, or point the
@@ -82,12 +86,37 @@ We'd rather you know before you install.
 | **M4** | ✅ Brief, flashes, **progress** |
 | **M5** | ✅ News assistant: online search, follow-ups, saved source snapshots |
 | **M6** | ✅ Background worker; Gemini, OpenAI, Claude, compatible APIs and Ollama |
-| **M7** | ⏳ Packaging, signing, notarisation |
+| **M7** | ⏳ Signed release, auto-update, one-click uninstall, contributing guide |
 
 M1 is deliberately shippable on its own: install it, pick from a catalogue of
-~1000 curated feeds, read. The AI features layer on top when you add a key.
+~550 curated feeds, read. The AI features layer on top when you add a key.
 
-Remaining work (signing and notarisation, auto-update) is tracked in `AGENTS.md`.
+## Building it yourself
+
+You need an Apple silicon Mac, Node.js 24.15 or later, and Go 1.26 or later (for
+the reading core). Xcode is not needed.
+
+```bash
+npm ci
+```
+
+```bash
+npm run package:dir
+```
+
+The app lands in `release/mac-arm64/所闻.app`. Without a Developer ID signature
+background updates register as a plain `~/Library/LaunchAgents` job instead of a
+login item; everything else is the same. For development: `npm run reader:build`
+compiles the reading core, `npm run build --workspace=@pnr/desktop` builds the
+interface, and `npm run start --workspace=@pnr/desktop` launches it.
+
+## Documentation
+
+The design documents are in Chinese:
+
+- [`docs/ARCHITECTURE.zh-CN.md`](docs/ARCHITECTURE.zh-CN.md) — architecture, data flow, how each part works, field measurements
+- [`docs/RELEASING.zh-CN.md`](docs/RELEASING.zh-CN.md) — signing, notarisation and releases
+- [`AGENTS.md`](AGENTS.md) — settled decisions, interface conventions, known pitfalls (for contributors and AI agents)
 
 ## License
 
@@ -95,9 +124,9 @@ Remaining work (signing and notarisation, auto-update) is tracked in `AGENTS.md`
 license is the one that keeps it that way — nobody can take this and ship it back
 to you as a closed cloud service.
 
-It also lets us bundle [RSSHub](https://github.com/DIYgod/RSSHub) (AGPL-3.0)
-directly, which is what makes Telegram, Weibo, Bilibili and friends work without
-asking you to install Docker.
+It also lets us use [RSSHub](https://github.com/DIYgod/RSSHub) (AGPL-3.0)
+directly, which is why Weibo, Bilibili and friends are one click in settings
+rather than a Docker install.
 
 ## Origin
 

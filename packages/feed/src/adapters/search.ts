@@ -1,6 +1,6 @@
 import type { DiscoveredItem } from '@pnr/core';
 import { fetchFeed } from '../parse.ts';
-import type { Adapter, ParseResult, SourceRecord } from './types.ts';
+import type { Adapter } from './types.ts';
 
 /**
  * Search-backed discovery (the R3 layer). These return real article URLs that
@@ -12,7 +12,7 @@ import type { Adapter, ParseResult, SourceRecord } from './types.ts';
 
 /** Google News search RSS. Primary R3 source: free, no key, ~100 results per
  *  query, and measured at 8 back-to-back queries with no throttling
- *  (docs/SPIKES.zh-CN.md §3). hl/gl/ceid carry the per-watch output language. */
+ *  (docs/ARCHITECTURE.zh-CN.md §12). hl/gl/ceid carry the per-watch output language. */
 export const googleNewsAdapter: Adapter = async (source) => {
   const q = source.url.trim();
   if (!q) return { items: [], diagnostics: { fetched: 0, kept: 0, droppedByReason: { empty_query: 1 } } };
@@ -40,5 +40,3 @@ export const bingNewsAdapter: Adapter = async (source) => {
   return fetchFeed(source, { url: `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss` });
 };
 
-/** Builds the Bing site-scoped probe daily-brief uses when a feed goes stale. */
-export const siteProbeQuery = (domain: string): string => `site:${domain} when:1d`;

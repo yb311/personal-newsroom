@@ -11,7 +11,7 @@ import {
  * app bundle, so it survives app updates and can be removed to reclaim ~370 MB
  * without reinstalling anything.
  */
-export const SOCIAL_DIR = join(app.getPath('userData'), 'social-sources');
+const SOCIAL_DIR = join(app.getPath('userData'), 'social-sources');
 
 /** Published alongside each release; see scripts/build-rsshub-pack.sh. */
 const MANIFEST_URL =

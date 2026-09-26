@@ -113,21 +113,3 @@ export class ProviderError extends Error {
     super(message); this.code = code; this.status = status;
   }
 }
-
-const CTRL = new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(8) +
-  String.fromCharCode(11) + String.fromCharCode(12) +
-  String.fromCharCode(14) + '-' + String.fromCharCode(31) + ']', 'g');
-
-/** Syntax repair only. Schema validation is a separate, mandatory step. */
-export function parseLoose<T>(text: string): T {
-  const t = text.trim();
-  const starts = [t.indexOf('{'), t.indexOf('[')].filter((n) => n >= 0);
-  const start = starts.length ? Math.min(...starts) : -1;
-  const end = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
-  const slice = start >= 0 && end > start ? t.slice(start, end + 1) : t;
-  try { return JSON.parse(slice) as T; }
-  catch {
-    const repaired = slice.replace(/,(\s*[}\]])/g, '$1').replace(CTRL, '');
-    return JSON.parse(repaired) as T;
-  }
-}

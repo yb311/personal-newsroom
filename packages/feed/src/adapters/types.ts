@@ -1,4 +1,4 @@
-import type { ParseResult, SourceRecord, SourceKind } from '@pnr/core';
+import type { ParseResult, SourceRecord } from '@pnr/core';
 import type { Db } from '@pnr/store';
 
 export interface AdapterCtx {
@@ -8,7 +8,6 @@ export interface AdapterCtx {
 }
 
 export type Adapter = (source: SourceRecord, ctx: AdapterCtx) => Promise<ParseResult>;
-export type AdapterRegistry = Partial<Record<SourceKind, Adapter>>;
 
 export const emptyResult = (reason?: string): ParseResult => ({
   items: [],

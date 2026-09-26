@@ -276,8 +276,12 @@ function persist(db: Db, watchId: string, milestones: Milestone[], answered: { q
   return kept;
 }
 
-/** How long a development counts as new on the watch page and in its badge. */
-export const NEW_HOURS = 36;
+/**
+ * 「新」 works like unread mail: a development judged new stays marked until the
+ * person opens that watch's timeline (`markWatchSeen`). One never looked at
+ * stops counting after NEW_DAYS, so an unopened watch's badge does not grow for ever.
+ */
+export const NEW_DAYS = 7;
 
 /** Developments judged new and first seen at or after `since`. */
 export function newSince(db: Db, watchId: string, since: number): Milestone[] {
@@ -290,24 +294,34 @@ export function newSince(db: Db, watchId: string, since: number): Milestone[] {
     .map((r) => ({ ...r, isNew: Boolean(r.isNew), itemIds: sourcesOf(db, r.id) }));
 }
 
-/** Developments first seen recently — the watch's badge and the "新" marks on its timeline. */
-export function newSinceYesterday(db: Db, watchId: string, hours = NEW_HOURS): Milestone[] {
-  return newSince(db, watchId, Date.now() - hours * 3600_000);
+/** From when a development still counts as 「新」: after the last look, within NEW_DAYS. */
+const unseenSince = (db: Db, watchId: string): number => {
+  const seen = (db.prepare('SELECT seen_at AS at FROM watches WHERE id = ?').get(watchId) as { at: number | null } | undefined)?.at ?? 0;
+  return Math.max(seen + 1, Date.now() - NEW_DAYS * 864e5);
+};
+
+/** Developments not yet seen — the watch's badge and the 「新」 marks on its timeline. */
+export function unseenDevelopments(db: Db, watchId: string): Milestone[] {
+  return newSince(db, watchId, unseenSince(db, watchId));
+}
+
+/** The person has looked at the timeline: what it showed is no longer 「新」. */
+export function markWatchSeen(db: Db, watchId: string, at = Date.now()): void {
+  db.prepare('UPDATE watches SET seen_at = MAX(COALESCE(seen_at, 0), ?) WHERE id = ?').run(at, watchId);
 }
 
 /**
- * The whole timeline — the watch page. `isNew` here means new *now*: judged new
- * when it was found and found within NEW_HOURS, so last week's developments do
- * not stay marked 新 for ever.
+ * The whole timeline — the watch page. `isNew` here means not seen yet: judged
+ * new when it was found, and found after the timeline was last looked at.
  */
 export function timeline(db: Db, watchId: string): Milestone[] {
-  const recent = Date.now() - NEW_HOURS * 3600_000;
+  const since = unseenSince(db, watchId);
   return (db.prepare(
     `SELECT id, watch_id AS watchId, occurred_on AS occurredOn, summary,
             first_seen_at AS firstSeenAt, is_new AS isNew
      FROM milestones WHERE watch_id = ? ORDER BY occurred_on`
   ).all(watchId) as any[])
-    .map((r) => ({ ...r, isNew: Boolean(r.isNew) && r.firstSeenAt >= recent, itemIds: sourcesOf(db, r.id) }));
+    .map((r) => ({ ...r, isNew: Boolean(r.isNew) && r.firstSeenAt >= since, itemIds: sourcesOf(db, r.id) }));
 }
 
 const sourcesOf = (db: Db, milestoneId: string): string[] =>

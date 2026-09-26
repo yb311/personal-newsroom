@@ -1,6 +1,6 @@
 export type { Provider, ProviderCheck, ProviderProblem, ProviderId, GenerateOptions, GenerateResult, EmbedKind,
   AiMessage, ModelLimits, ProviderCapabilities, StandardUsage, StreamEvent, SearchResult, SearchSource, VectorProfile } from './provider.ts';
-export { NoProviderError, ProviderError, parseLoose } from './provider.ts';
+export { NoProviderError, ProviderError } from './provider.ts';
 export { GeminiProvider, GEMINI_MODELS, GEMINI_PRICING, EMBED_PER_M, geminiCost } from './gemini.ts';
 export { OllamaProvider } from './ollama.ts';
 export { OpenAiProvider, AnthropicProvider, CompatibleProvider, OPENAI_MODELS, ANTHROPIC_MODELS } from './vendors.ts';

@@ -6,9 +6,13 @@ import { adapterFor } from '@pnr/feed';
 import { enrichItem } from '@pnr/reader';
 import { domainOf, downloadPublic, flags, localDateTime, log } from '@pnr/core';
 import { extractArticle } from '@pnr/reader-core';
+import { describeScreen, type ScreenInput, type ScreenMaterial } from './screen.ts';
+import { writingRules } from './style.ts';
 
 /**
- * 新闻助手: a conversation about news in general, not bound to any article.
+ * 新闻助手: a conversation about news in general, not bound to any article —
+ * though it is told what the reader has open on the left (`screen`), so a
+ * question about "this" means that, and its full text comes along.
  *
  * Each question is answered from material gathered for that turn — the
  * person's own library, a Google News search and, when the provider has one,
@@ -28,13 +32,19 @@ export interface AssistantMessage {
   id: string; sequence: number; role: 'user' | 'assistant'; content: string | null;
   answer: AssistantAnswer | null; status: 'pending' | 'complete' | 'cancelled' | 'failed';
   web: boolean; error: string | null;
+  /** What was open on the left when the question was asked, for user turns. */
+  screenLabel: string | null;
 }
 export interface AssistantChat {
   id: string; title: string; lang: string; createdAt: number; updatedAt: number;
   messages: AssistantMessage[]; sources: AssistantSource[];
 }
 export interface AssistantChatSummary { id: string; title: string; updatedAt: number }
-export interface AssistantAskInput { chatId?: string | null; question: string; web: boolean; lang: string; requestId: string }
+export interface AssistantAskInput {
+  chatId?: string | null; question: string; web: boolean; lang: string; requestId: string;
+  /** What the reader has open on the left, if they left it attached. */
+  screen?: ScreenInput | null;
+}
 export type AssistantPhase = 'library' | 'news' | 'web' | 'writing';
 export interface AssistantEvent {
   requestId: string; chatId: string; messageId: string;
@@ -70,6 +80,8 @@ const ANSWER_SCHEMA = {
 /** How far back the library is searched, and how much of one article is sent. */
 const LIBRARY_DAYS = 30;
 const MATERIAL_CHARS = 6_000;
+/** The article on screen is the subject of the question: sent whole, within reason. */
+const FOCUS_CHARS = 40_000;
 const MAX_LIBRARY = 8;
 const MAX_NEWS = 8;
 const MAX_WEB = 6;
@@ -100,11 +112,11 @@ export function getChat(db: Db, id: string): AssistantChat | null {
   const chat = db.prepare('SELECT id, title, lang, created_at AS createdAt, updated_at AS updatedAt FROM assistant_chats WHERE id = ?')
     .get(id) as Omit<AssistantChat, 'messages' | 'sources'> | undefined;
   if (!chat) return null;
-  const messages = (db.prepare(`SELECT id, sequence, role, content, answer_json AS answerJson, status, web, error
+  const messages = (db.prepare(`SELECT id, sequence, role, content, answer_json AS answerJson, status, web, error, screen_label AS screenLabel
     FROM assistant_messages WHERE chat_id = ? ORDER BY sequence`).all(id) as any[])
     .map((m) => ({ id: m.id, sequence: m.sequence, role: m.role, content: m.content,
       answer: m.answerJson ? JSON.parse(m.answerJson) as AssistantAnswer : null,
-      status: m.status, web: m.web === 1, error: m.error })) as AssistantMessage[];
+      status: m.status, web: m.web === 1, error: m.error, screenLabel: m.screenLabel ?? null })) as AssistantMessage[];
   const sources = db.prepare(`SELECT ref_id AS refId, kind, item_id AS itemId, title, url, publisher, published_at AS publishedAt
     FROM assistant_sources WHERE chat_id = ? ORDER BY CAST(substr(ref_id, 2) AS INTEGER)`).all(id) as AssistantSource[];
   return { ...chat, messages, sources };
@@ -121,13 +133,14 @@ export function recoverAssistant(db: Db): void {
 
 // ── gathering ───────────────────────────────────────────────────────────────
 
-async function plan(provider: Provider, question: string, history: string, signal?: AbortSignal): Promise<{ keywords: string[]; searchQuery: string }> {
+async function plan(provider: Provider, question: string, history: string, screen: string, signal?: AbortSignal): Promise<{ keywords: string[]; searchQuery: string }> {
   try {
     const { data } = await provider.generate<{ keywords: string[]; searchQuery: string }>([
       'You plan research for a news assistant.', `NOW: ${localDateTime(Date.now())}`,
       'keywords: up to 8 short terms for a substring search over headlines and snippets in a local news library.',
       'Use names, places, organisations and topic words; give both Chinese and English forms when useful. Never whole sentences.',
-      'searchQuery: one concise, standalone news search query for the question, resolving any reference to the earlier conversation.',
+      'searchQuery: one concise, standalone news search query for the question, resolving any reference to the earlier conversation or to what is on screen ("this", "这个").',
+      screen ? `ON SCREEN (what the reader has open):\n${screen}` : '',
       history ? `RECENT CONVERSATION:\n${history}` : '', `QUESTION: ${question}`
     ].filter(Boolean).join('\n'), { schema: PLAN_SCHEMA as unknown as Record<string, unknown>, model: provider.fastModel,
       temperature: 0, operation: 'assistant_plan', ...(signal ? { signal } : {}) });
@@ -241,22 +254,50 @@ async function fromWeb(provider: Provider, question: string, query: string, deps
   return pages.filter((p): p is Candidate => Boolean(p));
 }
 
-/** Registers this turn's materials as numbered sources of the chat. */
+/** The screen's sources as materials: the open article whole, list rows as headline
+ *  and snippet, everything else as the library gives it. `keys` follows `sources`. */
+async function fromScreen(db: Db, dataDir: string, screen: ScreenMaterial, signal?: AbortSignal): Promise<{ key: string; candidate: Candidate }[]> {
+  const whole = screen.sources.flatMap((s) => ('full' in s && s.full ? [s.itemId] : []));
+  await Promise.all(whole.map((id) => {
+    const row = db.prepare(`SELECT url, body_state AS state FROM items WHERE id = ?`).get(id) as { url: string; state: string } | undefined;
+    return row?.state === 'pending' ? enrichItem(db, dataDir, { id, url: row.url }).catch(() => null) : null;
+  }));
+  abortIfNeeded(signal);
+  return screen.sources.flatMap((s): { key: string; candidate: Candidate }[] => {
+    if ('material' in s) return [{ key: s.key, candidate: { kind: 'web' as const, itemId: null, title: s.title, url: s.url,
+      publisher: s.publisher, publishedAt: s.publishedAt, material: s.material.slice(0, MATERIAL_CHARS) } }];
+    const it = db.prepare(`SELECT ${ITEM_SELECT} FROM items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = ?`).get(s.itemId) as Item | undefined;
+    if (!it) return [];
+    const snippet = [it.title, it.snippet && it.snippet !== it.title ? it.snippet : ''].filter(Boolean).join('\n');
+    const material = s.brief ? snippet
+      : (readBody(it.bodyPath)?.text ?? '').slice(0, s.full ? FOCUS_CHARS : MATERIAL_CHARS) || snippet;
+    return material.trim() ? [{ key: s.key, candidate: { kind: 'library' as const, itemId: it.id, title: it.title, url: it.url,
+      publisher: it.sourceName, publishedAt: it.publishedAt, material } }] : [];
+  });
+}
+
+/** Registers this turn's materials as numbered sources of the chat, returning each
+ *  one's number in order. An article already registered with less of its text (a
+ *  headline, say) gets the fuller one. */
 function register(db: Db, chatId: string, candidates: Candidate[]): string[] {
-  const byUrl = db.prepare('SELECT ref_id AS refId FROM assistant_sources WHERE chat_id = ? AND url = ?');
+  const byUrl = db.prepare('SELECT ref_id AS refId, length(material_text) AS size FROM assistant_sources WHERE chat_id = ? AND url = ?');
+  const grow = db.prepare('UPDATE assistant_sources SET material_text = ? WHERE chat_id = ? AND ref_id = ?');
   const insert = db.prepare(`INSERT INTO assistant_sources (chat_id, ref_id, kind, item_id, title, url, publisher, published_at, material_text, created_at)
     VALUES (?,?,?,?,?,?,?,?,?,?)`);
   return db.transaction((): string[] => {
     let next = (db.prepare('SELECT COUNT(*) AS n FROM assistant_sources WHERE chat_id = ?').get(chatId) as { n: number }).n + 1;
     const refs: string[] = [];
     for (const c of candidates) {
-      const existing = byUrl.get(chatId, c.url) as { refId: string } | undefined;
-      if (existing) { refs.push(existing.refId); continue; }
+      const existing = byUrl.get(chatId, c.url) as { refId: string; size: number } | undefined;
+      if (existing) {
+        if (c.material.length > existing.size) grow.run(c.material, chatId, existing.refId);
+        refs.push(existing.refId); continue;
+      }
       const refId = `s${next++}`;
       insert.run(chatId, refId, c.kind, c.itemId, c.title, c.url, c.publisher, c.publishedAt, c.material, Date.now());
       refs.push(refId);
     }
-    return [...new Set(refs)];
+    return refs;
   })();
 }
 
@@ -278,6 +319,9 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
   const question = input.question.trim();
   if (!question) throw new Error('empty_question');
   const now = Date.now();
+  // What is on screen only helps; a view that cannot be described is left out.
+  let screen: ScreenMaterial | null = null;
+  try { screen = describeScreen(db, input.screen); } catch { screen = null; }
   const chatId = input.chatId && getChat(db, input.chatId) ? input.chatId : `chat-${randomUUID()}`;
   const userId = `amsg-${randomUUID()}`; const messageId = `amsg-${randomUUID()}`;
   const created = db.transaction((): boolean => {
@@ -286,10 +330,10 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
     db.prepare('INSERT INTO assistant_chats (id, title, lang, created_at, updated_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at')
       .run(chatId, question.replace(/\s+/g, ' ').slice(0, 60), input.lang, now, now);
     const seq = (db.prepare('SELECT COALESCE(MAX(sequence), 0) + 1 AS n FROM assistant_messages WHERE chat_id = ?').get(chatId) as { n: number }).n;
-    const add = db.prepare(`INSERT INTO assistant_messages (id, chat_id, sequence, role, content, status, web, request_id, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`);
-    add.run(userId, chatId, seq, 'user', question, 'complete', input.web ? 1 : 0, `${input.requestId}:user`, now, now);
-    add.run(messageId, chatId, seq + 1, 'assistant', null, 'pending', input.web ? 1 : 0, input.requestId, now, now);
+    const add = db.prepare(`INSERT INTO assistant_messages (id, chat_id, sequence, role, content, status, web, request_id, screen_label, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+    add.run(userId, chatId, seq, 'user', question, 'complete', input.web ? 1 : 0, `${input.requestId}:user`, screen?.label ?? null, now, now);
+    add.run(messageId, chatId, seq + 1, 'assistant', null, 'pending', input.web ? 1 : 0, input.requestId, null, now, now);
     return true;
   })();
   if (!created) {
@@ -308,32 +352,41 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
   try {
     const earlier = getChat(db, chatId)!;
     const turns = earlier.messages.filter((m) => m.status === 'complete' && m.id !== userId).slice(-8);
-    const history = turns.map((m) => m.role === 'user' ? `User: ${m.content}` : `Assistant: ${plainAnswer(m.answer)}`).join('\n');
+    const history = turns.map((m) => m.role === 'user'
+      ? `User${m.screenLabel ? ` (looking at: ${m.screenLabel})` : ''}: ${m.content}` : `Assistant: ${plainAnswer(m.answer)}`).join('\n');
 
     send({ type: 'phase', phase: 'library' });
-    const q = await plan(provider, question, history, signal);
-    const library = await fromLibrary(db, provider, dataDir, question, q, signal);
+    const onScreen = screen ? await fromScreen(db, dataDir, screen, signal) : [];
+    const q = await plan(provider, question, history, screen ? screen.text.slice(0, 1_200) : '', signal);
+    const shown = new Set(onScreen.map((s) => s.candidate.url));
+    const library = (await fromLibrary(db, provider, dataDir, question, q, signal)).filter((c) => !shown.has(c.url));
     let online: Candidate[] = [];
     if (input.web) {
       send({ type: 'phase', phase: provider.capabilities.search && !flags.disableSearch ? 'web' : 'news' });
       const [news, web] = await Promise.all([fromNews(db, q.searchQuery, input.lang, deps), fromWeb(provider, question, q.searchQuery, deps, signal)]);
-      const seen = new Set(library.map((c) => c.url));
+      const seen = new Set([...shown, ...library.map((c) => c.url)]);
       online = [...web, ...news].filter((c) => (seen.has(c.url) ? false : (seen.add(c.url), true)));
     }
     abortIfNeeded(signal);
-    const turnRefs = register(db, chatId, [...library, ...online]);
+    // What is on screen comes first: it is what the question is most likely about.
+    const registered = register(db, chatId, [...onScreen.map((s) => s.candidate), ...library, ...online]);
+    const screenRef = new Map(onScreen.map((s, i) => [s.key, registered[i]!]));
+    const turnRefs = [...new Set(registered)];
+    const screenText = screen?.text.replace(/\[\[(\w+)\]\]/g, (_m, key: string) => (screenRef.has(key) ? `[${screenRef.get(key)}]` : ''));
 
     // This turn's materials first, then earlier ones for follow-ups, within budget.
     const all = db.prepare(`SELECT ref_id AS refId, kind, title, publisher, published_at AS publishedAt, material_text AS material
       FROM assistant_sources WHERE chat_id = ?`).all(chatId) as { refId: string; kind: string; title: string; publisher: string | null; publishedAt: number | null; material: string }[];
     const order = [...turnRefs, ...all.map((s) => s.refId).filter((r) => !turnRefs.includes(r))];
     const byRef = new Map(all.map((s) => [s.refId, s]));
-    const budget = Math.max(12_000, provider.limits.write.maxInputTokens * 3 - history.length - 10_000);
+    const budget = Math.max(12_000, provider.limits.write.maxInputTokens * 3 - history.length - (screenText?.length ?? 0) - 10_000);
     const blocks: string[] = []; let used = 0;
     for (const ref of order) {
       const s = byRef.get(ref)!;
-      const block = `[${s.refId}] ${s.kind.toUpperCase()} | ${s.publisher ?? ''} | ${s.publishedAt ? localDateTime(s.publishedAt) : ''} | ${s.title}\n${s.material}`;
-      if (used + block.length > budget) continue;
+      let block = `[${s.refId}] ${s.kind.toUpperCase()} | ${s.publisher ?? ''} | ${s.publishedAt ? localDateTime(s.publishedAt) : ''} | ${s.title}\n${s.material}`;
+      // A long article (the one on screen, say) is shortened to fit rather than left out.
+      const room = budget - used;
+      if (block.length > room) { if (room < 2_000) continue; block = block.slice(0, room); }
       blocks.push(block); used += block.length;
     }
 
@@ -346,8 +399,14 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
       'Background or general knowledge that is not in the materials is allowed when it helps: supported=false and no ids. Never present it as recent news.',
       'If the materials do not cover the question, say so plainly instead of guessing. Never invent dates, numbers or quotes.',
       'LIBRARY = the reader\'s own subscriptions; NEWS = news-search headlines and snippets only, so claim nothing beyond them; WEB = pages found by web search.',
+      screenText ? [
+        'ON_SCREEN is what the reader has open in the app right now. A question about "this", "这个", "这篇", "它" or the like, with nothing else it could mean, is about it.',
+        'Text in ON_SCREEN written by the app itself (a brief, a timeline, a flash, a report) is a summary: cite the [sN] marks it carries, which point to the materials below, and never cite ON_SCREEN itself.',
+        `ON_SCREEN: ${screen!.label}\n${screenText}`
+      ].join('\n') : '',
       input.web ? '' : 'Online search was switched off for this question; rely on the library.',
       'Be concise (about 250 words) unless the question asks for depth.',
+      writingRules(input.lang).join('\n'),
       history ? `CONVERSATION SO FAR:\n${history}` : '', `QUESTION: ${question}`,
       blocks.length ? `MATERIALS (${blocks.length}):\n\n${blocks.join('\n\n')}` : 'MATERIALS: none were found.'
     ].filter(Boolean).join('\n\n');
@@ -364,7 +423,7 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
     finish('complete', answer, null);
     send({ type: 'complete', value: answer });
     log({ event: 'assistant.answer', phase: 'completed', entityId: chatId,
-      attrs: { library: library.length, online: online.length, units: answer.units.length } });
+      attrs: { screen: onScreen.length, library: library.length, online: online.length, units: answer.units.length } });
   } catch (error) {
     const cancelled = signal?.aborted === true;
     const message = cancelled ? null : String((error as { code?: string })?.code ?? error).slice(0, 160);

@@ -3,6 +3,7 @@ import type { Db } from '@pnr/store';
 import type { Provider } from '@pnr/ai';
 import { localDateKey, log } from '@pnr/core';
 import type { Watch } from '@pnr/watch';
+import { writingRules } from './style.ts';
 
 export interface OutsideSuggestion { label: string; intent: string; keywords: string[] }
 export interface OutsidePick { id: string; date: string; lang: string; mode: 'ai'|'local'; title: string; reason: string; itemIds: string[]; suggestion: OutsideSuggestion; createdAt: number }
@@ -58,7 +59,7 @@ export async function generateOutsidePicks(db:Db,provider:Provider|null,watches:
   let picks:OutsidePick[]=[]; let aiFailed=false;
   if(provider&&items.length){
     try {
-      const header=['Find 3-5 important events from the last 24 hours that are outside every enabled watch. Fewer is correct when evidence is weak.',`OUTPUT_LANGUAGE: ${lang}`,'WATCHES (original user wording):',...watches.map(w=>`${w.id}|${w.label}|${w.intent}`),'ARTICLES:'];
+      const header=['Find 3-5 important events from the last 24 hours that are outside every enabled watch. Fewer is correct when evidence is weak.',`OUTPUT_LANGUAGE: ${lang}`,'title and reason follow these rules:',...writingRules(lang),'WATCHES (original user wording):',...watches.map(w=>`${w.id}|${w.label}|${w.intent}`),'ARTICLES:'];
       const lines=items.map(i=>`${i.id}|${i.lang??''}|${i.sourceName}|${i.title}|${i.snippet??''}`); const budget=Math.max(8_000,provider.limits.write.maxInputTokens*3-header.join('\n').length-6_000);
       const chunks:string[][]=[]; let chunk:string[]=[]; let size=0; for(const line of lines){ if(chunk.length&&size+line.length>budget){chunks.push(chunk);chunk=[];size=0;} chunk.push(line);size+=line.length; } if(chunk.length)chunks.push(chunk);
       const raw:any[]=[]; for(const part of chunks){ const result=await provider.generate<{picks:any[]}>([...header,...part].join('\n'),{schema:SCHEMA as unknown as Record<string,unknown>,model:provider.writeModel,temperature:0.2,operation:'outside_picks'}); raw.push(...(result.data.picks??[])); }
@@ -75,7 +76,15 @@ export async function generateOutsidePicks(db:Db,provider:Provider|null,watches:
   return picks;
 }
 
+/** Today's picks. Following one changes the watches, but the others stay
+ *  until the next edition: only picks a watch now covers are hidden — the one
+ *  just followed (same wording as its suggestion) or one whose reports already
+ *  pass a watch's gate. */
 export function readOutsidePicks(db:Db,watches:Watch[],lang:string):OutsidePick[]{
-  if(!outsideEnabled(db))return[]; const fp=outsideFingerprint(db,watches,lang);
-  return (db.prepare('SELECT id,edition_date AS date,lang,mode,event_title AS title,importance_reason AS reason,item_ids_json AS itemIds,suggestion_json AS suggestion,created_at AS createdAt FROM outside_picks WHERE edition_date=? AND lang=? AND config_fingerprint=? ORDER BY created_at DESC').all(localDateKey(),lang,fp) as any[]).map(r=>({...r,itemIds:JSON.parse(r.itemIds),suggestion:JSON.parse(r.suggestion)}));
+  if(!outsideEnabled(db))return[]; const active=watches.filter(w=>w.active); const seen=watchedIds(db,active);
+  const norm=(s:string)=>s.replace(/\s+/g,' ').trim().toLowerCase();
+  const followed=new Set(active.flatMap(w=>[norm(w.label),norm(w.intent)]).filter(Boolean));
+  return (db.prepare('SELECT id,edition_date AS date,lang,mode,event_title AS title,importance_reason AS reason,item_ids_json AS itemIds,suggestion_json AS suggestion,created_at AS createdAt FROM outside_picks WHERE edition_date=? AND lang=? ORDER BY created_at DESC, id').all(localDateKey(),lang) as any[])
+    .map(r=>({...r,itemIds:JSON.parse(r.itemIds),suggestion:JSON.parse(r.suggestion)}) as OutsidePick)
+    .filter(p=>!followed.has(norm(p.suggestion.label))&&!followed.has(norm(p.suggestion.intent))&&p.itemIds.filter(id=>seen.has(id)).length*2<p.itemIds.length);
 }

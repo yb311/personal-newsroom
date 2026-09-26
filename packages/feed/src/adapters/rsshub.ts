@@ -16,7 +16,7 @@ import type { Adapter, ParseResult } from './types.ts';
  * `library` — the npm package, imported directly. It ships `dist-lib/` with one
  *             pre-bundled module per route and exports `init`/`request`, so
  *             there is no server to run, no port to manage and no crash loop
- *             (docs/SPIKES.zh-CN.md §2). RSSHub is AGPL-3.0 and so is this
+ *             (docs/ARCHITECTURE.zh-CN.md §12). RSSHub is AGPL-3.0 and so is this
  *             project, so linking it is fine.
  *
  * No public instance is hardcoded as a default. Pointing this at someone else's
@@ -84,8 +84,6 @@ export async function rssHubMode(): Promise<RssHubMode> {
   if (config.instanceUrl) return 'http';
   return (await load()) ? 'library' : 'off';
 }
-
-export const rssHubAvailable = async (): Promise<boolean> => (await rssHubMode()) !== 'off';
 
 /**
  * Silences RSSHub's own output for the duration of one call.

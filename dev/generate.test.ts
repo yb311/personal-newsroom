@@ -5,7 +5,7 @@ import { ingestAll } from '../packages/feed/src/index.ts';
 import { resolveProvider, writeSetting, invalidateProvider, geminiCost } from '../packages/ai/src/index.ts';
 import { createWatch, prepareWatch } from '../packages/watch/src/index.ts';
 import { recallForWatch, judgeAll, gateWatch } from '../packages/recall/src/index.ts';
-import { generateDigest, generateProgress, newSinceYesterday, timeline } from '../packages/generate/src/index.ts';
+import { generateDigest, generateProgress, unseenDevelopments, timeline } from '../packages/generate/src/index.ts';
 import { readFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -92,7 +92,7 @@ console.log(`\n  结论：旧的认出已说过、新的认出是新增 → ${to
 
 console.log('\n━━ 两种视图共用一份数据 ━━');
 for (const w of watches) {
-  console.log(`  ${w.label}: 「昨天到今天」${newSinceYesterday(db, w.id).length} 条 · 完整时间线 ${timeline(db, w.id).length} 条`);
+  console.log(`  ${w.label}: 「昨天到今天」${unseenDevelopments(db, w.id).length} 条 · 完整时间线 ${timeline(db, w.id).length} 条`);
 }
 console.log(`\n本次全部花费: $${cost.toFixed(4)}`);
 db.close(); rmSync(dir,{recursive:true,force:true});

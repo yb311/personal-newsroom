@@ -72,9 +72,9 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 阅读核心 | **Go 程序 `native/reader`（`pnr-reader`）**：Miniflux 的解析/编码/清洗/站点规则 + go-trafilatura 抽正文。**全 TS 决策的唯一例外** | Trafilatura 没有 JS 版；新闻文章 F1：Trafilatura 0.926 vs Readability 0.825（WCXB）。Miniflux 的 reader 包带大量测试。见下文「阅读核心」 |
 | 下载在哪 | **一律在 Node（`@pnr/core` 的 `download`）**，Go 只处理字节，不联网 | France 24 等按 TLS 指纹拦截：Go 客户端和 curl 403，Node fetch 200 |
 | 各板块分工 | **今日** = 每天一份的日报（今日摘要 + 关注之外 + 往期）；**快讯** = 随时的电讯，一条一件事，几小时查一次；**关注** = 每件事的档案（进展时间线为默认页 → 相关报道 → 设置）；**阅读** = RSS 阅读器；**新闻助手** = 问答；**深度报道** = 把一件事讲透。**同一条新闻只有一个家，别处只放链接** | 2026-09-22 用户指出「昨天到今天」与摘要、快讯重复，分工不清 |
-| 进展形态 | 进展判断出的新里程碑 **写进今日摘要**（`generateDigest` 的 `NEW`，「新」= 自上一期摘要生成以来）**+** Watch 页完整时间线（最新在上，新增标「新」）。摘要每节小标题上方标所属关注，点击进该关注的时间线；侧栏「关注」计数 = 新进展数。**今日不再单列「昨天到今天」** | 共用 `firstSeenAt`，一份数据两种渲染，判断只做一次 |
-| 更新按钮 | 工具栏分两半，**左半在列表正上方，放作用于列表的操作**，右半放作用于选中项的操作（同 Mail）。**↻ 只表示「取新内容」**，只在阅读（更新订阅）和快讯（检查新快讯）出现，紧挨列表标题。**「全部更新」是唯一的全局按钮**：侧栏标题栏（侧栏收起时在工具栏左端），菜单 ⇧⌘R；按住 ⌥ 变成「全部重新生成」（⌥⇧⌘R）。**AI 重写用带文字的按钮，放在被重写的东西上**：今日摘要文首「重新生成」**只重写摘要这一份**（一次调用，不抓取不判定）；单个关注的「立即更新」（先抓取再筛选，有新报道才重读进展）。**所有写作一律增量**（`pipeline.ts`）：进展只在有新过闸报道时重读（`watches.progress_at`）、快讯只看模型没见过的候选（`flash_considered`）、摘要只在有新进展或新关注有材料时重写（`digestDue`）、关注之外一天一次、AI 初筛按关注原话缓存（`prescreen_results`）；`force` 才全部重写 | 2026-09-22 用户反馈四个一样的 ↻ 分不清；2026-09-24 用户要求以省 token 为目标设计按钮，并要一个全部更新的按钮 |
-| 右侧分栏 | **新闻助手**：通用问答，不绑定文章，可联网（本地订阅 + Google News + 厂商网页搜索） | 侧栏只放助手 |
+| 进展形态 | 进展判断出的新里程碑 **写进今日摘要**（`generateDigest` 的 `NEW`，「新」= 自上一期摘要生成以来）**+** Watch 页完整时间线（最新在上，新增标「新」）。**时间线上的「新」像未读邮件**：时间线真正出现在屏幕上后记 `watches.seen_at`，下次打开就不再标新（当次仍保留标记），侧栏和列表计数随即归零；一直没看的 7 天后也不算（`NEW_DAYS`）。这和摘要里的「新」（自上一期摘要以来）是两回事，互不影响。摘要每节小标题上方标所属关注，点击进该关注的时间线；侧栏「关注」计数 = 新进展数。**今日不再单列「昨天到今天」** | 共用 `firstSeenAt`，一份数据两种渲染，判断只做一次 |
+| 更新按钮 | 工具栏分两半，**左半在列表正上方，放作用于列表的操作**，右半放作用于选中项的操作（同 Mail）。**↻ 只表示「取新内容」**，只在阅读（更新订阅）和快讯（检查新快讯）出现，紧挨列表标题。**「全部更新」是唯一的全局按钮**：只在侧栏标题栏，**侧栏收起时随侧栏一起隐藏**（不在工具栏放只有图标的副本，它会和列表的 ↻ 挨在一起分不清），菜单 ⇧⌘R 始终可用；按住 ⌥ 变成「全部重新生成」（⌥⇧⌘R）。**AI 重写用带文字的按钮，放在被重写的东西上**：今日摘要文首「重新生成」**只重写摘要这一份**（一次调用，不抓取不判定）；单个关注的「立即更新」（先抓取再筛选，有新报道才重读进展）。**所有写作一律增量**（`pipeline.ts`）：进展只在有新过闸报道时重读（`watches.progress_at`）、快讯只看模型没见过的候选（`flash_considered`）、摘要只在有新进展或新关注有材料时重写（`digestDue`）、关注之外一天一次、AI 初筛按关注原话缓存（`prescreen_results`）；`force` 才全部重写 | 2026-09-22 用户反馈四个一样的 ↻ 分不清；2026-09-24 用户要求以省 token 为目标设计按钮，并要一个全部更新的按钮；2026-09-25 用户反馈侧栏收起时阅读页出现两个 ↻ 很奇怪 |
+| 右侧分栏 | **新闻助手**：通用问答，不绑定文章，可联网（本地订阅 + Google News + 厂商网页搜索）。**它知道左边打开的是什么**（文章、文章列表、今日摘要/往期、关注之外、快讯、关注、深度报道）：界面只传「是哪一个」（`ScreenFocus`），正文由主进程从数据库完整读取（`packages/generate/src/screen.ts`），打开的文章整篇作为 s1；App 自己写的摘要/时间线/快讯原样给模型，背后的文章登记成 `sN` 供引用。输入框上的眼睛胶囊显示附带了什么，点一下下个问题不带；问题下方记「看着：…」 | 侧栏只放助手；2026-09-25 用户要求助手知道左边在看什么 |
 | 深度报道 | 保留，但**不在侧栏**：从文章/快讯/进展进入，在主区域以文档视图打开，工具栏返回 | 绑定一条新闻，材料快照存 `conversations` 表；失败的首稿不会被当成已存报道恢复 |
 | 界面形态 | **按 macOS 应用做布局**：设置是独立窗口（⌘,，System Settings 式分组）、原生右键菜单、状态写在工具栏副标题 | 不要加网页式状态栏、卡片、悬停高亮 |
 | 主区域布局 | **今日 / 快讯 / 阅读 / 关注一律「左列表 + 右详情」分栏**（`ListPane.tsx`，方向键切换，列宽共用）。今日列表：今日摘要 → 关注之外 → 往期；**有摘要时不显示要闻**，没摘要时要闻代替。AI 写的文档用编号角标 + 文末来源列表，不用来源名胶囊 | 2026-09-22 用户反馈「太像网页、今日太杂」：长滚动页 + 卡片 + 网格就是网页感的来源 |
@@ -82,20 +82,15 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 
 ## 从 daily-brief 移植什么
 
-源仓库在 `../daily-brief`。**移植，不 fork**。不要碰 `lib/narration/*`（播客 TTS）、
-`lib/user/newsletter.ts`、`app/api/share/*`、`app/[lang]/*`、`lib/storage/kv-cache.ts`、`lib/storage/r2-store.ts`。
+源仓库在 `../daily-brief`。**移植，不 fork**，已经移植完的对应关系见 `docs/ARCHITECTURE.zh-CN.md`。
+不要碰 `lib/narration/*`（播客 TTS）、`lib/user/newsletter.ts`、`app/api/share/*`、`app/[lang]/*`、
+`lib/storage/kv-cache.ts`、`lib/storage/r2-store.ts`。再从那边搬东西时，`lib/feed/rss-catalog.ts`
+的注释要原样保留——那些是血汗经验，说明每个入口为什么这么选。
 
-要移植的（完整清单见架构文档）：
-`lib/feed/*`（含 `rss-catalog.ts` 的注释——那些是血汗经验，说明每个入口为什么这么选）、
-`lib/evidence/*`、`lib/ai/semantic-embeddings.ts`、`lib/news/brief-service.ts`、
-`lib/news/story-timeline.ts`、`lib/storage/historical-retrieval.ts`、`lib/core/*`、
-`lib/prompts/news/editorial-rules.ts`、`app/globals.css`、`components/ui/rich-content.tsx`。
-
-两处要改的地方：
-- **交叉验证闸门换成意图闸门**。老闸门在 `evidence-cluster.ts:1553` 是**单点**
-  （`cluster.independentOrgCount >= 2`），而且 `allClusters` 已经和 `eligibleClusters` 一起返回了，
-  所以只换那个 filter 的判据即可。
-- **双语字段合并**成单语言 + `lang`。
+移植时改过的两处，别改回去：
+- **交叉验证闸门换成意图闸门**（`packages/recall/src/gate.ts`）。老闸门是 `evidence-cluster.ts:1553`
+  的单点 `cluster.independentOrgCount >= 2`
+- **双语字段合并**成单语言 + `lang`
 
 ## 视觉
 
@@ -130,47 +125,31 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
   Flash 档 2027-01-01 价格翻倍，这两件事从第一版就要做对，不是以后优化
 - **GDELT 限流**：每 IP **5 秒 1 次**，单查**最多 250 条不能翻页**。各 Watch 串行错峰，查询收窄时间窗
 
-## 开工前必须先验证（M-1，不要直接写产品代码）
+## 进度（截至 2026-09-25）
 
-1. **RSSHub 去掉 Puppeteer 后哪些路由还活着**——Puppeteer 带约 100MB Chromium，
-   而 **Electron 自带的 Chromium 不能给 puppeteer 用**。挨个跑 Telegram/微博/B站/知乎/小红书/GitHub
-2. RSSHub 打进 Electron 包后多大（过大就退回首次启动下载，AGPL 下两条路都合法）
-3. better-sqlite3 + sqlite-vec 在 Electron 里跑通
-4. Gemini 模型 ID 对一遍官方列表（**2.5 Flash-Lite 2026-10-16 退役**，不要绑定）；模型 ID 集中到配置
-5. 签名公证走一次空壳 app（带自启动 agent + 子进程的 app 公证更严，别留到最后）
-
-## 执行顺序
-
-M-1 技术验证 → M0 骨架 → M0.5 RSSHub 内置 → **M1 ⭐ 纯 RSS 阅读器（可发布，不要 key）**
-→ M2 Watch → M3 召回判定 → M4 三种产出 → M5 深度总结 → M6 后台+Ollama → M7 开源打磨
-
-M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签名公证提前趟平，而且它本身就是上手坡道。
-
----
-
-## 进度（截至 2026-09-20）
-
-**M-1 到 M6 的主线功能已完成并验证。** 打包签名公证之外，还有一批 M0-M6 范围内
-**写完主线后才发现漏掉**的小项，见下面「已知缺口」——不要假设某个模块因为标了
-✅ 就是计划里写的每一条都做了，动工前先看这一节，别重新发现一遍。
+M-1 技术验证到 M6 全部完成（验证结论并进了 `docs/ARCHITECTURE.zh-CN.md` §12）。剩下 M7 开源打磨，见下面「剩余工作」。
+**还没发布过任何版本**，所以不需要兼容任何旧数据、旧设置或旧的后台任务——见「踩过的坑」里关于 schema 的一条。
 
 | 包 | 内容 | 验证 |
 |---|---|---|
-| `@pnr/core` | `DiscoveredItem` 统一契约、`canonicalDedupKey`、`RichBlock`、结构化日志 | — |
-| `@pnr/store` | 18 张表 + 2 个 vec0 虚拟表、3 个迁移（**SQL 嵌在 TS 里**）、SQLite 锁 | `test:schema` |
-| `@pnr/feed` | **11 种源适配器** + 注册表分发 + 粘贴内容自动识别 + 并发入库去重 | `test:adapters` 15/15 · `test:resolve` · `test:ingest` |
+| `@pnr/core` | `DiscoveredItem` 统一契约、`canonicalDedupKey`、`RichBlock`、结构化日志、下载、开关 | — |
+| `@pnr/store` | 一个 schema（`001_schema`，**SQL 嵌在 TS 里**）：32 张表 + 2 个 vec0 虚拟表；SQLite 锁；正文文件 | `test:schema` |
+| `@pnr/feed` | **12 种源适配器** + 注册表分发 + 粘贴内容自动识别 + 并发入库去重 + RSSHub 资源包 | `test:adapters` · `test:resolve` · `test:ingest` · `test:catalogue` |
 | `native/reader` | Go 阅读核心：feed/sitemap 解析、编码识别、正文抽取、HTML 清洗、语言识别 | `reader:test`（含 Miniflux 原有测试 + 34 页抽取基准） |
 | `@pnr/reader-core` | 常驻子进程客户端（按需启动、崩溃重启、空闲 unref） | — |
 | `@pnr/reader` | 下载页面 → 阅读核心抽取 → 落盘 `{html,text,words}`；付费墙名单 | `test:reader` |
-| `@pnr/ai` | Vercel AI SDK Provider（Gemini / OpenAI / Claude / 兼容接口 / Ollama）、无 key 闸门、流式/搜索、向量代次、按请求计价 | `test:ai`（真实 SDK + 模拟 HTTP、业务离线边界） |
-| `@pnr/watch` | Watch 模型、10 个预置标签、意图向量、召回辅助、纠偏 | `test:watch` |
-| `@pnr/recall` | R1/R2/R3 三路并集、判定前免费排序截断、批量判定、意图闸门 | `test:pipeline` |
-| `@pnr/generate` | 今日摘要（跨关注合并一次调用）、进展、快讯、按需深度总结 | `test:generate` · `test:flash-deep` |
-| `apps/desktop` | Electron 主进程、IPC、今日/快讯/阅读/关注四 tab、设置、源目录与自定义源、后台调度 | 界面逐屏截图验证 |
-| `apps/worker` | 无界面 worker，`daily` / `flashes` / `fetch` 三种模式，日志写库 | 实跑 59s 全绿 |
+| `@pnr/ai` | Vercel AI SDK Provider（Gemini / OpenAI / Claude / 兼容接口 / Ollama）、无 key 闸门、流式/搜索、向量代次、按请求计价、录放 | `test:ai`（真实 SDK + 模拟 HTTP）· `test:ai-live`（付费实测） |
+| `@pnr/watch` | Watch 模型、37 个预置主题（5 组，中英两套）、意图向量、召回辅助、纠偏 | `test:watch` · `test:watches` |
+| `@pnr/recall` | R1/R2/R3 三路并集、判定前免费排序截断、批量判定、意图闸门、无 AI 时的关键词匹配 | `test:pipeline` |
+| `@pnr/generate` | 流程编排、今日摘要、进展、快讯、关注之外、搜索补全、深度报道、新闻助手 | `test:today` · `test:generate` · `test:flash-cap` · `test:search-fill` · `test:outside` · `test:report` · `test:assistant` |
+| `apps/desktop` | Electron 主进程、IPC、菜单、设置窗口、源目录与自定义源、后台调度、唤醒组件 | `test:wake` · 界面逐屏截图验证 |
+| `apps/renderer` | 今日 / 快讯 / 阅读 / 关注 + 新闻助手分栏 + 深度报道 + 设置 | `test:i18n` |
+| `apps/worker` | 无界面 worker，`auto` / `daily` / `flashes` / `fetch` 四种模式，日志写库 | 实跑 59s 全绿 |
 | `assets` | 应用图标：`AppIcon.icon` 是唯一源，`Assets.car`（26+）/ `icon.icns`（26 以前）由 `npm run icon:build` 生成 | 六种外观 + 16/32/64/128 各尺寸目视检查 |
 
-**源**：内置目录 575 个（42 分类 24 国家）+ 11 种适配器 + RSSHub 打通的几千种。
+`npm run test:ci` 是 CI 跑的离线全集（不联网、不花钱），改完代码至少跑它和 `npm run typecheck`。
+
+**源**：内置目录约 550 个（42 分类 24 国家，12 个默认启用）+ 12 种适配器 + RSSHub 打通的几千种。
 
 ### 实测数字（不是估算）
 
@@ -196,39 +175,20 @@ M1 刻意设计成能独立发布：真实反馈比闭门三个月有用，签�
 
 ### RSSHub 分发：已定为按需下载（不随包发）
 
-**不随应用分发**。它的依赖树 415MB，会让安装包从 200MB 涨到 600MB；而且路由随网站改版经常失效、社区修得很快，捆进应用意味着用户要等我们发版才拿得到修复。
+完整说明见 `docs/ARCHITECTURE.zh-CN.md` §4。要点：
 
-**也不用 npm 运行时安装**——应用不带 npm，在用户机器上解 629 个包的依赖树，失败面太大。
-改成我们自己打一个版本化归档（`scripts/build-rsshub-pack.sh`），下载 + 校验 sha256 + 解压，全程不碰包管理器。
-
-适配器有三种模式（`packages/feed/src/adapters/rsshub.ts`）：
-
-| 模式 | 说明 |
-|---|---|
-| `http` | 用户自己的实例，**优先级最高**。它返回标准 RSS，直接复用现成解析器，零新代码，而且比库模式快 3 倍（不用冷加载路由模块） |
-| `library` | 下载好的资源包，`import()` 时必须用 `pathToFileURL()`，传文件路径在 ESM 下不可靠 |
-| `off` | 都没有。**优雅降级不报错**——Telegram 是自己实现的，核心社交源不依赖它 |
-
-**绝不内置任何公共实例作为默认。** 那等于把用户的阅读兴趣发给一台陌生服务器，跟产品承诺直接冲突。官方 `rsshub.app` 现在也已经 403 了。
-
-**剔依赖是实测出来的，不是猜的**：
-
-| 剔除 | 省 | 结果 |
-|---|---|---|
-| `@sentry` | 45MB | ✅ 剔掉。纯遥测，本地优先的软件不该带 |
-| `@opentelemetry` | 30MB | ❌ 保留。**运行时硬依赖，init() 直接抛** |
-| `youtubei.js` | 22MB | ❌ 保留。init 能过，但 YouTube 路由会在调用时挂 |
-| `patchright` | 19MB | ❌ 保留。同上，浏览器类路由会挂 |
-
-后两个虽然能剔，但会把失败**推迟到用户点某个源的时候，而且报「模块找不到」而不是真实原因**，比多 40MB 糟糕。
-
-最终：**压缩 63MB，解压 370MB**。资源包放用户数据目录，应用更新不受影响，随时可删除腾空间。
+- **不随应用分发**（依赖树 415MB，路由常随网站改版失效，捆进应用就得等我们发版才能修）
+- **也不用 npm 运行时安装**（应用不带 npm，解 629 个包失败面太大）。用自己打的版本化资源包
+  （`scripts/build-rsshub-pack.sh`，压缩 63MB / 解压 370MB）：下载 + 校验 sha256 + 解压到用户数据目录
+- 适配器三种模式：`http`（用户自己的实例，优先）/ `library`（资源包）/ `off`（优雅降级不报错）
+- **绝不内置任何公共实例作为默认**，那等于把用户的阅读兴趣发给陌生服务器
+- 剔依赖是实测的：只剔 `@sentry`；`@opentelemetry`、`youtubei.js`、`patchright` 剔了会在调用时才以
+  「模块找不到」失败，比多 40MB 糟糕
 
 ### 剩余工作
 
-- **打包签名公证**（需 Apple 开发者账号）—— 唯一剩余的高风险项
+- **发布第一个签名公证版本**：流程已接好（`docs/RELEASING.zh-CN.md`，打 `vX.Y.Z` 标签触发），还没正式发过
 - 自动更新、一键卸载、贡献指南
-- CI 在未签名包上跑 `scripts/verify-package.sh`（阅读核心、两个 launch agent 的程序、后台 worker 能否启动），发布流程在签名包和 DMG 里再跑一次
 
 ### 打包时的图标接线（别漏了其中一半）
 
@@ -250,6 +210,10 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
   下移 8pt 的阴影）重新出一份完整尺寸的，那个网格数值是从 `actool` 的产物上量的。
 
 ### 踩过的坑（别再踩）
+
+- **发布前 schema 只有一个 `001_schema`**（`packages/store/src/migrations.ts`）：要改表结构就直接改它，
+  不写 ALTER、不写兼容旧数据的读取分支；自己的开发库打开时会报「未发布的开发版」，挪开重建即可。
+  **发布第一个版本之后**才改成只追加新迁移、永不修改已发布的
 
 - **界面文字只放在词典里**：`apps/renderer/src/locales/zh-CN.json`、`en.json`（i18next + react-i18next），
   组件里不写中文句子；菜单由主进程读同一份词典。主进程和各包返回**原因码**（`duplicate`、
@@ -343,3 +307,7 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
   单个关注的更新记为 `watch`，重写摘要记为 `digest`
 - **不是所有源都有发布时间**（知乎日报等）。契约不许编造日期，但整源丢弃更糟：
   用首次发现时间并置 `publishedAtEstimated`，界面显示「发现于」而不是「发布于」
+- **「关注之外」读取时不能按配置指纹过滤**：指纹包含关注列表，关注其中一条就会让当天其余推荐全部消失。
+  `readOutsidePicks` 只隐藏已被关注覆盖的那条（措辞与建议相同，或报道已过某个关注的闸门），指纹只用于判断要不要重新生成
+- **正文里的订阅推销段落（「Sign up here.」等）在 `readBody` 读取时去掉**（`packages/store/src/bodies.ts` 的 `isPromo`），
+  只删整段都是推销的短段落，所以已下载的旧正文也会干净

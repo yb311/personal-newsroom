@@ -189,6 +189,3 @@ export const cleanHtml = (items: { baseUrl: string; html: string }[]): Promise<C
 /** Turns titles and other short strings with markup or escaped entities into plain text. */
 export const plainText = (texts: string[]): Promise<string[]> =>
   texts.length ? instance().request('plain', { texts }) : Promise.resolve([]);
-
-/** Stops the core process. Only needed where exit must be immediate. */
-export const closeReaderCore = (): void => { core?.close(); };

@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Newspaper } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Edition, ItemRef, ItemRow, OutsidePick, Today as TodayData } from '../types.ts';
+import type { Edition, ItemRef, ItemRow, OutsidePick, Screen, Today as TodayData } from '../types.ts';
 import type { OpenReport } from '../App.tsx';
 import { Blocks } from './Blocks.tsx';
 import { Cited, numberSources, Refs, SourceList } from './Cites.tsx';
@@ -30,7 +30,7 @@ const LONG_DAY: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric', we
  * Without a brief (no AI yet, or not written today) the list carries the last
  * day's headlines instead, so 今日 is still a front page, never a blank.
  */
-export function Today({ aiReady, revision, job, busy, divider, onSetup, onWrite, onRewrite, onOpen, onRead, onReport, onFollow, onAddWatch, onOpenWatch }: {
+export function Today({ aiReady, revision, job, busy, divider, onSetup, onWrite, onRewrite, onOpen, onRead, onReport, onFollow, onAddWatch, onOpenWatch, onScreen }: {
   /** 'all' while 全部更新 runs (it writes the first brief), 'digest' while the brief is rewritten. */
   aiReady: boolean; revision: number; job: 'all' | 'digest' | null; busy: boolean; divider: ReactNode; onSetup: () => void;
   /** No brief yet: 全部更新 gathers the material and writes it. */
@@ -39,6 +39,8 @@ export function Today({ aiReady, revision, job, busy, divider, onSetup, onWrite,
   onRewrite: () => void;
   onOpen: (id: string) => void; onRead: (id: string) => void; onReport: OpenReport;
   onFollow: (draft: OutsidePick['suggestion']) => void; onAddWatch: () => void; onOpenWatch: (id: string) => void;
+  /** Tells the assistant what is open. */
+  onScreen: (screen: Screen | null) => void;
 }) {
   const { t } = useTranslation();
   const [data, setData] = useState<TodayData | null>(null);
@@ -67,6 +69,17 @@ export function Today({ aiReady, revision, job, busy, divider, onSetup, onWrite,
     return list;
   }, [data, headlines, editions]);
   const refs = useMemo(() => new Map<string, ItemRef>((data?.refs ?? []).map((r) => [r.id, r])), [data]);
+  // What the assistant is told is open: the row picked, or today's brief.
+  useEffect(() => {
+    if (!data) return;
+    const e = entries.get(selected) ?? { kind: 'today' as const };
+    onScreen(e.kind === 'headline' ? { focus: { kind: 'article', itemId: e.item.id }, label: e.item.title }
+      : e.kind === 'outside' ? { focus: { kind: 'outside', pickId: e.pick.id }, label: e.pick.title }
+      : e.kind === 'edition' ? { focus: { kind: 'digest', date: e.edition.date }, label: e.edition.title }
+      : data.digest ? { focus: { kind: 'digest', date: data.date }, label: data.digest.title }
+      : headlines.length ? { focus: { kind: 'articles', title: t('today.headlines'), itemIds: headlines.map((h) => h.id) }, label: t('today.headlines') }
+      : null);
+  }, [data, entries, selected, headlines]);
 
   if (!data) return <section className="page" />;
   // After an update the picked row may be gone; fall back to today's edition.

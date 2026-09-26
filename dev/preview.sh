@@ -47,6 +47,7 @@ cat > "$OUT/preview.html" <<'HTML'
     today: async (date) => (date && d.pastEditions?.[date]) || d.today, editions: async () => d.editions ?? [],
     headlines: async () => d.headlines, itemRefs: async () => [],
     watchTimeline: async (id) => d.timelines[id] ?? {milestones:[],items:[]},
+    watchSeen: async () => true,
     watchItems: async (id) => d.watchItems[id] ?? [], runWatch: async () => ({ mode: 'keywords', watches: 1 }),
     addPresets: async () => [], backgroundPrompt: async () => false, dismissBackgroundPrompt: async () => {},
     runWatches: async () => ({busy:false, watches:d.watches.length, digest:true}),
@@ -81,7 +82,8 @@ cat > "$OUT/preview.html" <<'HTML'
       picked.forEach((it, i) => { if (!chat.sources.some(s => s.url === it.url)) chat.sources.push({ refId: 's' + (chat.sources.length + 1), kind: i === 2 && input.web ? 'web' : 'library', itemId: it.id, title: it.title, url: it.url, publisher: it.sourceName, publishedAt: it.publishedAt }); });
       const refs = chat.sources.slice(-3).map(s => s.refId);
       const n = chat.messages.length;
-      chat.messages.push({ id: 'u' + n, sequence: n + 1, role: 'user', content: input.question, answer: null, status: 'complete', web: input.web, error: null });
+      chat.messages.push({ id: 'u' + n, sequence: n + 1, role: 'user', content: input.question, answer: null, status: 'complete', web: input.web, error: null, screenLabel: input.screen?.label ?? null });
+      console.log('screen', JSON.stringify(input.screen));
       chat.messages.push({ id: 'a' + n, sequence: n + 2, role: 'assistant', content: null, status: 'complete', web: input.web, error: null, answer: { units: [
         { kind: 'paragraph', text: picked[0].title + '。', sourceRefIds: [refs[0]], supported: true },
         { kind: 'listItem', text: picked[1].title, sourceRefIds: [refs[1]], supported: true },

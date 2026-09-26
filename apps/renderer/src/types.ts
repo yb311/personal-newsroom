@@ -90,10 +90,21 @@ export type AssistantSourceKind = 'library' | 'news' | 'web';
 export interface AssistantUnit { kind: 'paragraph' | 'listItem'; text: string; sourceRefIds: string[]; supported: boolean }
 export interface AssistantAnswer { units: AssistantUnit[] }
 export interface AssistantSource { refId: string; kind: AssistantSourceKind; itemId: string | null; title: string; url: string; publisher: string | null; publishedAt: number | null }
-export interface AssistantMessage { id: string; sequence: number; role: 'user' | 'assistant'; content: string | null; answer: AssistantAnswer | null; status: 'pending' | 'complete' | 'cancelled' | 'failed'; web: boolean; error: string | null }
+export interface AssistantMessage { id: string; sequence: number; role: 'user' | 'assistant'; content: string | null; answer: AssistantAnswer | null; status: 'pending' | 'complete' | 'cancelled' | 'failed'; web: boolean; error: string | null; screenLabel: string | null }
 export interface AssistantChat { id: string; title: string; lang: string; createdAt: number; updatedAt: number; messages: AssistantMessage[]; sources: AssistantSource[] }
 export interface AssistantChatSummary { id: string; title: string; updatedAt: number }
 export type AssistantPhase = 'library' | 'news' | 'web' | 'writing';
+/** What is open on the left, as the assistant is told it: which thing (the main
+ *  process reads its full text) and the short name shown for it. */
+export type ScreenFocus =
+  | { kind: 'article'; itemId: string }
+  | { kind: 'articles'; title: string; itemIds: string[] }
+  | { kind: 'digest'; date: string }
+  | { kind: 'outside'; pickId: string }
+  | { kind: 'flash'; flashId: string }
+  | { kind: 'watch'; watchId: string }
+  | { kind: 'report'; anchorItemId: string; lang: string };
+export interface Screen { focus: ScreenFocus; label: string }
 export interface AssistantEvent { requestId: string; chatId: string; messageId: string; type: 'phase' | 'partial' | 'complete' | 'cancelled' | 'error'; phase?: AssistantPhase; value?: Partial<AssistantAnswer>; error?: string }
 export interface OpenQuestion { id: number; question: string; askedAt: number }
 export interface RunResult {
@@ -183,6 +194,7 @@ export interface Pnr {
   today(date?: string): Promise<Today>;
   editions(limit?: number): Promise<Edition[]>;
   watchTimeline(id: string): Promise<{ milestones: Milestone[]; refs: ItemRef[]; questions: OpenQuestion[] }>;
+  watchSeen(id: string, at?: number): Promise<boolean>;
   headlines(hours?: number, perSource?: number): Promise<HeadlineGroup[]>;
   itemRefs(ids: string[]): Promise<ItemRef[]>;
   runWatch(id: string): Promise<RunResult>;
@@ -206,7 +218,7 @@ export interface Pnr {
   assistantList(): Promise<AssistantChatSummary[]>;
   assistantGet(id: string): Promise<AssistantChat | null>;
   assistantDelete(id: string): Promise<boolean>;
-  assistantAsk(input: { chatId: string | null; question: string; web: boolean; lang: string; requestId: string }): Promise<{ chat?: AssistantChat; error?: string }>;
+  assistantAsk(input: { chatId: string | null; question: string; web: boolean; lang: string; requestId: string; screen: Screen | null }): Promise<{ chat?: AssistantChat; error?: string }>;
   assistantCancel(requestId: string): Promise<boolean>;
   onAssistantEvent(cb: (event: AssistantEvent) => void): () => void;
   scheduleState(): Promise<ScheduleState>;

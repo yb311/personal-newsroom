@@ -13,10 +13,6 @@ const run = promisify(execFile);
 /** The one background agent: hourly at minute 16, the worker decides what is due. */
 export const LABEL = 'com.yb311.personal-newsroom.update';
 const SERVICE = `${LABEL}.plist`;
-/** Earlier versions ran two agents, a daily one and a flash one. Removed on upgrade. */
-const LEGACY = ['com.yb311.personal-newsroom.daily', 'com.yb311.personal-newsroom.flashes'];
-/** Bumped when the agents change shape, so an upgrade registers them again. */
-const LAYOUT = '2';
 const FLASH_INTERVAL_HOURS = 3;
 
 /**
@@ -108,20 +104,8 @@ function loginItemStatus(service: string): ScheduleState['status'] | undefined {
   catch { return undefined; }
 }
 
-/** Agents of earlier versions: unregistered and their plists removed. */
-async function removeLegacy(): Promise<void> {
-  for (const label of LEGACY) {
-    if (app.isPackaged) {
-      try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: `${label}.plist` }); } catch { /* not registered */ }
-    }
-    await run('launchctl', ['bootout', `gui/${uid()}/${label}`]).catch(() => undefined);
-    if (existsSync(agentPlist(label))) rmSync(agentPlist(label), { force: true });
-  }
-}
-
 export async function enableSchedule(db: Db, dataDir: string, dailyHour = 7): Promise<ScheduleState> {
   setSetting(db, 'schedule.dailyHour', String(dailyHour));
-  await removeLegacy();
   if (app.isPackaged) {
     try { app.setLoginItemSettings({ openAtLogin: true, type: 'agentService', serviceName: SERVICE }); }
     catch { /* read back below */ }
@@ -141,7 +125,7 @@ export async function enableSchedule(db: Db, dataDir: string, dailyHour = 7): Pr
 function registered(db: Db, mode: 'agentService' | 'launchAgent'): void {
   setSetting(db, 'schedule.enabled', '1');
   setSetting(db, 'schedule.mode', mode);
-  setSetting(db, 'schedule.registeredVersion', `${app.getVersion()}/${LAYOUT}`);
+  setSetting(db, 'schedule.registeredVersion', app.getVersion());
   syncWake(db);
 }
 
@@ -176,7 +160,6 @@ export async function disableSchedule(db: Db): Promise<ScheduleState> {
     catch { /* ignore */ }
   }
   await removeAgent();
-  await removeLegacy();
   setSetting(db, 'schedule.enabled', '0');
   // No updates to wake for; the component stays, booking nothing.
   syncWake(db);
@@ -185,7 +168,7 @@ export async function disableSchedule(db: Db): Promise<ScheduleState> {
 
 /**
  * At launch: a new version of the app ships a new worker bundle and may ship
- * changed launch agents, so a job registered by an older version is registered
+ * a changed launch agent, so a job registered by another version is registered
  * again — which also retries Login Items after a fallback, in case this build
  * is the signed one. Development rewrites its plist, whose paths can move
  * between checkouts. The wake component learns where the app is now.
@@ -193,7 +176,7 @@ export async function disableSchedule(db: Db): Promise<ScheduleState> {
 export async function refreshSchedule(db: Db, dataDir: string): Promise<void> {
   syncWake(db);
   if (getSetting(db, 'schedule.enabled') !== '1') return;
-  if (app.isPackaged && getSetting(db, 'schedule.registeredVersion') === `${app.getVersion()}/${LAYOUT}`) return;
+  if (app.isPackaged && getSetting(db, 'schedule.registeredVersion') === app.getVersion()) return;
   if (app.isPackaged) {
     try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: SERVICE }); } catch { /* not registered */ }
   }

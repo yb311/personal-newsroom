@@ -2,11 +2,10 @@ import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
 import { checkConnection, publicSettings, resolveProvider, writeSetting, invalidateProvider, GEMINI_MODELS, OPENAI_MODELS, ANTHROPIC_MODELS, type AiConnection } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection } from '@pnr/watch';
-import { newSinceYesterday, timeline, getDigest, recentFlashes, openQuestions, readOutsidePicks } from '@pnr/generate';
+import { unseenDevelopments, markWatchSeen, timeline, getDigest, recentFlashes, openQuestions, readOutsidePicks } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
 import { CATEGORIES, countryLabel } from '@pnr/core/catalog-labels';
-import { ingestSource, rssHubMode, configureRssHub, resolveSourceInput, curatedRoutes, matchRouteFromUrl, adapterFor, normalizeItems, APIFY_TOKEN_KEY,
-         packState, installPack, removePack, type PackManifest } from '@pnr/feed';
+import { ingestSource, rssHubMode, resolveSourceInput, curatedRoutes, matchRouteFromUrl, adapterFor, normalizeItems, APIFY_TOKEN_KEY } from '@pnr/feed';
 
 /** Everything the renderer can ask for. The renderer never touches SQLite
  *  directly; it asks through these, which keeps all storage logic in one place. */
@@ -283,7 +282,7 @@ export function createApi(db: Db, dataDir: string) {
         const c = count.get(w.id) as { candidates: number; passed: number | null };
         return {
           ...w,
-          newCount: newSinceYesterday(db, w.id).length,
+          newCount: unseenDevelopments(db, w.id).length,
           timelineCount: timeline(db, w.id).length,
           candidates: c.candidates, passed: c.passed ?? 0,
           openQuestions: openQuestions(db, w.id).length
@@ -333,12 +332,12 @@ export function createApi(db: Db, dataDir: string) {
       // The flash a follow-up continues, however old, so the reader can see what it follows.
       const earlier = db.prepare('SELECT id, title, published_at AS publishedAt, item_ids_json AS itemIds FROM flashes WHERE id = ?');
       return recentFlashes(db, hours, watchId).map((f) => {
-        const prior = f.followUpOf ? earlier.get(f.followUpOf) as { id: string; title: string; publishedAt: number; itemIds: string | null } | undefined : undefined;
+        const prior = f.followUpOf ? earlier.get(f.followUpOf) as { id: string; title: string; publishedAt: number; itemIds: string } | undefined : undefined;
         return {
         ...f,
         watchLabels: f.watchIds.map((id) => labels.get(id)).filter(Boolean),
         watches: f.watchIds.flatMap((id) => (labels.has(id) ? [{ id, label: labels.get(id)! }] : [])),
-        followUp: prior ? { id: prior.id, title: prior.title, publishedAt: prior.publishedAt, itemIds: prior.itemIds ? JSON.parse(prior.itemIds) as string[] : [] } : null,
+        followUp: prior ? { id: prior.id, title: prior.title, publishedAt: prior.publishedAt, itemIds: JSON.parse(prior.itemIds) as string[] } : null,
         sources: refsFor(f.itemIds),
         searchSources: f.searchMaterialId ? db.prepare(`SELECT ref_id AS refId,url,title,publisher
           FROM search_material_sources WHERE material_id=? AND relevant=1 AND supported=1 ORDER BY ref_id`)
@@ -362,7 +361,7 @@ export function createApi(db: Db, dataDir: string) {
         ...(digest?.blocks ?? []).flatMap((b) => ('sourceRefIds' in b ? b.sourceRefIds ?? [] : [])),
         ...outside.flatMap((p) => p.itemIds)
       ];
-      const watches = listWatches(db).map((w) => ({ id: w.id, label: w.label, newCount: newSinceYesterday(db, w.id).length }));
+      const watches = listWatches(db).map((w) => ({ id: w.id, label: w.label, newCount: unseenDevelopments(db, w.id).length }));
       return { date: d, digest, outside, refs: refsFor(cited), watches, watchCount: active.length };
     },
 
@@ -408,6 +407,8 @@ export function createApi(db: Db, dataDir: string) {
       const ms = timeline(db, id);
       return { milestones: ms, refs: refsFor(ms.flatMap((m) => m.itemIds)), questions: openQuestions(db, id) };
     },
+    /** The timeline loaded at `at` has been looked at: what it showed stops counting as 「新」. */
+    watchSeen(id: string, at?: number): boolean { markWatchSeen(db, id, Math.min(at ?? Date.now(), Date.now())); return true; },
 
     /** What passed for a watch, with the judge's score and reason (or a
      *  keyword-match marker) and the person's own verdict, if they gave one. */
@@ -513,5 +514,3 @@ export function createApi(db: Db, dataDir: string) {
     }
   };
 }
-
-export type Api = ReturnType<typeof createApi>;

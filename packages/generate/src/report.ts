@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
-import type { Provider, StreamEvent } from '@pnr/ai';
+import type { Provider } from '@pnr/ai';
 import { adapterFor, storeItems } from '@pnr/feed';
 import { enrichItem } from '@pnr/reader';
 import { fillFromSearch } from './search-fill.ts';
+import { writingRules } from './style.ts';
 
 export interface ReportUnit {
   kind: 'paragraph' | 'listItem' | 'timeline' | 'tableRow';
@@ -166,7 +167,7 @@ async function answer(db: Db, provider: Provider, conversationId: string, questi
     'Write an evidence-bound investigative report answer.', `OUTPUT_LANGUAGE: ${report.lang}`, `TOPIC: ${report.topic}`,
     'Each factual sentence, list item, timeline point, or table row must be a separate unit with supported=true and sourceRefIds.',
     'Use only the provided [sN] ids. Never invent a URL. A material-not-covered explanation may use supported=false and no references.',
-    'Do not silently summarize conversation history. Use full materials as supplied.', `QUESTION: ${question}`, history ? `HISTORY:\n${history}` : '',
+    'Do not silently summarize conversation history. Use full materials as supplied.', writingRules(report.lang).join('\n'), `QUESTION: ${question}`, history ? `HISTORY:\n${history}` : '',
     `MATERIALS (${material.length}/${report.sources.length} included):`, ...material
   ].filter(Boolean).join('\n\n');
   try {

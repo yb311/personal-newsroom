@@ -41,5 +41,12 @@ const ai:Provider={
 };
 const merged=await generateOutsidePicks(db,ai,listWatches(db,true),'en');
 if(batchCalls<2||mergeCalls!==1||merged.length!==1||merged[0]!.itemIds.length<2)throw new Error(`cross-batch merge failed: ${batchCalls}/${mergeCalls}/${merged.length}`);
-console.log('✅ 无 Watch、无 AI、3/2 家、同媒体多 feed、已关注、语言、开关与跨批次合并');
+// Following one pick hides only that pick; the rest of today's list stays until the next edition.
+const two=[{title:'Event A',reason:'Why A',itemIds:['cross-1'],suggestion:{label:'Event A',intent:'Follow A',keywords:['a']}},{title:'Event B',reason:'Why B',itemIds:['cross-2'],suggestion:{label:'Event B',intent:'Follow B',keywords:['b']}}];
+const listAi:Provider={...ai,limits:{fast:{maxInputTokens:100_000,maxOutputTokens:100},write:{maxInputTokens:100_000,maxOutputTokens:100}},async generate<T>(){return{data:{picks:two} as T,provider:'openai-compatible',model:'write',usedSearch:false};}};
+if((await generateOutsidePicks(db,listAi,listWatches(db,true),'en')).length!==2)throw new Error('two picks expected');
+createWatch(db,{origin:'intent',label:'Event A',intent:'Follow A',keywords:['a']});
+const left=readOutsidePicks(db,listWatches(db,true),'en');
+if(left.length!==1||left[0]!.title!=='Event B')throw new Error(`following one pick hid the others: ${left.map(p=>p.title)}`);
+console.log('✅ 无 Watch、无 AI、3/2 家、同媒体多 feed、已关注、语言、开关与跨批次合并、关注一条后其余保留');
 db.close(); rmSync(dir,{recursive:true,force:true});

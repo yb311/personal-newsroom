@@ -17,8 +17,6 @@ export interface Preset { id: string; group: string; label: string; intent: stri
 const p = (id: string, group: string, label: string, intent: string, keywords: string[]): Preset =>
   ({ id, group, label, intent, keywords });
 
-export const PRESET_GROUPS = ['时政与地区', 'tech', 'finance', 'science', '体育与文化'] as const;
-
 export const PRESETS: Preset[] = [
   // ── 时政与地区 ─────────────────────────────────────────────────────────
   p('p-world', 'politics', '国际时政', '我想了解国际政治的重要动态：国家间关系的变化、重大外交事件、冲突与谈判的最新进展。',

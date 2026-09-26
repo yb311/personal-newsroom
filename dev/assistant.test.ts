@@ -3,13 +3,15 @@
  *
  * A scripted model and fake search/download stand in for the network, so this
  * checks the whole turn: material from the library and online, bound citations,
- * follow-ups, duplicate clicks, cancellation, crash recovery and deletion.
+ * follow-ups, duplicate clicks, cancellation, crash recovery and deletion — and
+ * what is open on the left (an article, a watch) reaching the prompt in full.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb, writeBody } from '../packages/store/src/index.ts';
-import { askAssistant, getChat, listChats, deleteChat, recoverAssistant, type AssistantDeps } from '../packages/generate/src/index.ts';
+import { askAssistant, getChat, listChats, deleteChat, recoverAssistant, markWatchSeen, timeline, unseenDevelopments, type AssistantDeps } from '../packages/generate/src/index.ts';
+import { createWatch } from '../packages/watch/src/index.ts';
 import type { Provider, GenerateOptions, GenerateResult, StreamEvent } from '../packages/ai/src/index.ts';
 
 const dir = mkdtempSync(join(tmpdir(), 'pnr-assistant-'));
@@ -97,9 +99,42 @@ db.prepare("UPDATE assistant_messages SET status='pending' WHERE id=?").run(resu
 recoverAssistant(db);
 check(getChat(db, offline.id)!.messages.every((m) => m.status !== 'pending'), '异常退出留下的进行中回答会被恢复');
 
-check(listChats(db).length === 2, '会话列表');
+console.log('\n=== 左边正在看的东西 ===');
+const onArticle = await askAssistant(db, provider(false), dir, { question: '这篇讲了什么？', web: false, lang: 'zh-CN', requestId: 'r6',
+  screen: { focus: { kind: 'article', itemId: 'i2' }, label: 'Transit line vote details' } }, () => {}, undefined, deps);
+let p = prompts.at(-1)!;
+check(onArticle.sources[0]?.itemId === 'i2' && onArticle.sources[0]?.refId === 's1', '正在看的文章登记为第一个来源');
+check(/ON_SCREEN: Transit line vote details/.test(p) && p.includes('[s1] Transit line vote details') && p.includes('Construction starts next year.'), '提示词里有「正在看」和它的完整正文');
+check(onArticle.messages.find((m) => m.role === 'user')?.screenLabel === 'Transit line vote details', '问题记下当时在看什么');
+check(onArticle.sources.filter((s) => s.itemId === 'i2').length === 1, '正在看的文章不会再被本地检索重复登记');
+
+const w = createWatch(db, { origin: 'intent', label: '城市交通', intent: '我想跟进本市新地铁线的进展' });
+db.prepare(`INSERT INTO milestones (id, watch_id, occurred_on, first_seen_at, summary, is_new, created_at) VALUES ('m1', ?, '2026-09-24', ?, '市议会批准新线路', 1, ?)`).run(w.id, now, now);
+db.prepare(`INSERT INTO milestone_sources (milestone_id, item_id) VALUES ('m1', 'i1')`).run();
+await askAssistant(db, provider(false), dir, { chatId: onArticle.id, question: '它最近怎么样了？', web: false, lang: 'zh-CN', requestId: 'r7',
+  screen: { focus: { kind: 'watch', watchId: w.id }, label: '城市交通' } }, () => {}, undefined, deps);
+p = prompts.at(-1)!;
+const screenPart = p.slice(p.indexOf('ON_SCREEN: 城市交通'), p.indexOf('QUESTION:'));
+check(screenPart.includes('我想跟进本市新地铁线的进展') && /市议会批准新线路\[s\d+\]/.test(screenPart) && !screenPart.includes('[['), '关注：原话 + 时间线，时间线的来源换成会话编号');
+check(p.includes('User (looking at: Transit line vote details): 这篇讲了什么？'), '追问时带上之前问题当时在看什么');
+const broken = await askAssistant(db, provider(false), dir, { question: 'still fine?', web: false, lang: 'en', requestId: 'r8',
+  screen: { focus: { kind: 'flash', flashId: 'gone' }, label: 'gone' } }, () => {}, undefined, deps);
+check(broken.messages.at(-1)?.status === 'complete' && !prompts.at(-1)!.includes('ON_SCREEN'), '找不到的东西就不附带，照常回答');
+
+console.log('\n=== 「新」像未读邮件 ===');
+check(unseenDevelopments(db, w.id).length === 1 && timeline(db, w.id)[0]!.isNew, '没看过的新进展标「新」');
+markWatchSeen(db, w.id);
+check(unseenDevelopments(db, w.id).length === 0 && !timeline(db, w.id)[0]!.isNew, '看过时间线后不再是新的');
+const later = Date.now() + 1000;
+db.prepare(`INSERT INTO milestones (id, watch_id, occurred_on, first_seen_at, summary, is_new, created_at) VALUES ('m2', ?, '2026-09-25', ?, '开工日期确定', 1, ?)`).run(w.id, later, later);
+check(unseenDevelopments(db, w.id).map((m) => m.id).join() === 'm2', '之后找到的进展又是新的');
+db.prepare(`UPDATE milestones SET first_seen_at = ? WHERE id = 'm2'`).run(now - 8 * 864e5);
+db.prepare(`UPDATE watches SET seen_at = NULL WHERE id = ?`).run(w.id);
+check(!unseenDevelopments(db, w.id).some((m) => m.id === 'm2'), '一直没看的，7 天后也不再算新');
+
+check(listChats(db).length === 4, '会话列表');
 deleteChat(db, noSearch.id);
-check(listChats(db).length === 1 && !getChat(db, noSearch.id), '删除会话');
+check(listChats(db).length === 3 && !getChat(db, noSearch.id), '删除会话');
 
 db.close(); rmSync(dir, { recursive: true, force: true });
 console.log(bad ? `\n${bad} 项不符合预期` : '\n全部符合预期');

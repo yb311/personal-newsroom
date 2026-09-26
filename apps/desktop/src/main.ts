@@ -9,7 +9,7 @@ import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr
 import { runDaily, runFlashCheck, runWatch, rewriteDigest, getReport, startReport, askReport, recoverReports, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
          type AssistantEvent, type AssistantAskInput, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult } from '@pnr/generate';
 import { createApi } from './ipc.ts';
-import { socialApi, applyRssHubConfig, SOCIAL_DIR } from './social.ts';
+import { socialApi, applyRssHubConfig } from './social.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns, refreshSchedule, setWake, uninstallWake } from './schedule.ts';
 import zhCN from '../../renderer/src/locales/zh-CN.json';
 import en from '../../renderer/src/locales/en.json';

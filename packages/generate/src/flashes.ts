@@ -96,8 +96,8 @@ export async function generateFlashes(
   const recent = db.prepare(
     `SELECT id, title, body, item_ids_json AS itemIds FROM flashes
      WHERE published_at >= ? ORDER BY published_at DESC LIMIT 40`
-  ).all(now - DEDUP_WINDOW_HOURS * 3600_000) as { id: string; title: string; body: string; itemIds: string | null }[];
-  const alreadyFlashed = new Set(recent.flatMap((f) => (f.itemIds ? JSON.parse(f.itemIds) as string[] : [])));
+  ).all(now - DEDUP_WINDOW_HOURS * 3600_000) as { id: string; title: string; body: string; itemIds: string }[];
+  const alreadyFlashed = new Set(recent.flatMap((f) => JSON.parse(f.itemIds) as string[]));
 
   const marks = active.map(() => '?').join(',');
   const considered = new Set((db.prepare(
@@ -246,9 +246,9 @@ export async function generateFlashes(
   }
 
   const ins = db.prepare(
-    `INSERT INTO flashes (id, watch_id, watch_ids_json, item_ids_json, item_published_at, batch_id, published_at,
+    `INSERT INTO flashes (id, watch_ids_json, item_ids_json, item_published_at, batch_id, published_at,
                           lang, title, body, importance, importance_reason, category, basis, follow_up_of, created_at, search_material_id)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`
   );
   const insTold = db.prepare(
     'INSERT INTO told_records (watch_id, narrative, surface, surface_id, told_at) VALUES (?,?,?,?,?)'
@@ -261,7 +261,7 @@ export async function generateFlashes(
     for (const c of candidates) for (const w of c.watchIds.split(',')) if (activeIds.has(w)) consider.run(w, c.id, now);
     db.prepare('DELETE FROM flash_considered WHERE considered_at < ?').run(now - 7 * 864e5);
     for (const f of out) {
-      ins.run(f.id, f.watchIds[0] ?? null, JSON.stringify(f.watchIds), JSON.stringify(f.itemIds), f.itemPublishedAt,
+      ins.run(f.id, JSON.stringify(f.watchIds), JSON.stringify(f.itemIds), f.itemPublishedAt,
               f.batchId, f.publishedAt, f.lang, f.title, f.body, f.importance, f.importanceReason,
               f.category, f.basis, f.followUpOf, now, f.searchMaterialId);
       for (const w of f.watchIds) insTold.run(w, `${f.title}。${f.body}`, 'flash', f.id, now);
@@ -281,18 +281,21 @@ export function recentFlashes(db: Db, hours = 24, watchId?: string): Flash[] {
   const rows = db.prepare(
     `SELECT * FROM flashes WHERE published_at >= ? ORDER BY published_at DESC, importance DESC`
   ).all(since) as any[];
-  return rows.map((r) => {
-    // Flashes written before one flash could serve several watches carry a
-    // single watch_id and no item list; the item is the tail of their id.
-    const watchIds: string[] = r.watch_ids_json ? JSON.parse(r.watch_ids_json) : r.watch_id ? [r.watch_id] : [];
-    const itemIds: string[] = r.item_ids_json ? JSON.parse(r.item_ids_json)
-      : [String(r.id).replace(/^flash-.*-(?=[0-9a-f]{24}$)/, '')];
-    return {
-      id: r.id, watchIds, batchId: r.batch_id, publishedAt: r.published_at,
-      itemPublishedAt: r.item_published_at ?? null, itemIds,
-      lang: r.lang, title: r.title, body: r.body, importance: r.importance,
-      importanceReason: r.importance_reason, category: r.category,
-      basis: r.basis, followUpOf: r.follow_up_of, searchMaterialId: r.search_material_id ?? null
-    } satisfies Flash;
-  }).filter((f) => f.watchIds.length > 0 && (!watchId || f.watchIds.includes(watchId)));
+  return rows.map(toFlash).filter((f) => f.watchIds.length > 0 && (!watchId || f.watchIds.includes(watchId)));
+}
+
+/** One flash, however old. */
+export function getFlash(db: Db, id: string): Flash | null {
+  const row = db.prepare('SELECT * FROM flashes WHERE id = ?').get(id);
+  return row ? toFlash(row) : null;
+}
+
+function toFlash(r: any): Flash {
+  return {
+    id: r.id, watchIds: JSON.parse(r.watch_ids_json), batchId: r.batch_id, publishedAt: r.published_at,
+    itemPublishedAt: r.item_published_at, itemIds: JSON.parse(r.item_ids_json),
+    lang: r.lang, title: r.title, body: r.body, importance: r.importance,
+    importanceReason: r.importance_reason, category: r.category,
+    basis: r.basis, followUpOf: r.follow_up_of, searchMaterialId: r.search_material_id ?? null
+  } satisfies Flash;
 }

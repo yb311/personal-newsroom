@@ -45,9 +45,3 @@ export const blockText = (b: RichBlock): string => {
   }
 };
 
-export const countWords = (blocks: RichBlock[]): number => {
-  const text = blocks.map(blockText).join(' ');
-  const cjk = (text.match(/[一-鿿぀-ヿ]/g) ?? []).length;
-  const latin = (text.replace(/[一-鿿぀-ヿ]/g, ' ').match(/\b[\w'-]+\b/g) ?? []).length;
-  return cjk + latin;
-};
