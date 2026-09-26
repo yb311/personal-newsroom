@@ -62,7 +62,6 @@ let refused = false;
 try { openDb(stale).close(); } catch { refused = true; }
 for (const s of ['','-wal','-shm']) rmSync(stale+s,{force:true});
 if (!refused) throw new Error('stale development database was opened');
-// 001 是完整结构；之后只追加（已有的库只跑新加的那几条）。
-if (MIGRATIONS[0]?.name !== '001_schema') throw new Error('001_schema must stay the base schema');
+if (MIGRATIONS.length !== 1) throw new Error('expected one schema migration before the first release');
 
 console.log('\n✅ schema 新建、幂等、拒绝旧开发库 验证通过');

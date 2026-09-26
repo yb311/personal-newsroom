@@ -5,7 +5,9 @@
  * undefined and loose .sql files are not part of the build output. Embedding
  * removes that whole class of packaging failure.
  *
- * Migrations are append-only: never edit an applied one, add the next.
+ * Migrations are append-only once a version has been released: never edit an
+ * applied one, add the next. Nothing has been released yet, so everything is
+ * still the one schema below.
  */
 export interface Migration { name: string; sql: string }
 
@@ -402,7 +404,9 @@ CREATE TABLE assistant_chats (
   title      TEXT NOT NULL,
   lang       TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  -- Tools the person said not to ask about again in this chat (JSON array of names).
+  allow_json TEXT
 );
 CREATE INDEX assistant_chats_recent ON assistant_chats(updated_at DESC);
 
@@ -440,6 +444,28 @@ CREATE TABLE assistant_sources (
   PRIMARY KEY (chat_id, ref_id),
   UNIQUE(chat_id, url)
 );
+
+-- 新闻助手作为 agent：它调用的每个工具都记一行，界面据此画动作卡片（确认、撤销）。
+-- 卡片上的文字由代码从数据库算出（view_json），不是模型写的。
+CREATE TABLE assistant_actions (
+  id          TEXT PRIMARY KEY,
+  chat_id     TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
+  message_id  TEXT NOT NULL REFERENCES assistant_messages(id) ON DELETE CASCADE,
+  sequence    INTEGER NOT NULL,
+  tool        TEXT NOT NULL,
+  risk        TEXT NOT NULL,              -- read | navigate | write | heavy | danger
+  args_json   TEXT NOT NULL,
+  status      TEXT NOT NULL,              -- done | proposed | running | cancelled | blocked | failed | undone
+  view_json   TEXT,
+  result_json TEXT,                       -- what the model was told
+  undo_json   TEXT,                       -- what undoing needs; null when it cannot be undone
+  error       TEXT,
+  -- The model had more to do after this: confirming it lets the agent continue.
+  continues   INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+CREATE INDEX assistant_actions_chat ON assistant_actions(chat_id, sequence);
 
 -- ───────────────────────── AI runtime ─────────────────────────
 -- Which embedding model produced the stored vectors. Switching model bumps the
@@ -498,33 +524,6 @@ CREATE VIRTUAL TABLE watch_vectors USING vec0(
 );
 `;
 
-// 新闻助手作为 agent：它调用的每个工具都记一行，界面据此画动作卡片（确认、撤销）。
-// 卡片上的文字由代码从数据库算出（view_json），不是模型写的。
-const ASSISTANT_ACTIONS = `
-CREATE TABLE assistant_actions (
-  id          TEXT PRIMARY KEY,
-  chat_id     TEXT NOT NULL REFERENCES assistant_chats(id) ON DELETE CASCADE,
-  message_id  TEXT NOT NULL REFERENCES assistant_messages(id) ON DELETE CASCADE,
-  sequence    INTEGER NOT NULL,
-  tool        TEXT NOT NULL,
-  risk        TEXT NOT NULL,              -- read | navigate | write | heavy | danger
-  args_json   TEXT NOT NULL,
-  status      TEXT NOT NULL,              -- done | proposed | running | cancelled | blocked | failed | undone
-  view_json   TEXT,
-  result_json TEXT,                       -- what the model was told
-  undo_json   TEXT,                       -- what undoing needs; null when it cannot be undone
-  error       TEXT,
-  -- The model had more to do after this: confirming it lets the agent continue.
-  continues   INTEGER NOT NULL DEFAULT 0,
-  created_at  INTEGER NOT NULL,
-  updated_at  INTEGER NOT NULL
-);
-CREATE INDEX assistant_actions_chat ON assistant_actions(chat_id, sequence);
--- Tools the person said not to ask about again in this chat (JSON array of names).
-ALTER TABLE assistant_chats ADD COLUMN allow_json TEXT;
-`;
-
 export const MIGRATIONS: Migration[] = [
-  { name: '001_schema', sql: SCHEMA },
-  { name: '002_assistant_actions', sql: ASSISTANT_ACTIONS }
+  { name: '001_schema', sql: SCHEMA }
 ];
