@@ -44,7 +44,8 @@ export default {
     'node_modules/**/*.node',
     'node_modules/**/*.dylib'
   ],
-  artifactName: '${productName}-${version}-${arch}.${ext}',
+  // ASCII only: GitHub strips non-ASCII from release asset names (v0.1.0 shipped as "-0.1.0-arm64.dmg").
+  artifactName: 'personal-newsroom-${version}-${arch}.${ext}',
   mac: {
     target: ['dmg', 'zip'],
     icon: resolve(root, 'assets/icon.icns'),

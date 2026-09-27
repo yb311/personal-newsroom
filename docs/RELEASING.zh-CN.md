@@ -49,8 +49,8 @@ git push origin v0.1.1
 
 标签必须与 `package.json` 的版本完全一致，否则发布任务会主动停止。成功后，GitHub Release 包含：
 
-- `所闻-X.Y.Z-arm64.dmg`
-- `所闻-X.Y.Z-arm64.zip`
+- `personal-newsroom-X.Y.Z-arm64.dmg`
+- `personal-newsroom-X.Y.Z-arm64.zip`
 - `SHA256SUMS.txt`
 
 发布任务还会检查主应用、Electron 辅助进程、`pnr-reader`、`pnr-wake`（唤醒程序）、公证票据和 DMG 内最终应用。
