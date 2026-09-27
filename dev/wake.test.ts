@@ -42,13 +42,22 @@ run(`2 7 $(touch ${dir}/pwned); rm -rf /nonexistent\n${dir}\n`);
 check(!existsSync(join(dir, 'pwned')), '配置文件里的命令不会被执行，只取数字');
 
 console.log('\n=== 安装与卸载命令 ===');
-for (const [name, text] of [['安装', installCommands('/var/folders/x/pnr-wake-abc', 501)], ['卸载', removeCommands()]] as const) {
+for (const [name, text] of [['安装', installCommands('/var/folders/x/pnr-wake-abc', 501)], ['安装（带启动程序）', installCommands('/var/folders/x/pnr-wake-abc', 501, true)], ['卸载', removeCommands()]] as const) {
   const f = join(dir, `${name}.sh`); writeFileSync(f, text);
   let ok = true; try { execFileSync('/bin/sh', ['-n', f]); } catch { ok = false; }
   check(ok, `${name}命令语法正确`);
 }
 check(/install -o 501 -g staff -m 644 .*wake\.conf/.test(installCommands('/tmp/x', 501)), '配置文件归用户所有：之后改设置不用再输密码');
 check(/install -o root -g wheel -m 755 .*schedule-wakes\.sh/.test(installCommands('/tmp/x', 501)), '以 root 运行的脚本归 root 所有，用户改不了');
+const withLauncher = installCommands('/tmp/x', 501, true);
+check(/install -o root -g wheel -m 755 .*pnr-wake' '\/Library\/Application Support\/com\.yb311\.personal-newsroom\/pnr-wake'/.test(withLauncher),
+  '启动程序拷进 root 所有的目录，不从 app 包里运行');
+check(withLauncher.indexOf('codesign --verify') > withLauncher.indexOf("pnr-wake' '/Library") && /PR3596G4YB/.test(withLauncher) && /rm -f .*pnr-wake/.test(withLauncher),
+  '拷贝之后核对签名是本团队的，不符就删掉并中止');
+check(!/pnr-wake/.test(installCommands('/tmp/x', 501)), '开发版没有启动程序：不装、不核对');
+// The launcher's fixed path must be the script this file installs.
+check(readFileSync(new URL('../native/wake/wake.c', import.meta.url), 'utf8').includes('"/Library/Application Support/com.yb311.personal-newsroom/schedule-wakes.sh"'),
+  '启动程序里写死的脚本路径和安装位置一致');
 
 rmSync(dir, { recursive: true, force: true });
 console.log(bad ? `\n${bad} 项不符合预期` : '\n全部符合预期');

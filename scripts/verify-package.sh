@@ -1,5 +1,6 @@
 #!/bin/bash
 # Checks a packaged 所闻.app beyond what codesign sees: the reader core answers,
+# the wake launcher is there,
 # every launch agent points at a program that exists, and the background worker
 # ( 所闻 后台更新 ) starts as Node and finds worker.cjs inside the app archive.
 # Used by CI on the unsigned build and by the release workflow on the signed one.
@@ -12,6 +13,13 @@ contents="$app/Contents"
 reader="$contents/Resources/bin/pnr-reader"
 printf '%s\n' '{"id":1,"method":"ping","params":{}}' | "$reader" | grep -q '"result":"pong"'
 echo "reader core: ok"
+
+# The wake daemon's launcher: present, and naming the one script it may run.
+launcher="$contents/Resources/bin/pnr-wake"
+[[ -x "$launcher" ]] || { echo "::error::pnr-wake is missing"; exit 1; }
+grep -q "/Library/Application Support/com.yb311.personal-newsroom/schedule-wakes.sh" "$launcher" \
+  || { echo "::error::pnr-wake does not name the wake script"; exit 1; }
+echo "wake launcher: ok"
 
 shopt -s nullglob
 agents=("$contents/Library/LaunchAgents/"*.plist)

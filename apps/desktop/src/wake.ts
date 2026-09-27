@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,7 +24,10 @@ const run = promisify(execFile);
  * awake until it is done.
  *
  * What runs as root is only that script, owned by root, calling the system's
- * own pmset and date. It reads `wake.conf` — the one file the app writes, so
+ * own pmset and date, started by `pnr-wake` (native/wake/wake.c) — a launcher
+ * that only execs it, signed with the app's Developer ID so Login Items lists
+ * the daemon under 所闻 rather than as "sh". The launcher is copied into the
+ * root-owned folder and its signature checked there before the daemon uses it. It reads `wake.conf` — the one file the app writes, so
  * changing the mode or hour never asks for the password again — and takes from
  * it only digits and a path it merely checks exists. Nothing from the app
  * bundle, which a user process can modify, ever runs as root.
@@ -39,6 +42,9 @@ const CONF = `${DIR}/wake.conf`;
 const BOOKED = `${DIR}/wake.scheduled`;
 const SCRIPT = `${DIR}/schedule-wakes.sh`;
 const DAEMON = `/Library/LaunchDaemons/${WAKE_LABEL}.plist`;
+const LAUNCHER = `${DIR}/pnr-wake`;
+/** Only a launcher signed by this team is installed. */
+const TEAM = 'PR3596G4YB';
 /** Shown by `pmset -g sched` as the owner of each wake. */
 const OWNER = '所闻';
 
@@ -112,14 +118,15 @@ printf '%s' "$wanted" > "$BOOKED"
 chmod 644 "$BOOKED"
 `;
 
-const DAEMON_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+/** With the signed launcher (packaged builds) or, in development, the shell itself. */
+const daemonPlist = (launcher: boolean): string => `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key><string>${WAKE_LABEL}</string>
   <key>AssociatedBundleIdentifiers</key><array><string>com.yb311.personal-newsroom</string></array>
   <key>ProgramArguments</key>
-  <array><string>/bin/sh</string><string>${SCRIPT}</string></array>
+  <array>${launcher ? `<string>${LAUNCHER}</string>` : `<string>/bin/sh</string><string>${SCRIPT}</string>`}</array>
   <key>RunAtLoad</key><true/>
   <key>StartInterval</key><integer>3600</integer>
   <key>WatchPaths</key><array><string>${CONF}</string></array>
@@ -182,12 +189,19 @@ async function asAdmin(commands: string, prompt: string): Promise<WakeOutcome> {
 
 const sh = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
 
-/** The root commands that install the component from files staged in `staged`. */
-export function installCommands(staged: string, uid: number): string {
+/** The root commands that install the component from files staged in `staged`.
+ *  The launcher's signature is checked on the root-owned copy, after it can no
+ *  longer be swapped; a copy that fails is removed and nothing is loaded. */
+export function installCommands(staged: string, uid: number, launcher = false): string {
+  const requirement = `anchor apple generic and certificate leaf[subject.OU] = "${TEAM}"`;
   return [
     'set -e',
     `mkdir -p ${sh(DIR)}`, `chown root:wheel ${sh(DIR)}`, `chmod 755 ${sh(DIR)}`,
     `install -o root -g wheel -m 755 ${sh(join(staged, 'schedule-wakes.sh'))} ${sh(SCRIPT)}`,
+    ...(launcher ? [
+      `install -o root -g wheel -m 755 ${sh(join(staged, 'pnr-wake'))} ${sh(LAUNCHER)}`,
+      `codesign --verify --strict -R=${sh(requirement)} ${sh(LAUNCHER)} || { rm -f ${sh(LAUNCHER)}; exit 1; }`
+    ] : []),
     // The one file the app writes afterwards, so it belongs to the person.
     `install -o ${uid} -g staff -m 644 ${sh(join(staged, 'wake.conf'))} ${sh(CONF)}`,
     `install -o root -g wheel -m 644 ${sh(join(staged, 'wake.plist'))} ${sh(DAEMON)}`,
@@ -208,10 +222,14 @@ export function removeCommands(): string {
 export async function installWake(mode: WakeMode, hour: number, appPath: string, prompt: string): Promise<WakeOutcome> {
   const tmp = mkdtempSync(join(tmpdir(), 'pnr-wake-'));
   try {
+    // Packaged builds carry the signed launcher; development has none.
+    const bundled = join(appPath, 'Contents', 'Resources', 'bin', 'pnr-wake');
+    const launcher = existsSync(bundled);
+    if (launcher) copyFileSync(bundled, join(tmp, 'pnr-wake'));
     writeFileSync(join(tmp, 'schedule-wakes.sh'), ROOT_SCRIPT);
-    writeFileSync(join(tmp, 'wake.plist'), DAEMON_PLIST);
+    writeFileSync(join(tmp, 'wake.plist'), daemonPlist(launcher));
     writeFileSync(join(tmp, 'wake.conf'), confText(mode, hour, appPath));
-    return await asAdmin(installCommands(tmp, process.getuid?.() ?? 501), prompt);
+    return await asAdmin(installCommands(tmp, process.getuid?.() ?? 501, launcher), prompt);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

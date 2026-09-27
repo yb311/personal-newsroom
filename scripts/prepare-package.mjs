@@ -22,6 +22,11 @@ cpSync(join(root, 'apps', 'worker', 'dist', 'worker.cjs'), join(staging, 'worker
 // The reader core is a standalone executable; electron-builder puts it in
 // Contents/Resources/bin, where both the app and the background worker look.
 cpSync(join(root, 'native', 'reader', 'bin', 'pnr-reader'), join(root, 'apps', 'desktop', 'packaging', 'bin', 'pnr-reader'));
+// The wake daemon's launcher (native/wake/wake.c), signed with the app so
+// Login Items lists the daemon under 所闻. Installing the component copies it
+// into a root-owned folder; the copy in the bundle never runs as root.
+execFileSync('xcrun', ['clang', '-O2', '-arch', process.arch === 'arm64' ? 'arm64' : 'x86_64', '-mmacosx-version-min=13.0',
+  '-o', join(root, 'apps', 'desktop', 'packaging', 'bin', 'pnr-wake'), join(root, 'native', 'wake', 'wake.c')], { stdio: 'inherit' });
 const packageMetadata = {
   name: 'personal-newsroom',
   productName: '所闻',
