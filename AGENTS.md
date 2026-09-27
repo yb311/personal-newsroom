@@ -305,7 +305,7 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
   之后 SMAppService 注册同名任务永远报 `Operation not permitted`（smd 日志：`disposition=[disabled…]`、`Job is not allowed to bootstrap`）。
   `com.yb311.personal-newsroom.update`、`.wake` 这两个名字在开发机上已经这样「烧掉」了，`npm run test:wake` 检查不再使用
 - **唤醒程序以 root 运行，所以只做一件事**：`pnr-wake`（`native/wake/wake.c`）用 IOKit 预约下一次摘要时间的唤醒、取消自己约过的其它唤醒，
-  不调 shell、不执行任何文件内容。它读当前登录用户数据文件夹里的 `wake.conf`（归用户所有），只取开头的数字，不跟随符号链接。
+  不调 shell、不执行任何文件内容。**不要改回调用 `pmset` 命令**：它把中文署名按错误编码存成乱码（「所闻」变成 `ÊâÄÈóª`），之后按署名认领、取消自己的预约就对不上。它读当前登录用户数据文件夹里的 `wake.conf`（归用户所有），只取开头的数字，不跟随符号链接。
   它放在 App 包里、经 SMAppService 注册，系统只在签名属于本团队时启动它，App 删掉它就跟着消失——
   这取代了原来「root 绝不执行 bundle 里的东西、脚本装进 /Library」的做法（理由见架构文档 §11）
 - **「登录项与扩展」里显示成 App 名字和图标**，要求 plist 写 `AssociatedBundleIdentifiers`（数组），而且**被运行的程序由本团队签名**；
