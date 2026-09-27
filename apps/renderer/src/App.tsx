@@ -32,9 +32,10 @@ type Job = 'fetch' | 'flashes' | 'all' | 'digest';
 const PAGE = 200;
 const LIST = { min: 250, max: 460, fallback: 320, key: 'pnr.listWidth' };
 const PANEL = { min: 320, max: 620, fallback: 380, key: 'pnr.assistantWidth' };
-/** The sidebar's width, and the narrowest workspace that still splits list and
- *  detail side by side — keep in step with `.sidebar` and `@container workspace` in app.css. */
-const SIDEBAR = 220;
+/** The sidebar's min leaves room for the traffic lights and its two title-bar buttons. */
+const SIDEBAR = { min: 190, max: 360, fallback: 220, key: 'pnr.sidebarWidth' };
+/** The narrowest workspace that still splits list and detail side by side —
+ *  keep in step with `@container workspace` in app.css. */
 const SPLIT_MIN = 620;
 const readFlag = (key: string, fallback: boolean): boolean => {
   try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1'; } catch { return fallback; }
@@ -49,6 +50,7 @@ export default function App() {
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
   const [listWidth, setListWidth] = useState(() => storedWidth(LIST.key, LIST.min, LIST.max, LIST.fallback));
   const [panelWidth, setPanelWidth] = useState(() => storedWidth(PANEL.key, PANEL.min, PANEL.max, PANEL.fallback));
+  const [sidebarWidth, setSidebarWidth] = useState(() => storedWidth(SIDEBAR.key, SIDEBAR.min, SIDEBAR.max, SIDEBAR.fallback));
   const [assistantOpen, setAssistantOpen] = useState(() => readFlag('pnr.assistantOpen', false));
   const [tab, setTab] = useState<Tab>('read');
   const [report, setReport] = useState<ReportAnchor | null>(null);
@@ -206,18 +208,21 @@ export default function App() {
   // room for list and detail, and floats over it in a window too narrow for
   // that. The sidebar gives way first — it collapses while it does not fit and
   // returns when it does, unless it was hidden on purpose. A docked assistant
-  // narrows toward its minimum before it floats, and can never be dragged wide
-  // enough to float itself mid-drag.
+  // narrows toward its minimum before it floats, and the sidebar before it
+  // collapses; neither can be dragged wide enough to hide itself mid-drag.
   const dockRoom = windowWidth - 1 - SPLIT_MIN;
   const floating = assistantOpen && dockRoom < PANEL.min;
   const docked = assistantOpen && !floating;
   const panelMax = docked ? Math.min(PANEL.max, dockRoom) : PANEL.max;
   const panelShown = Math.min(panelWidth, panelMax);
-  const sidebarFits = windowWidth - SIDEBAR - 1 - (docked ? panelShown + 1 : 0) >= SPLIT_MIN;
+  const sidebarRoom = windowWidth - 1 - (docked ? panelShown + 1 : 0) - SPLIT_MIN;
+  const sidebarFits = sidebarRoom >= SIDEBAR.min;
   const sidebarShown = sidebarVisible && (sidebarFits || sidebarPinned);
+  const sidebarMax = Math.max(SIDEBAR.min, Math.min(SIDEBAR.max, sidebarRoom));
+  const sidebarShownWidth = Math.min(sidebarWidth, sidebarMax);
   // The list takes at most 44% of the workspace (as the CSS clamp does); the
   // divider works with that shown width so dragging has no dead zone.
-  const workspaceWidth = windowWidth - (sidebarShown ? SIDEBAR + 1 : 0) - (docked ? panelShown + 1 : 0);
+  const workspaceWidth = windowWidth - (sidebarShown ? sidebarShownWidth + 1 : 0) - (docked ? panelShown + 1 : 0);
   const listMax = Math.max(LIST.min, Math.min(LIST.max, Math.floor(workspaceWidth * 0.44)));
   const listShown = Math.min(listWidth, listMax);
   const showSidebar = (show: boolean): void => { setSidebarVisible(show); setSidebarPinned(show && !sidebarFits); };
@@ -340,13 +345,15 @@ export default function App() {
 
   return (
     <div className={`app ${sidebarShown ? '' : 'sidebar-hidden'} ${floating ? 'assistant-floating' : ''}`}
-         style={{ '--list-width': `${listShown}px`, '--panel-width': `${panelShown}px` } as CSSProperties}>
-      {sidebarShown && (
+         style={{ '--sidebar-width': `${sidebarShownWidth}px`, '--list-width': `${listShown}px`, '--panel-width': `${panelShown}px` } as CSSProperties}>
+      {sidebarShown && <>
         <Sidebar tab={report ? null : tab} onTab={go} sources={sources} sourceId={sourceId} filter={filter} fresh={counts.fresh ?? 0}
           onPickSource={pickSource} onPickFilter={pickFilter} onSourceMenu={(s) => void sourceMenu(s)}
           onAdd={() => setShowCatalogue(true)} onSettings={() => openSettings()} onHide={() => showSidebar(false)} aiReady={aiReady}
           updateAll={<UpdateAll running={job === 'all'} disabled={busy} onRun={(force) => void runAll(force)} />} />
-      )}
+        <SplitDivider width={sidebarShownWidth} onChange={setSidebarWidth} min={SIDEBAR.min} max={sidebarMax} fallback={SIDEBAR.fallback}
+          storageKey={SIDEBAR.key} edge="before" label={t('app.resizeSidebar')} />
+      </>}
       <main className="workspace">
         {/* As in Mail: what acts on the list sits above the list, what acts on the
             item sits above the item. A refresh button therefore always sits next

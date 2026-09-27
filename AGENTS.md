@@ -112,7 +112,7 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 - **列表行统一三层**：meta 行（小、灰）→ 标题（粗，永远是主角）→ 两行摘录。关注名、来源名只能出现在 meta 行，不能当标题（2026-09-22 用户反馈快讯把「国际时政」当主标题）
 - **AI 写作风格集中在 `packages/generate/src/style.ts` 的 `writingRules()`**，快讯、摘要、进展共用：短句、不堆定语、不写「周一」这类相对时间、不用套话、不下评级式结论。改写作风格改这里，别在各 prompt 里各写一份
 - **窗口布局由 `App.tsx` 按宽度算**：助手能停靠就停靠；停靠后工作区不够分栏时**侧栏自动收起**（macOS split view 的做法），
-  窗口宽了自动回来；再窄助手才浮在上面。`SIDEBAR` / `SPLIT_MIN` 要和 `.sidebar` 宽度、`@container workspace` 断点保持一致
+  窗口宽了自动回来；再窄助手才浮在上面。侧栏和助手一样可拖动调宽（记在 localStorage），空间不够时先缩到最小宽度再收起。`SPLIT_MIN` 要和 `@container workspace` 断点保持一致
 - 阅读区的边距用容器单位（`cqi`），跟着窗格宽度走，不跟窗口宽度走
 - 对话框按 macOS sheet 贴在工具栏下方，切换内容时顶边不动；Esc 在 `Dialog` 里自己处理（Chromium 有时不发 `cancel`）
 - `main.tsx` 会给设置窗口的 `<html>` 加 `settings-window` 类，CSS 只能写 `div.settings-window`，否则整个窗口缩成内容宽度
