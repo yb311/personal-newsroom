@@ -3,7 +3,7 @@
 发布由两个 GitHub Actions 工作流负责：
 
 - `CI`：每次提交到 `main` 或创建 Pull Request 时运行。只测试和生成未签名目录包，不读取发布凭据。
-- `Release macOS`：每次推送到 `main` 时自动运行（只改文档的推送除外），测试通过后签名、公证、验签，DMG 和 ZIP 作为运行结果里的下载附件保留 14 天；推送 `vX.Y.Z` 标签时再额外创建 GitHub Release。也可以在 Actions 页面手动运行。
+- `Release macOS`：只在推送 `vX.Y.Z` 标签时运行。测试通过后签名、公证、验签并创建 GitHub Release。
 
 ## 一次性配置 GitHub Secrets
 
@@ -57,7 +57,7 @@ git push origin v0.1.1
 
 ## 安全边界
 
-- 发布凭据只用于 `main` 分支和版本标签上的任务，普通 Pull Request 无法读取。
+- 发布凭据只用于版本标签任务，普通 Pull Request 无法读取。
 - 不使用 `pull_request_target` 执行外部贡献者的代码。
 - 不把 `.p12`、`.p8`、密码或 App 专用密码提交到仓库。
 - 版本一旦公开，不覆盖同名版本；修复后递增版本号重新发布。
