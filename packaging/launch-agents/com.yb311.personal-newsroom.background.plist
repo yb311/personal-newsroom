@@ -23,8 +23,9 @@
     <key>PNR_WORKER_MODE</key><string>auto</string>
   </dict>
   <!-- Minute 16 of every hour. A time missed while the Mac slept runs once on
-       wake, and the wake component schedules wakes at 15:50 past the hour. The
-       worker decides whether the day's run or a flash check is due. -->
+       wake, so flashes catch up by themselves; for the day's run the wake
+       daemon (pnr-wake) wakes the Mac at 15:50 past the hour. The worker
+       decides whether the day's run or a flash check is due. -->
   <key>StartCalendarInterval</key>
   <dict><key>Minute</key><integer>16</integer></dict>
   <key>ProcessType</key><string>Background</string>

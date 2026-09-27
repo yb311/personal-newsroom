@@ -160,15 +160,17 @@ export interface SocialStatus {
   pack: { installed: boolean; version: string | null; bytes: number | null };
   installing: boolean;
 }
-export type WakeMode = 'off' | 'daily' | 'all';
+export type LoginStatus = 'not-registered' | 'enabled' | 'requires-approval' | 'not-found';
 export interface ScheduleState {
-  enabled: boolean; mode: 'agentService' | 'launchAgent' | 'unsupported';
-  dailyHour: number; flashIntervalHours: number; plistPath: string | null;
-  status?: 'not-registered' | 'enabled' | 'requires-approval' | 'not-found';
-  problem?: 'not_registered' | 'worker_missing' | 'launchd_failed' | 'wake_cancelled' | 'wake_failed';
+  enabled: boolean;
+  /** A packaged, signed build; development has no background updates. */
+  supported: boolean;
+  dailyHour: number; flashIntervalHours: number;
+  status?: LoginStatus;
+  problem?: 'not_registered' | 'dev_build' | 'wake_not_registered';
   workerName?: string;
-  /** Waking the Mac from sleep for updates. */
-  wake?: { installed: boolean; mode: WakeMode; choice: WakeMode; next: number | null };
+  /** Waking the Mac for the daily brief. */
+  wake?: { on: boolean; status?: LoginStatus; next: number | null };
   lastRun: { kind: string; at: number; outcome: string | null; stats: unknown } | null;
   runs?: unknown[];
 }
@@ -254,9 +256,8 @@ export interface Pnr {
   /** A native macOS confirmation sheet; true when the first (confirming) button is chosen. */
   confirm(opts: { message: string; detail?: string; confirm: string; cancel: string; destructive?: boolean }): Promise<boolean>;
   openLoginItems(): Promise<void>;
-  /** Chooses how the Mac is woken from sleep; the first time asks for the administrator password. */
-  setWake(choice: WakeMode, prompt: string): Promise<ScheduleState>;
-  uninstallWake(prompt: string): Promise<ScheduleState>;
+  /** Wakes the Mac for the daily brief; the first time, macOS asks for approval in System Settings. */
+  setWake(on: boolean): Promise<ScheduleState>;
   socialStatus(): Promise<SocialStatus>;
   socialSetInstance(url: string): Promise<void>;
   socialInstall(): Promise<{ ok: boolean; error?: string; version?: string }>;

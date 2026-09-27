@@ -20,10 +20,11 @@ import { setSink, log, withRunContext, localDateKey } from '@pnr/core';
 type Mode = 'daily' | 'flashes' | 'fetch';
 
 /**
- * `auto` is what the background agent runs: it wakes at minute 16 of every hour
- * — including right after the Mac was woken from sleep for it (see the app's
- * wake.ts) — and decides here what is due: the day's run after the chosen
- * hour, else a flash check every three hours, else nothing. One agent rather
+ * `auto` is what the background agent runs: it starts at minute 16 of every
+ * hour — once on wake for any time missed during sleep, and right after the
+ * Mac was woken for the day's run (see the app's wake.ts) — and decides here
+ * what is due: the day's run after the chosen hour, else a flash check every
+ * three hours, else nothing. One agent rather
  * than two keeps the two from starting together and judging the same articles
  * twice.
  */

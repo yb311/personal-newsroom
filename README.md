@@ -105,8 +105,8 @@ npm run package:dir
 ```
 
 The app lands in `release/mac-arm64/所闻.app`. Without a Developer ID signature
-background updates register as a plain `~/Library/LaunchAgents` job instead of a
-login item; everything else is the same. For development: `npm run reader:build`
+macOS won't register its background items, so background updates are off;
+everything else is the same, and `npm run worker` runs an update by hand. For development: `npm run reader:build`
 compiles the reading core, `npm run build --workspace=@pnr/desktop` builds the
 interface, and `npm run start --workspace=@pnr/desktop` launches it.
 

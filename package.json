@@ -49,6 +49,7 @@
     "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",
     "test:wake": "node --experimental-strip-types dev/wake.test.ts",
     "icon:build": "electron dev/make-icon.mjs",
+    "worker": "npm run build --workspace=@pnr/worker && ELECTRON_RUN_AS_NODE=1 electron apps/worker/dist/worker.cjs",
     "package:prepare": "npm run reader:build && npm run build --workspace=@pnr/desktop && npm run build --workspace=@pnr/worker && node scripts/prepare-package.mjs",
     "package:dir": "npm run package:prepare && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dir --arm64 --publish never && scripts/verify-package.sh release/mac-arm64/所闻.app",
     "package:mac": "npm run package:prepare && PNR_RELEASE_SIGN=1 CSC_NAME='Yue Jing (PR3596G4YB)' electron-builder --project apps/desktop/packaging/app --config ../../electron-builder.config.mjs --mac dmg zip --arm64 --publish never"

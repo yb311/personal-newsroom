@@ -297,29 +297,48 @@ schema 嵌在 `migrations.ts` 里（打包后的主进程读不到源码旁边�
 - **单实例锁**：`locks` 表 + `BEGIN IMMEDIATE` + 15 秒心跳，过期可抢。不用文件锁：`kill -9` 后 flock 清理不可靠
 - **worker → 界面**不走 IPC（界面可能没开）：worker 把结构化日志写进 `runs` / `events`，界面下次打开时读
 
-## 11. 后台与唤醒（`apps/desktop/src/schedule.ts`、`wake.ts`、`apps/worker`）
+## 11. 后台与唤醒（`apps/desktop/src/schedule.ts`、`wake.ts`、`native/wake/wake.c`、`apps/worker`）
 
-**一个 launch agent**：签名包经 SMAppService 注册为 `com.yb311.personal-newsroom.background`，退回手写 plist 时叫 `com.yb311.personal-newsroom.update`（两个名字必须不同，见 AGENTS.md「踩过的坑」），每小时第 16 分钟运行 worker 的 `auto` 模式，
-由 worker 判断：过了用户选的时间且今天还没跑 → 每日任务；距上次快讯检查 ≥ 2 小时 45 分 → 快讯；否则直接退出。
+**两个登录项，都在 App 包里，都经 SMAppService 注册**，所以在「系统设置 → 通用 → 登录项与扩展」里显示为「所闻」（带图标），
+App 拖进废纸篓它们就跟着消失：
+
+| | 注册名 | 类型 | 做什么 |
+|---|---|---|---|
+| 后台更新 | `com.yb311.personal-newsroom.background` | launch agent（`Contents/Library/LaunchAgents`，Electron `agentService`） | 每小时第 16 分钟运行「所闻 后台更新.app」里的 worker `auto` 模式 |
+| 休眠唤醒 | `com.yb311.personal-newsroom.wakeup` | launch daemon（`Contents/Library/LaunchDaemons`，Electron `daemonService`） | 以 root 运行签名的 `pnr-wake`，只约下一次每日摘要时间的唤醒 |
+
+**worker 自己判断该做什么**：过了用户选的时间且今天还没跑 → 每日任务；距上次快讯检查 ≥ 2 小时 45 分 → 快讯；否则直接退出。
 改时间不用重新注册，也不会有两个任务同时启动、重复判定同一批文章。
 
-- **签名包走 SMAppService**（`app.setLoginItemSettings({ type: 'agentService' })`），plist 在 bundle 的
-  `Contents/Library/LaunchAgents/`，出现在「登录项与扩展」，app 拖进废纸篓就消失
-- SMAppService 拒绝没有开发者签名的 app（Electron 只在 stderr 打一行），所以读回状态，**失败就改用
-  `~/Library/LaunchAgents` 里的手写 plist**，关掉开关时删掉
 - 任务运行 bundle 内的「所闻 后台更新.app」（`packaging/worker-helper.mjs` 从 Electron Helper 复制改名），
   可执行文件名**必须以 " Helper" 结尾**，否则 Electron 找不到框架、启动即 SIGTRAP
-- App 每次启动检查：版本变了就重新注册（新版本带新 worker）
+- App 每次启动检查：版本或 App 位置变了就重新注册（SMAppService 按注册时的 App 解析包内 plist）
+- SMAppService 只接受 Developer ID 签名的 App：**开发版和未签名构建不支持后台更新**，设置里明说；要测试就 `npm run worker`（可加 `-- flashes` 等模式）
 
-**休眠时也要更新**：launchd 在 Mac 睡着时什么都不跑，所以要让 Mac 自己醒。`pmset schedule wake` 需要 root，
-开启后台更新时装一个唤醒组件（输一次管理员密码）：`/Library/LaunchDaemons/com.yb311.personal-newsroom.wake.plist`
-每小时和配置变化时运行 root 所有的 `schedule-wakes.sh`，约好未来 26 小时的唤醒（每日时间及之后每 3 小时，
-都在 xx:15:50，赶上第 16 分钟的任务）。worker 计划运行时用 `caffeinate -i -s -w <pid>` 不让 Mac 睡回去，
-并等网络就绪。
+**休眠时更新**：launchd 在 Mac 睡着时什么都不跑，错过的时间在醒来时补跑一次。所以快讯不用唤醒——Mac 一醒就补查；
+真正需要唤醒的只有每日摘要（坐下来时已经写好）。`pnr-wake` 在加载时和每 15 分钟读一次 `wake.conf`
+（数据文件夹里，App 写，内容如 `1 7`＝7 点唤醒、`0 7`＝不唤醒），用 IOKit（`pmset schedule` 背后的接口）约好 HH:15:50 的唤醒、
+取消自己约过的其它唤醒，`pmset -g sched` 里显示「by '所闻'」。改时间最多 15 分钟后生效。
+worker 计划运行时用 `caffeinate -i -s -w <pid>` 不让 Mac 睡回去，并等网络就绪。
+限制：合盖用电池时 macOS 可能不唤醒；关掉唤醒时已经约好的下一次唤醒还会发生一次。
 
-**提权边界**：root 脚本只调 pmset 和 date；它读的 `wake.conf` 归用户所有，只取数字和一个只做存在性检查的
-app 路径——**绝不能让 root 执行 app bundle 里的任何东西**（bundle 用户可写）。app 被删后脚本发现路径不在了
-就不再约唤醒。限制：合盖用电池时 macOS 可能不允许唤醒；非管理员账户装不了组件。
+**提权边界**：root 只运行 `pnr-wake` 这一个程序，它不调 shell、不执行任何文件内容；`wake.conf` 归用户所有，只取开头的数字，
+不跟随符号链接，文件主人必须是当前登录用户。系统只在 `pnr-wake` 的签名属于本团队时启动它（BTM 为它记下签名要求），
+macOS 13 起「应用程序」里的 App 包也受保护，其它程序不能随意修改。
+
+### 取舍记录（2026-09-27，用户同意）
+
+最初的做法层层打补丁，出过一串问题（登录项里显示成「Yue Jing」「sh」、SMAppService 报 `Operation not permitted`）。
+回头看，苹果从 macOS 13 起推荐、同类工具（如 [WakeMyMac](https://github.com/muarifer/wakemymac)）也在用的做法更简单，于是做了三项简化：
+
+1. **去掉 `~/Library/LaunchAgents` 备用路线**。发给用户的版本一定签名，备用路线只服务开发版，却造成了显示成证书主人名、
+   以及同名 Label 被后台任务管理记成停用、此后 SMAppService 永远拒绝注册的问题。
+2. **唤醒组件改用 SMAppService daemon**。原来是 App 弹管理员密码框，往 `/Library/LaunchDaemons` 和
+   `/Library/Application Support/com.yb311.personal-newsroom/` 装 root 脚本，再加签名启动程序、拷贝后核对签名、
+   单独的「移除唤醒组件」按钮、「App 被删后别再唤醒」的检查。现在这些都不需要：程序在包里、系统核对签名、随 App 删除。
+   这推翻了原来「root 绝不执行 bundle 里的东西（bundle 用户可写）」的规则——macOS 13 起有签名要求和 App 包保护，那条理由不再成立。
+   代价：第一次开启要去「登录项与扩展」批准（系统要求，App 不能代弹密码框）。
+3. **只在每日摘要时间唤醒**，不再每 3 小时唤醒。休眠期间的快讯没人在看，醒来时自动补查；少唤醒也省电。
 
 ## 12. 实测记录
 

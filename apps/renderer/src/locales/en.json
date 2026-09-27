@@ -24,7 +24,6 @@
     "justNow": "just now",
     "seenAt": "Seen {{when}}",
     "noDateHint": "The source gave no publication time; this is when it was first seen",
-    "loginItemsHint": "Allow “所闻” to run in the background in System Settings → General → Login Items & Extensions.",
     "back": "Back",
     "newsSearch": "News search"
   },
@@ -514,15 +513,13 @@
   "background": {
     "title": "Background Updates",
     "question": "Turn on background updates?",
-    "body": "After you close the window, 所闻 still writes today’s brief at 7:15 every day and checks for flashes every 3 hours; while your Mac sleeps it is woken on time to update, then sleeps again.",
-    "where": "Turning it on asks once for an administrator password to install the wake component. Turn it off anytime in Settings → Background or System Settings → General → Login Items & Extensions.",
-    "failed": "Couldn't turn it on. Try again later in Settings → Background.",
+    "body": "Even after you close the window, 所闻 writes the daily brief at 7:15 and checks for flashes every 3 hours. If your Mac is asleep, it wakes it at the brief time.",
+    "where": "macOS will ask you to allow the wake in Login Items & Extensions. You can change this anytime in Settings → Background.",
+    "failed": "Couldn’t turn on background updates. Try again later in Settings → Background.",
     "ok": "OK",
     "later": "Not Now",
     "enable": "Turn On",
-    "wakeTitle": "Update While Asleep",
-    "wakeQuestion": "Update while your Mac sleeps too?",
-    "wakeBody": "Background updates are on, but they don’t run while your Mac sleeps. Turn this on and 所闻 wakes the Mac at the brief’s time and every 3 hours after, updates, and lets it sleep again."
+    "approve": "One more step: allow “所闻” in System Settings → General → Login Items & Extensions."
   },
   "settings": {
     "title": "Settings",
@@ -613,13 +610,11 @@
     "instanceFailed": "Couldn't save. Check the address.",
     "xIntro": "X is fetched through Apify, about $0.02 per X source per update, billed by Apify. The token stays on this Mac.",
     "apifyToken": "Apify Token",
-    "backgroundIntro": "Keeps updating after you close the window; while the Mac sleeps, it is woken on time to update.",
-    "allowBackground": "Allow background updates",
-    "loginItems": "It appears as “所闻” in System Settings → General → Login Items & Extensions, and as “{{name}}” in Activity Monitor while it runs.",
-    "dailyTime": "Daily Brief Time",
-    "flashInterval_one": "Flashes are checked every hour.",
-    "flashInterval_other": "Flashes are checked every {{count}} hours.",
-    "lastRun": "Last run: {{when}} · {{kind}} · {{outcome}}",
+    "allowBackground": "Background Updates",
+    "dailyTime": "Daily Brief",
+    "flashInterval_one": "Flashes are checked every hour; checks missed during sleep run as soon as the Mac wakes.",
+    "flashInterval_other": "Flashes are checked every {{count}} hours; checks missed during sleep run as soon as the Mac wakes.",
+    "lastRun": "{{when}} · {{kind}} · {{outcome}}",
     "runKind": {
       "daily": "Daily update",
       "flashes": "Flashes",
@@ -630,34 +625,25 @@
       "partial": "Partly done",
       "failed": "Failed"
     },
-    "neverRun": "Hasn't run yet.",
-    "plistPath": "Task file",
+    "neverRun": "Not yet run",
     "noLanguages": "Article languages appear here once subscriptions update.",
     "articles_one": "1 article",
     "articles_other": "{{count}} articles",
     "lastRunLabel": "Last Run",
-    "openLoginItems": "Open Login Items",
+    "openLoginItems": "Open System Settings…",
     "backgroundProblem": {
-      "not_registered": "macOS did not register the background job. Allow “所闻” in Login Items & Extensions, then try again.",
-      "worker_missing": "The background worker hasn’t been built. Run npm run build --workspace=@pnr/worker first.",
-      "launchd_failed": "launchd didn’t accept the background job. Try again.",
-      "wake_cancelled": "No administrator password was entered, so nothing updates while the Mac sleeps. You can choose again here anytime.",
-      "wake_failed": "The wake component wasn’t installed. Installing it needs an administrator account; on a standard account, ask an administrator to turn it on."
+      "not_registered": "macOS couldn’t register the background items. Move 所闻 to the Applications folder and try again.",
+      "dev_build": "Background updates aren’t available in development builds. To test, run npm run worker in Terminal.",
+      "wake_not_registered": "macOS couldn’t register the wake item. Check Login Items & Extensions and try again."
     },
-    "workerName": "所闻 后台更新 Helper",
-    "loginItemsLocal": "This build has no developer signature, so the background job runs as a user launch agent; Activity Monitor shows it as “{{name}}” while it runs.",
     "wake": {
-      "label": "Wake Mac from sleep",
-      "all": "Every 3 hours (brief and flashes)",
-      "daily": "Once a day (brief only)",
-      "off": "Don’t wake",
-      "hint": "While your Mac sleeps it is woken on time to update, then goes back to sleep. Turning this on asks once for an administrator password. With the lid closed on battery, macOS may not allow the wake.",
-      "next": "Next wake: {{when}}",
-      "remove": "Remove Wake Component…",
-      "prompt": "所闻 wants to install a wake component so your Mac wakes on time to update the news while it sleeps.",
-      "removePrompt": "所闻 wants to remove its wake component and cancel the wakes it booked."
+      "label": "Wake from Sleep",
+      "hint": "Wakes the Mac at the brief time and lets it sleep again when done. On battery with the lid closed, macOS may not wake it.",
+      "next": "Next wake: {{when}}"
     },
-    "assistantMode": "Permission Mode"
+    "assistantMode": "Permission Mode",
+    "backgroundFooter": "After you close the window, 所闻 keeps writing the daily brief and checking for flashes on schedule. Its background items appear as “所闻” in System Settings → General → Login Items & Extensions.",
+    "needsApproval": "Allow “所闻” in Login Items & Extensions."
   },
   "catalogue": {
     "title": "Subscriptions",

@@ -309,60 +309,45 @@ function Background() {
   const [failed, setFailed] = useState(false);
   // A state that cannot be read must not leave the switch disabled for good:
   // show it off, and let switching it on report what went wrong.
-  const fallback: ScheduleState = { enabled: false, mode: 'unsupported', dailyHour: 7, flashIntervalHours: 3, plistPath: null, lastRun: null };
+  const fallback: ScheduleState = { enabled: false, supported: true, dailyHour: 7, flashIntervalHours: 3, lastRun: null };
   useEffect(() => { void window.pnr.scheduleState().then(setSched, () => { setSched(fallback); setFailed(true); }); }, []);
-  const apply = async (on: boolean, hour = sched?.dailyHour ?? 7): Promise<void> => {
+  const act = async (action: () => Promise<ScheduleState>): Promise<void> => {
     setBusy(true); setFailed(false);
-    try {
-      let next = await window.pnr.setSchedule(on, hour);
-      // Updating while asleep is part of switching it on: the first time, macOS
-      // asks for the administrator password to install the wake component.
-      if (on && next.enabled && next.wake && !next.wake.installed && next.wake.choice !== 'off')
-        next = await window.pnr.setWake(next.wake.choice, t('settings.wake.prompt'));
-      setSched(next);
-    }
-    catch { setFailed(true); }
-    finally { setBusy(false); }
-  };
-  const wake = async (action: () => Promise<ScheduleState>): Promise<void> => {
-    setBusy(true);
     try { setSched(await action()); } catch { setFailed(true); } finally { setBusy(false); }
   };
-  const last = sched?.lastRun;
-  const allProblems = sched?.problem ?? (failed ? 'not_registered' : undefined);
-  const wakeProblem = allProblems?.startsWith('wake_') ? allProblems : undefined;
-  const problem = wakeProblem ? undefined : allProblems;
+  const problem = sched?.problem ?? (failed ? 'not_registered' : undefined);
   const w = sched?.wake;
-  const approval = sched?.status === 'requires-approval';
+  const last = sched?.lastRun;
+  // Waiting for the person to allow it in System Settings → Login Items & Extensions.
+  const openSettings = <button className="push small" onClick={() => void window.pnr.openLoginItems()}>{t('settings.openLoginItems')}</button>;
+  const warn = (text: string) => <span className="warn">{text}</span>;
+  const wakeProblem = problem === 'wake_not_registered';
 
-  const name = sched?.workerName ?? t('settings.workerName');
-  // A signed build registers with Login Items; a local build runs a plist of its own.
-  const local = sched?.enabled && sched.mode === 'launchAgent';
-  return <Group footer={<>{t('settings.backgroundIntro')} {t(local ? 'settings.loginItemsLocal' : 'settings.loginItems', { name })}
-    {local && sched.plistPath && <><br />{t('settings.plistPath')}<br /><code>{sched.plistPath}</code></>}</>}>
+  return <Group footer={t('settings.backgroundFooter')}>
     <Row label={t('settings.allowBackground')} htmlFor="background-switch"
-      hint={problem ? <span className="warn">{t(`settings.backgroundProblem.${problem}`)}</span>
-        : approval ? <span className="warn">{t('common.loginItemsHint')}</span> : undefined}>
+      hint={sched?.supported === false ? t('settings.backgroundProblem.dev_build')
+        : problem && !wakeProblem ? warn(t(`settings.backgroundProblem.${problem}`))
+        : sched?.status === 'requires-approval' ? warn(t('settings.needsApproval')) : undefined}>
       {busy && <span className="spinner" aria-hidden />}
-      {(approval || problem === 'not_registered') &&
-        <button className="push small" onClick={() => void window.pnr.openLoginItems()}>{t('settings.openLoginItems')}</button>}
-      <Switch id="background-switch" label={t('settings.allowBackground')} disabled={busy || !sched} checked={Boolean(sched?.enabled)} onChange={(on) => void apply(on)} />
+      {(sched?.status === 'requires-approval' || problem === 'not_registered') && openSettings}
+      <Switch id="background-switch" label={t('settings.allowBackground')} disabled={busy || !sched || sched.supported === false}
+        checked={Boolean(sched?.enabled)} onChange={(on) => void act(() => window.pnr.setSchedule(on, sched?.dailyHour ?? 7))} />
     </Row>
     {sched?.enabled && <>
       <Row label={t('settings.dailyTime')} hint={t('settings.flashInterval', { count: sched.flashIntervalHours })}>
-        <Select value={sched.dailyHour} disabled={busy} onChange={(e) => void apply(true, Number(e.target.value))} aria-label={t('settings.dailyTime')}>
+        <Select value={sched.dailyHour} disabled={busy} aria-label={t('settings.dailyTime')}
+          onChange={(e) => void act(() => window.pnr.setSchedule(true, Number(e.target.value)))}>
           {[5, 6, 7, 8, 9, 10].map((h) => <option key={h} value={h}>{h}:15</option>)}
-        </Select></Row>
-      {w && <Row label={t('settings.wake.label')} htmlFor="wake-select"
-        hint={wakeProblem ? <span className="warn">{t(`settings.backgroundProblem.${wakeProblem}`)}</span>
-          : w.installed && w.mode !== 'off' && w.next ? t('settings.wake.next', { when: dateTime(w.next) })
-          : t('settings.wake.hint')}>
-        {w.installed && w.choice === 'off' && <button className="push small" disabled={busy}
-          onClick={() => void wake(() => window.pnr.uninstallWake(t('settings.wake.removePrompt')))}>{t('settings.wake.remove')}</button>}
-        <Select id="wake-select" value={w.installed ? w.choice : 'off'} disabled={busy} aria-label={t('settings.wake.label')}
-          onChange={(e) => void wake(() => window.pnr.setWake(e.target.value as 'off' | 'daily' | 'all', t('settings.wake.prompt')))}>
-          {(['all', 'daily', 'off'] as const).map((m) => <option key={m} value={m}>{t(`settings.wake.${m}`)}</option>)}
         </Select>
+      </Row>
+      {w && <Row label={t('settings.wake.label')} htmlFor="wake-switch"
+        hint={wakeProblem ? warn(t('settings.backgroundProblem.wake_not_registered'))
+          : w.on && w.status === 'requires-approval' ? warn(t('settings.needsApproval'))
+          : w.on && w.next ? t('settings.wake.next', { when: dateTime(w.next) })
+          : t('settings.wake.hint')}>
+        {w.on && (w.status === 'requires-approval' || wakeProblem) && openSettings}
+        <Switch id="wake-switch" label={t('settings.wake.label')} disabled={busy} checked={w.on}
+          onChange={(on) => void act(() => window.pnr.setWake(on))} />
       </Row>}
       <Row label={t('settings.lastRunLabel')}>
         <span className="row-value">{last

@@ -93,7 +93,7 @@ npm ci
 npm run package:dir
 ```
 
-完成后应用在 `release/mac-arm64/所闻.app`。它没有开发者签名，后台更新会改用 `~/Library/LaunchAgents` 里的任务，其他功能一样。
+完成后应用在 `release/mac-arm64/所闻.app`。它没有开发者签名，macOS 不会登记它的后台项目，所以没有后台更新，其他功能一样；可用 `npm run worker` 手动更新。
 开发时用 `npm run reader:build` 编译阅读核心，`npm run build --workspace=@pnr/desktop` 构建界面，
 `npm run start --workspace=@pnr/desktop` 启动。
 

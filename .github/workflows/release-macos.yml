@@ -89,6 +89,7 @@ jobs:
           app_path="release/mac-arm64/所闻.app"
           codesign --verify --deep --strict --verbose=2 "$app_path"
           codesign --verify --strict --verbose=2 "$app_path/Contents/Resources/bin/pnr-reader"
+          codesign --verify --strict --verbose=2 "$app_path/Contents/Resources/bin/pnr-wake"
           codesign --verify --strict --verbose=2 "$app_path/Contents/Frameworks/所闻 后台更新.app"
           xcrun stapler validate "$app_path"
           spctl --assess --type execute --verbose=4 "$app_path"

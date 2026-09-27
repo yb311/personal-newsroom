@@ -80,8 +80,7 @@ contextBridge.exposeInMainWorld('pnr', {
   },
   setSchedule: (on: boolean, hour?: number) => ipcRenderer.invoke('app:setSchedule', on, hour),
   openLoginItems: () => ipcRenderer.invoke('app:openLoginItems'),
-  setWake: (choice: string, prompt: string) => ipcRenderer.invoke('app:setWake', choice, prompt),
-  uninstallWake: (prompt: string) => ipcRenderer.invoke('app:uninstallWake', prompt),
+  setWake: (on: boolean) => ipcRenderer.invoke('app:setWake', on),
   enrichOne: (id: string) => ipcRenderer.invoke('app:enrichOne', id),
   openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   onProgress: (cb: (p: unknown) => void) => {

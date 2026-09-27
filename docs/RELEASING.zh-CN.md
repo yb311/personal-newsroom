@@ -53,7 +53,7 @@ git push origin v0.1.1
 - `所闻-X.Y.Z-arm64.zip`
 - `SHA256SUMS.txt`
 
-发布任务还会检查主应用、Electron 辅助进程、`pnr-reader`、公证票据和 DMG 内最终应用。
+发布任务还会检查主应用、Electron 辅助进程、`pnr-reader`、`pnr-wake`（唤醒程序）、公证票据和 DMG 内最终应用。
 
 ## 安全边界
 

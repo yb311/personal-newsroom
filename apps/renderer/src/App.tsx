@@ -9,7 +9,7 @@ import { Catalogue } from './components/Catalogue.tsx';
 import { Today } from './components/Today.tsx';
 import { Watches, type WatchRequest } from './components/Watches.tsx';
 import { Flashes } from './components/Flashes.tsx';
-import { BackgroundPrompt, WakePrompt } from './components/BackgroundPrompt.tsx';
+import { BackgroundPrompt } from './components/BackgroundPrompt.tsx';
 import { Assistant } from './components/Assistant.tsx';
 import { Report } from './components/Report.tsx';
 import { SplitDivider, storedWidth } from './components/SplitDivider.tsx';
@@ -72,7 +72,6 @@ export default function App() {
   const [lastRun, setLastRun] = useState<number | null>(null);
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [askBackground, setAskBackground] = useState(false);
-  const [askWake, setAskWake] = useState(false);
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [revision, setRevision] = useState(0);
   const [watchRequest, setWatchRequest] = useState<WatchRequest | null>(null);
@@ -191,9 +190,6 @@ export default function App() {
       setLastRun(s.lastRun);
       if (s.items === 0 && s.sources > 0) void refresh();
       if ((await window.pnr.today()).digest && !navigated.current) setTab('today');
-      // Background updates already on from before the Mac could be woken for them: ask once.
-      const sched = await window.pnr.scheduleState().catch(() => null);
-      if (sched?.enabled && sched.wake && !sched.wake.installed && sched.wake.choice !== 'off') setAskWake(true);
     })();
   }, []);
 
@@ -441,7 +437,6 @@ export default function App() {
         if (changed) void refresh();
       }} />}
       {askBackground && <BackgroundPrompt onDone={() => setAskBackground(false)} />}
-      {askWake && !askBackground && <WakePrompt onDone={() => setAskWake(false)} />}
     </div>
   );
 }

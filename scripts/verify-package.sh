@@ -1,12 +1,13 @@
 #!/bin/bash
 # Checks a packaged 所闻.app beyond what codesign sees: the reader core answers,
-# the wake launcher is there,
+# the wake daemon plans a wake,
 # every launch agent points at a program that exists, and the background worker
 # ( 所闻 后台更新 ) starts as Node and finds worker.cjs inside the app archive.
 # Used by CI on the unsigned build and by the release workflow on the signed one.
 #
 #   scripts/verify-package.sh "release/mac-arm64/所闻.app"
 set -euo pipefail
+shopt -s nullglob
 app="${1:?usage: verify-package.sh <path to 所闻.app>}"
 contents="$app/Contents"
 
@@ -14,14 +15,17 @@ reader="$contents/Resources/bin/pnr-reader"
 printf '%s\n' '{"id":1,"method":"ping","params":{}}' | "$reader" | grep -q '"result":"pong"'
 echo "reader core: ok"
 
-# The wake daemon's launcher: present, and naming the one script it may run.
-launcher="$contents/Resources/bin/pnr-wake"
-[[ -x "$launcher" ]] || { echo "::error::pnr-wake is missing"; exit 1; }
-grep -q "/Library/Application Support/com.yb311.personal-newsroom/schedule-wakes.sh" "$launcher" \
-  || { echo "::error::pnr-wake does not name the wake script"; exit 1; }
-echo "wake launcher: ok"
+# The wake daemon: one plist, pointing at pnr-wake, which plans without booking.
+daemons=("$contents/Library/LaunchDaemons/"*.plist)
+[[ ${#daemons[@]} -eq 1 ]] || { echo "::error::expected 1 launch daemon, found ${#daemons[@]}"; exit 1; }
+wake="$app/$(/usr/bin/plutil -extract BundleProgram raw -o - "${daemons[0]}")"
+[[ -x "$wake" ]] || { echo "::error::$(basename "${daemons[0]}"): BundleProgram is missing"; exit 1; }
+conf="$(mktemp)"; printf '1 7\n' > "$conf"
+[[ "$("$wake" --plan "$conf" "$(date +%s)")" =~ ^[0-9]+$ ]] || { echo "::error::pnr-wake does not plan a wake"; exit 1; }
+rm -f "$conf"
+echo "$(basename "${daemons[0]}"): ok"
 
-shopt -s nullglob
+
 agents=("$contents/Library/LaunchAgents/"*.plist)
 [[ ${#agents[@]} -eq 1 ]] || { echo "::error::expected 1 launch agent, found ${#agents[@]}"; exit 1; }
 for plist in "${agents[@]}"; do

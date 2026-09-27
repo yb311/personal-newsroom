@@ -1,239 +1,55 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const run = promisify(execFile);
-
 /**
- * Updating while the Mac sleeps.
+ * Updating while the Mac sleeps: the app's side.
  *
- * launchd never runs anything while the Mac is asleep; it only catches up on
- * wake. So the Mac has to be woken, and scheduling a wake (`pmset schedule
- * wake`) needs root. A small component is installed once, with the person's
- * administrator password:
+ * launchd runs nothing while the Mac sleeps; a missed hourly run happens once
+ * on wake. So flashes catch up by themselves the moment the Mac wakes, and
+ * the one thing worth waking it for is the day's brief, ready when the person
+ * sits down. That wake needs root, and so is the job of pnr-wake
+ * (native/wake/wake.c): a launch daemon inside the app bundle, registered
+ * through SMAppService (Electron's `daemonService`, see schedule.ts) and
+ * approved once in System Settings. macOS launches it only while it carries
+ * 所闻's signature, lists it under 所闻 in Login Items, and removes it with the
+ * app.
  *
- *   /Library/LaunchDaemons/com.yb311.personal-newsroom.wake.plist
- *   /Library/Application Support/com.yb311.personal-newsroom/schedule-wakes.sh
- *
- * The script runs as root every hour and whenever the settings file changes,
- * and keeps the next day of wakes booked: at the daily time, and with flashes
- * every three hours after it. Each wake is at 15:50 past the hour, just before
- * the background agent's minute 16, which then does the work and keeps the Mac
- * awake until it is done.
- *
- * What runs as root is only that script, owned by root, calling the system's
- * own pmset and date, started by `pnr-wake` (native/wake/wake.c) — a launcher
- * that only execs it, signed with the app's Developer ID so Login Items lists
- * the daemon under 所闻 rather than as "sh". The launcher is copied into the
- * root-owned folder and its signature checked there before the daemon uses it. It reads `wake.conf` — the one file the app writes, so
- * changing the mode or hour never asks for the password again — and takes from
- * it only digits and a path it merely checks exists. Nothing from the app
- * bundle, which a user process can modify, ever runs as root.
- *
- * Whoever installs the app gets this from the same switch; it does not depend
- * on anything on the developer's Mac. An app dragged to the Trash stops being
- * woken for within the hour (the script checks the app is still where it was).
+ * The app tells it what to do through one file in the data folder,
+ * wake.conf: "1 7" (wake at 7:15:50) or "0 7" (don't). The daemon reads it at
+ * load and every 15 minutes, so a changed time takes effect within a quarter
+ * of an hour.
  */
-export const WAKE_LABEL = 'com.yb311.personal-newsroom.wake';
-const DIR = '/Library/Application Support/com.yb311.personal-newsroom';
-const CONF = `${DIR}/wake.conf`;
-const BOOKED = `${DIR}/wake.scheduled`;
-const SCRIPT = `${DIR}/schedule-wakes.sh`;
-const DAEMON = `/Library/LaunchDaemons/${WAKE_LABEL}.plist`;
-const LAUNCHER = `${DIR}/pnr-wake`;
-/** Only a launcher signed by this team is installed. */
-const TEAM = 'PR3596G4YB';
-/** Shown by `pmset -g sched` as the owner of each wake. */
+export const WAKE_SERVICE = 'com.yb311.personal-newsroom.wakeup.plist';
+/** Shown by `pmset -g sched` as the owner of the wake; pnr-wake books under it. */
 const OWNER = '所闻';
 
-export type WakeMode = 'off' | 'daily' | 'all';
-export interface WakeState {
-  installed: boolean;
-  mode: WakeMode;
-  /** The next booked wake, as a timestamp. */
-  next: number | null;
+export const wakeConfText = (on: boolean, hour: number): string =>
+  `${on ? 1 : 0} ${Math.min(23, Math.max(0, Math.round(hour)))}\n`;
+
+/** Writes wake.conf when it changed. */
+export function writeWakeConfig(dataDir: string, on: boolean, hour: number): void {
+  const path = join(dataDir, 'wake.conf');
+  const text = wakeConfText(on, hour);
+  try {
+    if (existsSync(path) && readFileSync(path, 'utf8') === text) return;
+    writeFileSync(path, text);
+  } catch { /* the daemon then books nothing */ }
 }
-export type WakeOutcome = 'ok' | 'cancelled' | 'failed';
 
-const MODE_DIGIT: Record<WakeMode, string> = { off: '0', daily: '1', all: '2' };
-
-const ROOT_SCRIPT = `#!/bin/sh
-# 所闻：休眠时按时唤醒 Mac，让后台更新照常进行。
-# 由 launchd 以 root 身份运行（${DAEMON}）。
-# 只调用系统自带的 pmset 和 date；wake.conf 由 app 写入，只取其中的数字。
-PATH=/usr/bin:/bin:/usr/sbin:/sbin
-export PATH
-DIR="${DIR}"
-CONF="$DIR/wake.conf"
-BOOKED="$DIR/wake.scheduled"
-OWNER="${OWNER}"
-
-# wake.conf line 1: "<mode> <hour>" — mode 0 = off, 1 = the daily time,
-# 2 = also every 3 hours. Line 2: where the app is. When it is gone (dragged to
-# the Trash) nothing is booked, so an uninstalled app never wakes the Mac; the
-# app writes its new place on its next launch if it was only moved.
-mode=0; hour=7
-if [ -f "$CONF" ]; then
-  line=$(head -n 1 "$CONF" | tr -cd '0-9 ')
-  set -- $line
-  case "\${1:-}" in 0|1|2) mode=$1 ;; esac
-  case "\${2:-}" in [0-9]|1[0-9]|2[0-3]) hour=$2 ;; esac
-  app=$(sed -n 2p "$CONF")
-  if [ -z "$app" ] || [ ! -d "$app" ]; then mode=0; fi
-fi
-
-# The next 26 hours of wakes, at 15:50 past each hour that is due.
-now=$(date +%s)
-wanted=""
-if [ "$mode" != 0 ]; then
-  for day in 0 1; do
-    d=$(date -v+\${day}d +%Y-%m-%d)
-    k=0
-    while [ $k -lt 8 ]; do
-      if [ "$mode" = 1 ] && [ $k -gt 0 ]; then break; fi
-      h=$(( (hour + 3 * k) % 24 ))
-      at=$(date -j -f "%Y-%m-%d %H:%M:%S" "$d $h:15:50" +%s)
-      if [ "$at" -gt $((now + 60)) ] && [ "$at" -le $((now + 26 * 3600)) ]; then
-        wanted="$wanted$(date -j -r "$at" "+%m/%d/%y %H:%M:%S")
-"
-      fi
-      k=$((k + 1))
-    done
-  done
-fi
-
-# Cancel what this script booked before, then book the wanted set: rerunning
-# is harmless, and a changed hour or mode leaves nothing stale behind.
-old=""
-if [ -f "$BOOKED" ]; then old=$(cat "$BOOKED"); fi
-printf '%s\\n%s' "$old" "$wanted" | sort -u | while IFS= read -r t; do
-  if [ -n "$t" ]; then pmset schedule cancel wake "$t" "$OWNER" >/dev/null 2>&1; fi
-done
-printf '%s' "$wanted" | while IFS= read -r t; do
-  if [ -n "$t" ]; then pmset schedule wake "$t" "$OWNER" >/dev/null 2>&1; fi
-done
-printf '%s' "$wanted" > "$BOOKED"
-chmod 644 "$BOOKED"
-`;
-
-/** With the signed launcher (packaged builds) or, in development, the shell itself. */
-const daemonPlist = (launcher: boolean): string => `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>${WAKE_LABEL}</string>
-  <key>AssociatedBundleIdentifiers</key><array><string>com.yb311.personal-newsroom</string></array>
-  <key>ProgramArguments</key>
-  <array>${launcher ? `<string>${LAUNCHER}</string>` : `<string>/bin/sh</string><string>${SCRIPT}</string>`}</array>
-  <key>RunAtLoad</key><true/>
-  <key>StartInterval</key><integer>3600</integer>
-  <key>WatchPaths</key><array><string>${CONF}</string></array>
-</dict>
-</plist>
-`;
-
-/** The script, for the offline test. */
-export const wakeScriptForTest = ROOT_SCRIPT;
-
-export function wakeState(): WakeState {
-  const installed = existsSync(DAEMON) && existsSync(SCRIPT);
-  let mode: WakeMode = 'off';
-  let next: number | null = null;
-  if (installed) {
-    try {
-      const digit = readFileSync(CONF, 'utf8').split('\n')[0]!.trim().split(/\s+/)[0];
-      mode = digit === '2' ? 'all' : digit === '1' ? 'daily' : 'off';
-    } catch { /* unreadable → off */ }
-    try {
-      const now = Date.now();
-      next = readFileSync(BOOKED, 'utf8').split('\n').map(parseBooked)
-        .filter((t): t is number => t !== null && t > now).sort((a, b) => a - b)[0] ?? null;
-    } catch { /* nothing booked yet */ }
+/** The next wake booked under 所闻, from `pmset -g sched` output. */
+export function parseNextWake(sched: string, now = Date.now()): number | null {
+  const times: number[] = [];
+  for (const line of sched.split('\n')) {
+    const m = /wake(?:orpoweron)? at (\d\d)\/(\d\d)\/(\d{4}) (\d\d):(\d\d):(\d\d) by '([^']*)'/.exec(line);
+    if (!m || m[7] !== OWNER) continue;
+    const at = new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]), Number(m[4]), Number(m[5]), Number(m[6])).getTime();
+    if (at > now) times.push(at);
   }
-  return { installed, mode, next };
+  return times.sort((a, b) => a - b)[0] ?? null;
 }
 
-/** "09/25/26 07:15:50" in local time. */
-function parseBooked(line: string): number | null {
-  const m = /^(\d\d)\/(\d\d)\/(\d\d) (\d\d):(\d\d):(\d\d)$/.exec(line.trim());
-  return m ? new Date(2000 + Number(m[3]), Number(m[1]) - 1, Number(m[2]), Number(m[4]), Number(m[5]), Number(m[6])).getTime() : null;
-}
-
-const confText = (mode: WakeMode, hour: number, appPath: string): string =>
-  `${MODE_DIGIT[mode]} ${Math.min(23, Math.max(0, Math.round(hour)))}\n${appPath.replace(/\n/g, '')}\n`;
-
-/** Changes what is booked. Needs no password: only wake.conf is written. */
-export function writeWakeConfig(mode: WakeMode, hour: number, appPath: string): boolean {
-  if (!existsSync(DAEMON)) return false;
-  try {
-    const text = confText(mode, hour, appPath);
-    // Unchanged: leave the file alone, so launchd's WatchPaths does not fire.
-    if (existsSync(CONF) && readFileSync(CONF, 'utf8') === text) return true;
-    writeFileSync(CONF, text); return true;
-  } catch { return false; }
-}
-
-/** Runs shell commands as root after the macOS administrator prompt. */
-async function asAdmin(commands: string, prompt: string): Promise<WakeOutcome> {
-  const quote = (s: string): string => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  try {
-    await run('/usr/bin/osascript', ['-e', `do shell script ${quote(commands)} with prompt ${quote(prompt)} with administrator privileges`]);
-    return 'ok';
-  } catch (e) {
-    // -128: the person pressed Cancel.
-    return /-128|User canceled|用户已取消/.test(String((e as { stderr?: string }).stderr ?? e)) ? 'cancelled' : 'failed';
-  }
-}
-
-const sh = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
-
-/** The root commands that install the component from files staged in `staged`.
- *  The launcher's signature is checked on the root-owned copy, after it can no
- *  longer be swapped; a copy that fails is removed and nothing is loaded. */
-export function installCommands(staged: string, uid: number, launcher = false): string {
-  const requirement = `anchor apple generic and certificate leaf[subject.OU] = "${TEAM}"`;
-  return [
-    'set -e',
-    `mkdir -p ${sh(DIR)}`, `chown root:wheel ${sh(DIR)}`, `chmod 755 ${sh(DIR)}`,
-    `install -o root -g wheel -m 755 ${sh(join(staged, 'schedule-wakes.sh'))} ${sh(SCRIPT)}`,
-    ...(launcher ? [
-      `install -o root -g wheel -m 755 ${sh(join(staged, 'pnr-wake'))} ${sh(LAUNCHER)}`,
-      `codesign --verify --strict -R=${sh(requirement)} ${sh(LAUNCHER)} || { rm -f ${sh(LAUNCHER)}; exit 1; }`
-    ] : []),
-    // The one file the app writes afterwards, so it belongs to the person.
-    `install -o ${uid} -g staff -m 644 ${sh(join(staged, 'wake.conf'))} ${sh(CONF)}`,
-    `install -o root -g wheel -m 644 ${sh(join(staged, 'wake.plist'))} ${sh(DAEMON)}`,
-    `launchctl bootout system/${WAKE_LABEL} 2>/dev/null || true`,
-    `launchctl bootstrap system ${sh(DAEMON)}`
-  ].join('\n');
-}
-
-/** The root commands that cancel every booked wake and remove the component. */
-export function removeCommands(): string {
-  return [
-    `launchctl bootout system/${WAKE_LABEL} 2>/dev/null || true`,
-    `if [ -f ${sh(BOOKED)} ]; then while IFS= read -r t; do [ -n "$t" ] && pmset schedule cancel wake "$t" ${sh(OWNER)} >/dev/null 2>&1; done < ${sh(BOOKED)}; fi`,
-    `rm -f ${sh(DAEMON)}`, `rm -rf ${sh(DIR)}`
-  ].join('\n');
-}
-
-export async function installWake(mode: WakeMode, hour: number, appPath: string, prompt: string): Promise<WakeOutcome> {
-  const tmp = mkdtempSync(join(tmpdir(), 'pnr-wake-'));
-  try {
-    // Packaged builds carry the signed launcher; development has none.
-    const bundled = join(appPath, 'Contents', 'Resources', 'bin', 'pnr-wake');
-    const launcher = existsSync(bundled);
-    if (launcher) copyFileSync(bundled, join(tmp, 'pnr-wake'));
-    writeFileSync(join(tmp, 'schedule-wakes.sh'), ROOT_SCRIPT);
-    writeFileSync(join(tmp, 'wake.plist'), daemonPlist(launcher));
-    writeFileSync(join(tmp, 'wake.conf'), confText(mode, hour, appPath));
-    return await asAdmin(installCommands(tmp, process.getuid?.() ?? 501, launcher), prompt);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
-}
-
-/** Cancels every booked wake and removes the component. */
-export async function removeWake(prompt: string): Promise<WakeOutcome> {
-  return asAdmin(removeCommands(), prompt);
+export function nextWake(): number | null {
+  try { return parseNextWake(execFileSync('/usr/bin/pmset', ['-g', 'sched'], { encoding: 'utf8', timeout: 3000 })); }
+  catch { return null; }
 }

@@ -60,7 +60,8 @@ export default {
       { from: resolve(root, 'apps/desktop/packaging/bin/pnr-wake'), to: 'bin/pnr-wake' }
     ],
     extraFiles: [
-      { from: resolve(root, 'packaging/launch-agents'), to: 'Library/LaunchAgents', filter: ['*.plist'] }
+      { from: resolve(root, 'packaging/launch-agents'), to: 'Library/LaunchAgents', filter: ['*.plist'] },
+      { from: resolve(root, 'packaging/launch-daemons'), to: 'Library/LaunchDaemons', filter: ['*.plist'] }
     ],
     extendInfo: {
       CFBundleName: '所闻',

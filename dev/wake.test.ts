@@ -1,63 +1,73 @@
 /**
- * The root script behind 休眠时唤醒 Mac, offline: pmset is replaced by a stub
- * that only records its arguments, and the component's folder by a temporary
- * one. Nothing is booked and no password is needed.
+ * Waking the Mac for the daily brief, offline: pnr-wake is compiled here and
+ * asked, with --plan, which wake it would book for a given wake.conf and time.
+ * Nothing is booked and no password is needed.
  *
  *   npm run test:wake
  */
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { wakeScriptForTest, installCommands, removeCommands } from '../apps/desktop/src/wake.ts';
+import { parseNextWake, wakeConfText, WAKE_SERVICE } from '../apps/desktop/src/wake.ts';
 
 let bad = 0;
 const check = (ok: boolean, label: string): void => { if (!ok) bad++; console.log(`  ${ok ? '✅' : '❌'} ${label}`); };
+const root = new URL('..', import.meta.url).pathname;
 
 const dir = mkdtempSync(join(tmpdir(), 'pnr-wake-'));
-writeFileSync(join(dir, 'pmset'), `#!/bin/sh\necho "$*" >> "${dir}/calls.log"\n`);
-chmodSync(join(dir, 'pmset'), 0o755);
-const script = join(dir, 'schedule-wakes.sh');
-writeFileSync(script, wakeScriptForTest.replace('PATH=/usr/bin:', `PATH=${dir}:/usr/bin:`).replace(/^DIR=.*$/m, `DIR="${dir}"`));
-const run = (conf: string): string[] => {
-  writeFileSync(join(dir, 'wake.conf'), conf);
-  writeFileSync(join(dir, 'calls.log'), '');
-  execFileSync('/bin/sh', [script]);
-  return readFileSync(join(dir, 'calls.log'), 'utf8').split('\n').filter(Boolean);
+const bin = join(dir, 'pnr-wake');
+execFileSync('xcrun', ['clang', '-O2', '-Wall', '-Werror', '-mmacosx-version-min=13.0', '-framework', 'IOKit', '-framework', 'CoreFoundation',
+  '-o', bin, join(root, 'native/wake/wake.c')]);
+
+const TZ = 'Asia/Shanghai';
+const at = (s: string): number => Math.floor(new Date(`${s}+08:00`).getTime() / 1000);
+const plan = (conf: string, now: string): string => {
+  const f = join(dir, 'wake.conf'); writeFileSync(f, conf);
+  return execFileSync(bin, ['--plan', f, String(at(now))], { env: { TZ }, encoding: 'utf8' }).trim();
 };
-const booked = (calls: string[]): string[] => calls.filter((c) => c.startsWith('schedule wake '));
+const when = (out: string): string => out === 'none' ? 'none'
+  : new Date(Number(out) * 1000).toLocaleString('sv-SE', { timeZone: TZ });
 
-console.log('=== 唤醒脚本 ===');
-const all = booked(run(`2 7\n${dir}\n`));
-check(all.length >= 7 && all.length <= 9 && all.every((c) => /^schedule wake \d\d\/\d\d\/\d\d \d\d:15:50 所闻$/.test(c)),
-  `每 3 小时：约 8 次，都在 15 分 50 秒，署名「所闻」（${all.length} 次）`);
-const hours = new Set(all.map((c) => Number(c.split(' ')[3]!.slice(0, 2))));
-check([...hours].every((h) => (h - 7 + 24) % 3 === 0), `从每日时间起每 3 小时（${[...hours].sort((a, b) => a - b).join(',')} 点）`);
-const daily = run(`1 8\n${dir}\n`);
-check(booked(daily).length === 1 && booked(daily)[0]!.includes(' 08:15:50 '), '每天一次：只约 8:15:50');
-check(daily.filter((c) => c.startsWith('schedule cancel wake ')).length >= all.length, '改设置时先取消之前约好的唤醒');
-check(booked(run(`0 7\n${dir}\n`)).length === 0 && readFileSync(join(dir, 'wake.scheduled'), 'utf8') === '', '不唤醒：一次也不约');
-check(booked(run(`2 7\n/Applications/已删除的所闻.app\n`)).length === 0, 'app 已被删除：不再唤醒别人的 Mac');
-run(`2 7 $(touch ${dir}/pwned); rm -rf /nonexistent\n${dir}\n`);
-check(!existsSync(join(dir, 'pwned')), '配置文件里的命令不会被执行，只取数字');
+console.log('=== 唤醒时间 ===');
+check(when(plan(wakeConfText(true, 7), '2026-09-27T06:00:00')) === '2026-09-27 07:15:50', '摘要时间之前：当天 7:15:50');
+check(when(plan(wakeConfText(true, 7), '2026-09-27T08:00:00')) === '2026-09-28 07:15:50', '摘要时间之后：第二天 7:15:50');
+check(when(plan(wakeConfText(true, 7), '2026-09-27T07:15:00')) === '2026-09-28 07:15:50', '离唤醒不到一分钟：改约第二天');
+check(when(plan(wakeConfText(true, 10), '2026-09-27T06:00:00')) === '2026-09-27 10:15:50', '两位数的小时');
+check(plan(wakeConfText(false, 7), '2026-09-27T06:00:00') === 'none', '关闭：不约');
 
-console.log('\n=== 安装与卸载命令 ===');
-for (const [name, text] of [['安装', installCommands('/var/folders/x/pnr-wake-abc', 501)], ['安装（带启动程序）', installCommands('/var/folders/x/pnr-wake-abc', 501, true)], ['卸载', removeCommands()]] as const) {
-  const f = join(dir, `${name}.sh`); writeFileSync(f, text);
-  let ok = true; try { execFileSync('/bin/sh', ['-n', f]); } catch { ok = false; }
-  check(ok, `${name}命令语法正确`);
-}
-check(/install -o 501 -g staff -m 644 .*wake\.conf/.test(installCommands('/tmp/x', 501)), '配置文件归用户所有：之后改设置不用再输密码');
-check(/install -o root -g wheel -m 755 .*schedule-wakes\.sh/.test(installCommands('/tmp/x', 501)), '以 root 运行的脚本归 root 所有，用户改不了');
-const withLauncher = installCommands('/tmp/x', 501, true);
-check(/install -o root -g wheel -m 755 .*pnr-wake' '\/Library\/Application Support\/com\.yb311\.personal-newsroom\/pnr-wake'/.test(withLauncher),
-  '启动程序拷进 root 所有的目录，不从 app 包里运行');
-check(withLauncher.indexOf('codesign --verify') > withLauncher.indexOf("pnr-wake' '/Library") && /PR3596G4YB/.test(withLauncher) && /rm -f .*pnr-wake/.test(withLauncher),
-  '拷贝之后核对签名是本团队的，不符就删掉并中止');
-check(!/pnr-wake/.test(installCommands('/tmp/x', 501)), '开发版没有启动程序：不装、不核对');
-// The launcher's fixed path must be the script this file installs.
-check(readFileSync(new URL('../native/wake/wake.c', import.meta.url), 'utf8').includes('"/Library/Application Support/com.yb311.personal-newsroom/schedule-wakes.sh"'),
-  '启动程序里写死的脚本路径和安装位置一致');
+console.log('\n=== 设置文件只取数字 ===');
+check(plan('1 7; touch /tmp/pwned\n', '2026-09-27T06:00:00') !== 'none' && plan('$(reboot) 7\n', '2026-09-27T06:00:00') === 'none', '夹带命令：只认开头的数字，命令不执行');
+check(plan('1 24\n', '2026-09-27T06:00:00') === 'none' && plan('2 7\n', '2026-09-27T06:00:00') === 'none' && plan('', '2026-09-27T06:00:00') === 'none', '超出范围或为空：不约');
+const target = join(dir, 'real.conf'); writeFileSync(target, '1 7\n');
+const link = join(dir, 'link.conf'); symlinkSync(target, link);
+check(execFileSync(bin, ['--plan', link, String(at('2026-09-27T06:00:00'))], { env: { TZ }, encoding: 'utf8' }).trim() === 'none', '符号链接不跟随');
+let refused = false;
+try { execFileSync(bin, [], { stdio: 'pipe' }); } catch (e) { refused = (e as { status?: number }).status === 64; }
+check(refused, '不是 root：拒绝运行，什么都不约');
+
+console.log('\n=== 下次唤醒的显示 ===');
+const sched = `Scheduled power events:
+ [0]  wake at 09/28/2026 07:15:50 by '所闻'
+ [1]  wake at 09/27/2026 19:54:59 by 'com.apple.alarm.user-invisible-com.apple.osanalytics'
+ [2]  wake at 09/26/2026 07:15:50 by '所闻'`;
+const next = parseNextWake(sched, new Date('2026-09-27T12:00:00').getTime());
+check(next === new Date(2026, 8, 28, 7, 15, 50).getTime(), '只看「所闻」预约的、还没到的那次');
+check(parseNextWake('Scheduled power events:\n', Date.now()) === null, '没有预约：不显示');
+
+console.log('\n=== 登录项配置 ===');
+const plist = (p: string): string => readFileSync(join(root, p), 'utf8');
+const daemon = plist(`packaging/launch-daemons/${WAKE_SERVICE}`);
+check(/<key>BundleProgram<\/key>\s*<string>Contents\/Resources\/bin\/pnr-wake<\/string>/.test(daemon), '唤醒服务运行包内签名的 pnr-wake');
+check(/<key>AssociatedBundleIdentifiers<\/key>\s*<array>\s*<string>com\.yb311\.personal-newsroom<\/string>/.test(daemon), '唤醒服务声明属于所闻');
+// Labels once used by plists outside the bundle keep a disabled record in
+// Background Task Management, which then refuses them to SMAppService.
+const retired = ['com.yb311.personal-newsroom.update', 'com.yb311.personal-newsroom.wake'];
+const labels = [daemon, plist('packaging/launch-agents/com.yb311.personal-newsroom.background.plist')]
+  .map((x) => /<key>Label<\/key>\s*<string>([^<]+)<\/string>/.exec(x)?.[1]);
+check(labels.every((l) => l && !retired.includes(l)), `不用退役的任务名（${labels.join('、')}）`);
+check(readFileSync(join(root, 'native/wake/wake.c'), 'utf8').includes('"/Library/Application Support/personal-newsroom/wake.conf"'),
+  '唤醒程序读的设置文件就在应用的数据文件夹里');
 
 rmSync(dir, { recursive: true, force: true });
 console.log(bad ? `\n${bad} 项不符合预期` : '\n全部符合预期');

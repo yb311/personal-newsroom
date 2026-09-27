@@ -12,7 +12,7 @@ import { runDaily, runFlashCheck, runWatch, rewriteDigest, getReport, startRepor
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig } from './social.ts';
 import { buildToolbox } from './agent-tools.ts';
-import { enableSchedule, disableSchedule, scheduleState, recentRuns, refreshSchedule, setWake, uninstallWake } from './schedule.ts';
+import { enableSchedule, disableSchedule, scheduleState, recentRuns, refreshSchedule, setWake } from './schedule.ts';
 import zhCN from '../../renderer/src/locales/zh-CN.json';
 import en from '../../renderer/src/locales/en.json';
 
@@ -420,14 +420,12 @@ ipcMain.handle('report:cancel', (_e, requestId: string) => { reportRequests.get(
 
 // ── background schedule ────────────────────────────────────────────────────
 ipcMain.handle('app:scheduleState', () => ({ ...scheduleState(db), runs: recentRuns(db) }));
-// Waking the Mac from sleep; the prompt is the administrator dialog's text, in the interface language.
-ipcMain.handle('app:setWake', (_e, choice: 'off' | 'daily' | 'all', prompt: string) =>
-  setWake(db, choice === 'daily' || choice === 'all' ? choice : 'off', String(prompt)));
-ipcMain.handle('app:uninstallWake', (_e, prompt: string) => uninstallWake(db, String(prompt)));
+/** Waking the Mac for the day's run; the first time, macOS asks for approval in System Settings. */
+ipcMain.handle('app:setWake', (_e, on: boolean) => setWake(db, DATA_DIR, on === true));
 /** System Settings → General → Login Items & Extensions, where background items are approved. */
 ipcMain.handle('app:openLoginItems', () => shell.openExternal('x-apple.systempreferences:com.apple.LoginItems-Settings.extension'));
 ipcMain.handle('app:setSchedule', async (_e, on: boolean, hour?: number) =>
-  on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db));
+  on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db, DATA_DIR));
 
 // ── social sources pack ────────────────────────────────────────────────────
 const social = socialApi(db, () => win);
@@ -439,8 +437,8 @@ const toolbox = buildToolbox(db, api, {
   runAll: (force) => runs.all(force), runFlashes: () => runs.flashes(), runWatch: (id) => runs.watch(id), rewriteDigest: () => runs.digest(),
   uiLanguage, setUiLanguage,
   scheduleState: () => ({ ...scheduleState(db), runs: recentRuns(db) }),
-  setSchedule: (on, hour) => (on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db)),
-  setWake: (mode) => setWake(db, mode, dictionary().settings.wake.prompt),
+  setSchedule: (on, hour) => (on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db, DATA_DIR)),
+  setWake: (on) => setWake(db, DATA_DIR, on),
   rssHub: {
     status: () => social.status(), setInstance: (url) => social.setInstance(url), install: () => social.install(), remove: () => social.remove(),
     instance: () => (db.prepare("SELECT value FROM settings WHERE key = 'rsshub.instanceUrl'").get() as { value: string } | undefined)?.value ?? ''

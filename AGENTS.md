@@ -67,7 +67,7 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 输出语言 | **用户自己选**，全局默认 + 按 Watch 覆盖 | 顺带简化：daily-brief 的 `titleZh`/`titleEn` 双份字段合并成 `title` + `lang`，token 减半 |
 | 平台 | **只 macOS** | launchd / SMAppService。README 里直说不支持 Win/Linux |
 | 无 key | **能当纯 RSS 阅读器用** | 最好的上手坡道。所有 AI 功能**优雅降级，不报错不空白** |
-| 后台 | **一个 launch agent**（SMAppService 注册名 `com.yb311.personal-newsroom.background`，手写 plist 名 `com.yb311.personal-newsroom.update`，每小时第 16 分钟），worker 的 `auto` 模式自己判断该写每日摘要、查快讯（每 3 小时）还是什么都不做。签名包走 **SMAppService**（`type: 'agentService'`），未签名构建退回 `~/Library/LaunchAgents` 手写 plist。任务跑 bundle 内的「所闻 后台更新.app」（`packaging/worker-helper.mjs`）。**休眠时也要更新**：唤醒组件（`apps/desktop/src/wake.ts`）装一次、输一次管理员密码，root 脚本用 `pmset schedule wake` 约好每日时间和之后每 3 小时的 xx:15:50 唤醒；worker 运行时用 `caffeinate` 不让 Mac 睡回去 | plist 在 bundle 内，卸载即消失；2026-09-24 用户要求后台进程在系统各处显示指向本 app 的名字，并且**必须在休眠时更新、别人安装后也要能用** |
+| 后台 | **两个随 App 走的登录项，都经 SMAppService 注册，没有备用路线**：launch agent `com.yb311.personal-newsroom.background`（每小时第 16 分钟跑 bundle 内的「所闻 后台更新.app」，worker 的 `auto` 模式判断该写每日摘要、查快讯（每 3 小时）还是什么都不做）+ launch daemon `com.yb311.personal-newsroom.wakeup`（签名的 `pnr-wake`，**只在每日摘要时间 HH:15:50 唤醒 Mac 一次**，用户在「登录项与扩展」批准一次）。开发版和未签名构建**不支持**后台更新，手动 `npm run worker`。worker 运行时用 `caffeinate` 不让 Mac 睡回去。完整说明和取舍见 `docs/ARCHITECTURE.zh-CN.md` §11 | 2026-09-24 用户要求后台进程在系统各处显示本 app 的名字、休眠时也要更新、别人安装后也要能用；2026-09-27 用户同意三项简化：去掉 `~/Library/LaunchAgents` 备用路线、唤醒改用 SMAppService daemon、只在摘要时间唤醒 |
 | 单实例锁 | **SQLite `locks` 表** + `BEGIN IMMEDIATE` + 15 秒心跳；App 另有 `requestSingleInstanceLock` | 不用文件锁，`kill -9` 后 flock 清理语义不可靠 |
 | 阅读核心 | **Go 程序 `native/reader`（`pnr-reader`）**：Miniflux 的解析/编码/清洗/站点规则 + go-trafilatura 抽正文。**全 TS 决策的唯一例外** | Trafilatura 没有 JS 版；新闻文章 F1：Trafilatura 0.926 vs Readability 0.825（WCXB）。Miniflux 的 reader 包带大量测试。见下文「阅读核心」 |
 | 下载在哪 | **一律在 Node（`@pnr/core` 的 `download`）**，Go 只处理字节，不联网 | France 24 等按 TLS 指纹拦截：Go 客户端和 curl 403，Node fetch 200 |
@@ -299,16 +299,17 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
   适配器另外还拦截了 stdout/stderr 兜底
 - **后台 helper 的可执行文件名必须以 " Helper" 结尾**（「所闻 后台更新 Helper」）。Electron 靠这个后缀判断自己是 helper、去上三级找 Electron Framework；
   叫「所闻 后台更新」会在启动 Node 时直接 SIGTRAP。bundle 的显示名可以随便取
-- **SMAppService 拒绝没有开发者签名的 app**，Electron 只在 stderr 打一行 `Unable to set login item`，不抛异常。
-  以前开关因此「点了又弹回去」；现在读回状态，失败就改用手写 plist（`schedule.ts`）
-- **唤醒组件以 root 运行，只许执行它自己那个 root 所有的脚本**（只调 pmset 和 date）。它读的 `wake.conf` 归用户所有，
-  只取数字和一个只做存在性检查的 app 路径——**绝不能让 root 执行 app bundle 里的任何东西**（bundle 用户可写，等于提权）。
-  app 被拖进废纸篓后脚本发现路径不在了就不再约唤醒，别人卸载后 Mac 不会继续被叫醒。离线测试 `npm run test:wake`
-- **SMAppService 的任务名不能和手写 plist 的任务名相同**：`~/Library/LaunchAgents` 里的 plist 一旦用过某个 Label，
-  后台任务管理（BTM）就给它留一条停用的「老式 agent」记录，之后 SMAppService 注册同名任务永远报 `Operation not permitted`
-  （smd 日志：`disposition=[disabled…]`、`Job is not allowed to bootstrap`）。所以两边名字分开（`.background` / `.update`）。
-  两个 plist 和唤醒组件的 plist 都要写 `AssociatedBundleIdentifiers`（数组），否则「登录项与扩展」里显示证书主人名或「sh」、空白图标。
-  这个声明只在**被运行的程序由本团队签名**时才被系统采纳，所以唤醒组件运行签名的启动程序 `pnr-wake`（`native/wake/wake.c`，安装时拷进 root 目录并核对签名），不能直接写 `/bin/sh`。
+- **SMAppService 拒绝没有开发者签名的 app**，Electron 只在 stderr 打一行 `Unable to set login item`，不抛异常，
+  所以注册后一律用 `getLoginItemSettings` 读回状态。**不要再加 `~/Library/LaunchAgents` 手写 plist 的备用路线**（2026-09-27 删掉的）：
+  它在「登录项与扩展」里显示成证书主人名，而且 plist 用过的 Label 会被后台任务管理（BTM）留一条停用记录，
+  之后 SMAppService 注册同名任务永远报 `Operation not permitted`（smd 日志：`disposition=[disabled…]`、`Job is not allowed to bootstrap`）。
+  `com.yb311.personal-newsroom.update`、`.wake` 这两个名字在开发机上已经这样「烧掉」了，`npm run test:wake` 检查不再使用
+- **唤醒程序以 root 运行，所以只做一件事**：`pnr-wake`（`native/wake/wake.c`）用 IOKit 预约下一次摘要时间的唤醒、取消自己约过的其它唤醒，
+  不调 shell、不执行任何文件内容。它读当前登录用户数据文件夹里的 `wake.conf`（归用户所有），只取开头的数字，不跟随符号链接。
+  它放在 App 包里、经 SMAppService 注册，系统只在签名属于本团队时启动它，App 删掉它就跟着消失——
+  这取代了原来「root 绝不执行 bundle 里的东西、脚本装进 /Library」的做法（理由见架构文档 §11）
+- **「登录项与扩展」里显示成 App 名字和图标**，要求 plist 写 `AssociatedBundleIdentifiers`（数组），而且**被运行的程序由本团队签名**；
+  运行 `/bin/sh` 之类系统程序的项目会显示成「sh · 身份不明的开发者」。
   排查时看 `sfltool dumpbtm` 和 `/usr/bin/log show --predicate 'process == "smd"'`（zsh 自带一个 `log`，必须写全路径）
 - **后台任务被锁跳过时 outcome 记 `skipped`，不能记 `ok`**：worker 靠「今天目标时间之后有没有成功的 daily run」判断是否还要跑
 - **任何 run 的 kind 不要随便写 'daily'**：worker 靠「今天之后有没有成功的 daily run」决定要不要跑每日任务。

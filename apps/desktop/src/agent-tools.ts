@@ -38,7 +38,7 @@ export interface AppActions {
   setUiLanguage(choice: 'system' | 'zh-CN' | 'en'): unknown;
   scheduleState(): unknown;
   setSchedule(on: boolean, hour?: number): Promise<unknown>;
-  setWake(mode: 'off' | 'daily' | 'all'): Promise<unknown>;
+  setWake(on: boolean): Promise<unknown>;
   rssHub: {
     status(): Promise<unknown>;
     setInstance(url: string): void;
@@ -365,11 +365,11 @@ export function buildToolbox(db: Db, api: Api, actions: AppActions, hooks: { nav
       params: '{"on": boolean, "hour"?: 0-23, the daily brief time}', describe: 'Turn background updates (a macOS launch agent) on or off, and set the daily time.',
       preview: (a) => ({ fields: [{ key: 'schedule', value: a.on ? 'on' : 'off' }, ...(a.hour !== undefined ? [{ key: 'hour', value: `${a.hour}:00` }] : [])] }),
       async run({ on, hour }) { return ok(await actions.setSchedule(on, hour)); } }),
-    tool({ name: 'set_wake', risk: 'danger', args: z.object({ mode: z.enum(['off', 'daily', 'all']) }),
-      params: '{"mode": "off" | "daily" (wake for the brief) | "all" (also every 3 hours for flashes)}',
-      describe: 'Wake the Mac from sleep for updates. macOS asks for the administrator password itself.',
-      preview: (a) => ({ fields: [{ key: 'wake', value: a.mode }] }),
-      async run({ mode }) { return ok(await actions.setWake(mode)); } }),
+    tool({ name: 'set_wake', risk: 'danger', args: z.object({ on: z.boolean() }),
+      params: '{"on": boolean}',
+      describe: 'Wake the Mac from sleep at the daily brief time. The first time, macOS asks the person to approve it in System Settings.',
+      preview: (a) => ({ fields: [{ key: 'wake', value: a.on ? 'on' : 'off' }] }),
+      async run({ on }) { return ok(await actions.setWake(on)); } }),
     tool({ name: 'rsshub_status', risk: 'read', args: none, params: '{}', describe: 'Whether social sources work: own RSSHub instance, the downloadable pack, or neither.',
       async run() { return ok(await actions.rssHub.status()); } }),
     tool({ name: 'rsshub_set_instance', risk: 'write', args: z.object({ url: z.string().max(300) }), params: '{"url": the person\'s own RSSHub address, "" to clear}',

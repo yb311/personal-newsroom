@@ -1,264 +1,145 @@
 import { app } from 'electron';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { Db } from '@pnr/store';
-import { makeWorkerHelper, workerExecutable, WORKER_EXECUTABLE } from '../../../packaging/worker-helper.mjs';
-import { installWake, removeWake, wakeState, writeWakeConfig, type WakeMode, type WakeOutcome, type WakeState } from './wake.ts';
-
-const run = promisify(execFile);
-
-/** The one background agent: hourly at minute 16, the worker decides what is due. */
-export const LABEL = 'com.yb311.personal-newsroom.update';
-/** Names the app this job belongs to, so Login Items shows 所闻 and its icon
- *  rather than the signing certificate's owner. */
-const APP_ID = 'com.yb311.personal-newsroom';
-/** The same job registered through SMAppService, under a label of its own.
- *  Once a plist in ~/Library/LaunchAgents has used a label, Background Task
- *  Management keeps a disabled record for it, and SMAppService then refuses
- *  that label ("Operation not permitted") forever after. */
-const SERVICE = 'com.yb311.personal-newsroom.background.plist';
-const FLASH_INTERVAL_HOURS = 3;
+import { WORKER_EXECUTABLE } from '../../../packaging/worker-helper.mjs';
+import { WAKE_SERVICE, nextWake, writeWakeConfig } from './wake.ts';
 
 /**
- * Background scheduling on macOS.
+ * Background updates on macOS: two items inside the app bundle, both
+ * registered through SMAppService, so they appear under 所闻 in System
+ * Settings → General → Login Items & Extensions and go away with the app.
  *
- * launchd is the right tool rather than a timer inside the app, because the
- * promise is that this keeps working while the app is closed. launchd does not
- * run anything while the Mac sleeps — it runs a missed time once on wake — so
- * the wake component (wake.ts) wakes the Mac for it.
+ *   com.yb311.personal-newsroom.background (Contents/Library/LaunchAgents)
+ *     runs 「所闻 后台更新」 (packaging/worker-helper.mjs) at minute 16 of every
+ *     hour; the worker decides whether the day's run or a flash check is due,
+ *     so changing the time never registers anything again.
+ *   com.yb311.personal-newsroom.wakeup (Contents/Library/LaunchDaemons)
+ *     pnr-wake, which wakes the Mac for the day's run (wake.ts).
  *
- * One agent runs 「所闻 后台更新」 (packaging/worker-helper.mjs) at minute 16 of
- * every hour; the worker decides whether the day's run or a flash check is due,
- * so changing the hour never needs anything registered again. Activity
- * Monitor, Login Items and any permission prompt name the app it belongs to.
- *
- * Signed packaged builds register it through SMAppService (Electron's
- * `agentService`), so it appears under System Settings → General → Login Items
- * & Extensions and disappears when the app is dragged to the Trash.
- * SMAppService refuses anything without a Developer ID signature, so local
- * builds and dev runs use a plist in ~/Library/LaunchAgents instead (removed
- * again when switched off) — before this fallback the switch just flipped back.
+ * SMAppService accepts only a Developer ID–signed app, so development and
+ * unsigned builds have no background updates; run the worker by hand there
+ * (`npm run worker`). There is deliberately no fallback plist in
+ * ~/Library/LaunchAgents: it listed the job under the certificate owner's
+ * name, and the disabled record Background Task Management keeps for such a
+ * label made SMAppService refuse that label for good.
  */
+const AGENT = 'com.yb311.personal-newsroom.background.plist';
+const FLASH_INTERVAL_HOURS = 3;
+
+type LoginStatus = 'not-registered' | 'enabled' | 'requires-approval' | 'not-found';
+type Service = 'agentService' | 'daemonService';
+
 export interface ScheduleState {
+  /** Background updates are on (registered, possibly awaiting approval). */
   enabled: boolean;
-  mode: 'agentService' | 'launchAgent' | 'unsupported';
+  /** A packaged build; development cannot register with Login Items. */
+  supported: boolean;
+  status?: LoginStatus;
   dailyHour: number;
   flashIntervalHours: number;
   lastRun: { kind: string; at: number; outcome: string | null; stats: unknown } | null;
-  plistPath: string | null;
-  status?: 'not-registered' | 'enabled' | 'requires-approval' | 'not-found';
-  /** Why switching it on did not take, as a reason code the window translates. */
-  problem?: 'not_registered' | 'worker_missing' | 'launchd_failed' | 'wake_cancelled' | 'wake_failed';
+  /** Why switching something on did not take, as a reason code the window translates. */
+  problem?: 'not_registered' | 'dev_build' | 'wake_not_registered';
   /** The background job's process name, as Activity Monitor shows it. */
   workerName: string;
-  /** Waking the Mac from sleep: what is chosen, whether the component is installed, the next wake. */
-  wake: WakeState & { choice: WakeMode };
+  /** Waking the Mac for the day's run: chosen, its approval, the next booked wake. */
+  wake: { on: boolean; status?: LoginStatus; next: number | null };
 }
 
-const userAgentsDir = join(homedir(), 'Library', 'LaunchAgents');
-const agentPlist = (label: string): string => join(userAgentsDir, `${label}.plist`);
-const uid = (): number => process.getuid?.() ?? 501;
-const xml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-function plistXml(opts: { program: string; workerPath: string; dataDir: string }): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>${LABEL}</string>
-  <key>AssociatedBundleIdentifiers</key><array><string>${APP_ID}</string></array>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${xml(opts.program)}</string>
-    <string>-e</string>
-    <string>${xml(`require(${JSON.stringify(opts.workerPath)})`)}</string>
-  </array>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>ELECTRON_RUN_AS_NODE</key><string>1</string>
-    <key>PNR_SCHEDULED_RUN</key><string>1</string>
-    <key>PNR_WORKER_MODE</key><string>auto</string>
-    <key>PNR_DATA_DIR</key><string>${xml(opts.dataDir)}</string>
-  </dict>
-  <key>StartCalendarInterval</key>
-  <dict><key>Minute</key><integer>16</integer></dict>
-  <key>ProcessType</key><string>Background</string>
-  <key>LowPriorityIO</key><true/>
-  <key>Nice</key><integer>5</integer>
-</dict>
-</plist>
-`;
-}
-
-/** The named helper and the worker script for a plist of our own: inside the
- *  bundle when packaged, next to the dev Electron and in apps/worker otherwise. */
-function agentPaths(): { program: string; worker: string } {
-  const frameworks = join(dirname(process.execPath), '..', 'Frameworks');
-  const program = workerExecutable(frameworks);
-  if (app.isPackaged) return { program, worker: join(process.resourcesPath, 'app.asar', 'worker.cjs') };
-  // Rebuilt when missing, e.g. after `npm ci` replaced the Electron download.
-  if (!existsSync(program)) makeWorkerHelper(frameworks, { adhocSign: true });
-  return { program, worker: join(app.getAppPath(), '..', 'worker', 'dist', 'worker.cjs') };
-}
-
-/** Where the app is, for the wake component to check it is still installed. */
-const appLocation = (): string => app.isPackaged ? join(dirname(process.execPath), '..', '..') : app.getAppPath();
-
-function loginItemStatus(service: string): ScheduleState['status'] | undefined {
-  try { return app.getLoginItemSettings({ type: 'agentService', serviceName: service }).status as ScheduleState['status']; }
+const loginStatus = (type: Service, serviceName: string): LoginStatus | undefined => {
+  try { return app.getLoginItemSettings({ type, serviceName }).status as LoginStatus; }
   catch { return undefined; }
-}
+};
+/** SMAppService reports refusals only on stderr, so the result is read back with loginStatus. */
+const setLogin = (type: Service, serviceName: string, on: boolean): void => {
+  try { app.setLoginItemSettings({ openAtLogin: on, type, serviceName }); } catch { /* read back */ }
+};
+const registeredOk = (s: LoginStatus | undefined): boolean => s === 'enabled' || s === 'requires-approval';
+
+/** Where the app is: SMAppService resolves the bundled plists against it. */
+const appLocation = (): string => join(dirname(process.execPath), '..', '..');
+const hourOf = (db: Db): number => Number(getSetting(db, 'schedule.dailyHour') ?? '7');
+/** Waking is on unless switched off. */
+const wakeWanted = (db: Db): boolean => getSetting(db, 'schedule.wake') !== 'off';
 
 export async function enableSchedule(db: Db, dataDir: string, dailyHour = 7): Promise<ScheduleState> {
   setSetting(db, 'schedule.dailyHour', String(dailyHour));
-  if (app.isPackaged) {
-    try { app.setLoginItemSettings({ openAtLogin: true, type: 'agentService', serviceName: SERVICE }); }
-    catch { /* read back below */ }
-    const status = loginItemStatus(SERVICE);
-    if (status === 'enabled' || status === 'requires-approval') {
-      await removeAgent();   // a plist left from an earlier fallback would run twice
-      registered(db, 'agentService');
-      return state(db, 'agentService', dailyHour);
-    }
-    // SMAppService only accepts an app signed with a Developer ID; a local or
-    // ad-hoc build is refused ("code signature doesn't meet the requirements").
-    // A per-user launch agent runs the same worker without that requirement.
+  if (!app.isPackaged) return { ...scheduleState(db), problem: 'dev_build' };
+  setLogin('agentService', AGENT, true);
+  if (!registeredOk(loginStatus('agentService', AGENT))) {
+    setSetting(db, 'schedule.enabled', '0');
+    applyWake(db, dataDir);
+    return { ...scheduleState(db), problem: 'not_registered' };
   }
-  return installAgent(db, dataDir, dailyHour);
-}
-
-function registered(db: Db, mode: 'agentService' | 'launchAgent'): void {
   setSetting(db, 'schedule.enabled', '1');
-  setSetting(db, 'schedule.mode', mode);
   setSetting(db, 'schedule.registeredVersion', app.getVersion());
   setSetting(db, 'schedule.registeredApp', appLocation());
-  syncWake(db);
-}
-
-/** The launch agent as a plist in ~/Library/LaunchAgents, loaded with launchctl. */
-async function installAgent(db: Db, dataDir: string, dailyHour: number): Promise<ScheduleState> {
-  const off = (problem: NonNullable<ScheduleState['problem']>): ScheduleState => {
-    setSetting(db, 'schedule.enabled', '0'); syncWake(db);
-    return { ...state(db, 'launchAgent', dailyHour), problem };
-  };
-  let paths: { program: string; worker: string };
-  try { paths = agentPaths(); } catch { return off('launchd_failed'); }
-  if (!app.isPackaged && !existsSync(paths.worker)) return off('worker_missing');
-  mkdirSync(userAgentsDir, { recursive: true });
-  const path = agentPlist(LABEL);
-  writeFileSync(path, plistXml({ program: paths.program, workerPath: paths.worker, dataDir }));
-  // bootout first so re-enabling picks up a changed plist.
-  await run('launchctl', ['bootout', `gui/${uid()}/${LABEL}`]).catch(() => undefined);
-  const ok = await run('launchctl', ['bootstrap', `gui/${uid()}`, path]).then(() => true, () => false);
-  if (!ok) return off('launchd_failed');
-  registered(db, 'launchAgent');
-  return state(db, 'launchAgent', dailyHour);
-}
-
-async function removeAgent(): Promise<void> {
-  await run('launchctl', ['bootout', `gui/${uid()}/${LABEL}`]).catch(() => undefined);
-  if (existsSync(agentPlist(LABEL))) rmSync(agentPlist(LABEL), { force: true });
-}
-
-export async function disableSchedule(db: Db): Promise<ScheduleState> {
-  if (app.isPackaged) {
-    try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: SERVICE }); }
-    catch { /* ignore */ }
-  }
-  await removeAgent();
-  setSetting(db, 'schedule.enabled', '0');
-  // No updates to wake for; the component stays, booking nothing.
-  syncWake(db);
-  return scheduleState(db);
-}
-
-/**
- * At launch: a new version of the app ships a new worker bundle and may ship
- * a changed launch agent, so a job registered by another version is registered
- * again — which also retries Login Items after a fallback, in case this build
- * is the signed one. Development rewrites its plist, whose paths can move
- * between checkouts. The same version at another location (a dev run, then
- * the packaged app; or the app moved) registers again too, or the job keeps
- * running the other copy. The wake component learns where the app is now.
- */
-export async function refreshSchedule(db: Db, dataDir: string): Promise<void> {
-  syncWake(db);
-  if (getSetting(db, 'schedule.enabled') !== '1') return;
-  if (app.isPackaged && getSetting(db, 'schedule.registeredVersion') === app.getVersion()
-      && getSetting(db, 'schedule.registeredApp') === appLocation()) return;
-  if (app.isPackaged) {
-    try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: SERVICE }); } catch { /* not registered */ }
-  }
-  await enableSchedule(db, dataDir, Number(getSetting(db, 'schedule.dailyHour') ?? '7'));
-}
-
-// ── waking from sleep ───────────────────────────────────────────────────────
-
-/** What the person chose; waking every three hours unless they said otherwise. */
-const wakeChoice = (db: Db): WakeMode => {
-  const v = getSetting(db, 'schedule.wake');
-  return v === 'off' || v === 'daily' ? v : 'all';
-};
-
-/** Tells the installed component what to book: nothing while updates are off. */
-function syncWake(db: Db): void {
-  const on = getSetting(db, 'schedule.enabled') === '1';
-  writeWakeConfig(on ? wakeChoice(db) : 'off', Number(getSetting(db, 'schedule.dailyHour') ?? '7'), appLocation());
-}
-
-/**
- * Chooses how the Mac is woken. The first time it is needed the component is
- * installed, which shows the macOS administrator prompt (with `prompt` as its
- * text); after that only the settings file changes.
- */
-export async function setWake(db: Db, choice: WakeMode, prompt: string): Promise<ScheduleState> {
-  setSetting(db, 'schedule.wake', choice);
-  let problem: ScheduleState['problem'];
-  if (choice !== 'off' && !wakeState().installed) {
-    const on = getSetting(db, 'schedule.enabled') === '1';
-    const outcome: WakeOutcome = await installWake(on ? choice : 'off', Number(getSetting(db, 'schedule.dailyHour') ?? '7'), appLocation(), prompt);
-    if (outcome !== 'ok') {
-      // Declined or not an administrator: remember "off", so it is not asked again unprompted.
-      setSetting(db, 'schedule.wake', 'off');
-      problem = outcome === 'cancelled' ? 'wake_cancelled' : 'wake_failed';
-    }
-  }
-  syncWake(db);
+  const problem = applyWake(db, dataDir);
   return { ...scheduleState(db), ...(problem ? { problem } : {}) };
 }
 
-/** Removes the component entirely (administrator prompt), cancelling every booked wake. */
-export async function uninstallWake(db: Db, prompt: string): Promise<ScheduleState> {
-  const outcome = await removeWake(prompt);
-  if (outcome === 'ok') setSetting(db, 'schedule.wake', 'off');
-  return { ...scheduleState(db), ...(outcome === 'failed' ? { problem: 'wake_failed' as const } : {}) };
+export async function disableSchedule(db: Db, dataDir: string): Promise<ScheduleState> {
+  if (app.isPackaged) setLogin('agentService', AGENT, false);
+  setSetting(db, 'schedule.enabled', '0');
+  applyWake(db, dataDir);
+  return scheduleState(db);
+}
+
+/** Switches waking for the day's run on or off. */
+export async function setWake(db: Db, dataDir: string, on: boolean): Promise<ScheduleState> {
+  setSetting(db, 'schedule.wake', on ? 'on' : 'off');
+  const problem = applyWake(db, dataDir);
+  return { ...scheduleState(db), ...(problem ? { problem } : {}) };
+}
+
+/**
+ * Writes wake.conf and registers or unregisters the wake daemon to match.
+ * Registering the first time asks for approval in System Settings. Switched
+ * off, wake.conf says so first, but the daemon is unregistered at once, so a
+ * wake it already booked for the next morning still happens once.
+ */
+function applyWake(db: Db, dataDir: string): ScheduleState['problem'] {
+  const on = getSetting(db, 'schedule.enabled') === '1' && wakeWanted(db);
+  writeWakeConfig(dataDir, on, hourOf(db));
+  if (!app.isPackaged) return undefined;
+  setLogin('daemonService', WAKE_SERVICE, on);
+  return on && !registeredOk(loginStatus('daemonService', WAKE_SERVICE)) ? 'wake_not_registered' : undefined;
+}
+
+/**
+ * At launch. SMAppService resolves the bundled plists against the app, so a
+ * new version, or the same version at another location (a moved app), is
+ * registered again; otherwise the job keeps running the copy it was
+ * registered from. wake.conf is rewritten in case it was lost.
+ */
+export async function refreshSchedule(db: Db, dataDir: string): Promise<void> {
+  if (!app.isPackaged) return;
+  if (getSetting(db, 'schedule.enabled') !== '1') { applyWake(db, dataDir); return; }
+  if (getSetting(db, 'schedule.registeredVersion') !== app.getVersion()
+      || getSetting(db, 'schedule.registeredApp') !== appLocation()) {
+    setLogin('agentService', AGENT, false);
+    await enableSchedule(db, dataDir, hourOf(db));
+    return;
+  }
+  applyWake(db, dataDir);
 }
 
 export function scheduleState(db: Db): ScheduleState {
-  const mode = app.isPackaged && getSetting(db, 'schedule.mode') !== 'launchAgent' ? 'agentService' : 'launchAgent';
-  return state(db, mode, Number(getSetting(db, 'schedule.dailyHour') ?? '7'));
-}
-
-function state(db: Db, mode: ScheduleState['mode'], dailyHour: number): ScheduleState {
   const last = db.prepare(
     `SELECT kind, started_at AS at, outcome, stats_json AS stats FROM runs
      WHERE kind IN ('daily', 'flashes', 'fetch') AND COALESCE(outcome, '') != 'skipped' ORDER BY started_at DESC LIMIT 1`
   ).get() as any;
-  const status = app.isPackaged && mode === 'agentService' ? loginItemStatus(SERVICE) : undefined;
-  const wanted = getSetting(db, 'schedule.enabled') === '1';
-  // A plist of our own that has gone (removed by hand, or by a cleanup tool) is off.
-  const present = mode !== 'launchAgent' || existsSync(agentPlist(LABEL));
+  const supported = app.isPackaged;
+  const status = supported ? loginStatus('agentService', AGENT) : undefined;
+  const enabled = supported && getSetting(db, 'schedule.enabled') === '1' && registeredOk(status);
+  const wakeOn = enabled && wakeWanted(db);
+  const wakeStatus = wakeOn ? loginStatus('daemonService', WAKE_SERVICE) : undefined;
   let stats: unknown = null;
   try { stats = last?.stats ? JSON.parse(last.stats) : null; } catch { /* keep null */ }
   return {
-    enabled: wanted && present && (!status || status === 'enabled' || status === 'requires-approval'),
-    mode, dailyHour, flashIntervalHours: FLASH_INTERVAL_HOURS, workerName: WORKER_EXECUTABLE,
+    enabled, supported, dailyHour: hourOf(db), flashIntervalHours: FLASH_INTERVAL_HOURS, workerName: WORKER_EXECUTABLE,
     lastRun: last ? { kind: last.kind, at: last.at, outcome: last.outcome, stats } : null,
-    plistPath: mode === 'launchAgent' ? agentPlist(LABEL) : null,
-    wake: { ...wakeState(), choice: wakeChoice(db) },
+    wake: { on: wakeWanted(db), next: wakeStatus === 'enabled' ? nextWake() : null, ...(wakeStatus ? { status: wakeStatus } : {}) },
     ...(status ? { status } : {})
   };
 }
