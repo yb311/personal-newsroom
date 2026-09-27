@@ -126,6 +126,7 @@ function registered(db: Db, mode: 'agentService' | 'launchAgent'): void {
   setSetting(db, 'schedule.enabled', '1');
   setSetting(db, 'schedule.mode', mode);
   setSetting(db, 'schedule.registeredVersion', app.getVersion());
+  setSetting(db, 'schedule.registeredApp', appLocation());
   syncWake(db);
 }
 
@@ -171,12 +172,15 @@ export async function disableSchedule(db: Db): Promise<ScheduleState> {
  * a changed launch agent, so a job registered by another version is registered
  * again — which also retries Login Items after a fallback, in case this build
  * is the signed one. Development rewrites its plist, whose paths can move
- * between checkouts. The wake component learns where the app is now.
+ * between checkouts. The same version at another location (a dev run, then
+ * the packaged app; or the app moved) registers again too, or the job keeps
+ * running the other copy. The wake component learns where the app is now.
  */
 export async function refreshSchedule(db: Db, dataDir: string): Promise<void> {
   syncWake(db);
   if (getSetting(db, 'schedule.enabled') !== '1') return;
-  if (app.isPackaged && getSetting(db, 'schedule.registeredVersion') === app.getVersion()) return;
+  if (app.isPackaged && getSetting(db, 'schedule.registeredVersion') === app.getVersion()
+      && getSetting(db, 'schedule.registeredApp') === appLocation()) return;
   if (app.isPackaged) {
     try { app.setLoginItemSettings({ openAtLogin: false, type: 'agentService', serviceName: SERVICE }); } catch { /* not registered */ }
   }
