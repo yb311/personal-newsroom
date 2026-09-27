@@ -308,6 +308,7 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
   后台任务管理（BTM）就给它留一条停用的「老式 agent」记录，之后 SMAppService 注册同名任务永远报 `Operation not permitted`
   （smd 日志：`disposition=[disabled…]`、`Job is not allowed to bootstrap`）。所以两边名字分开（`.background` / `.update`）。
   两个 plist 和唤醒组件的 plist 都要写 `AssociatedBundleIdentifiers`（数组），否则「登录项与扩展」里显示证书主人名或「sh」、空白图标。
+  这个声明只在**被运行的程序由本团队签名**时才被系统采纳，所以唤醒组件运行签名的启动程序 `pnr-wake`（`native/wake/wake.c`，安装时拷进 root 目录并核对签名），不能直接写 `/bin/sh`。
   排查时看 `sfltool dumpbtm` 和 `/usr/bin/log show --predicate 'process == "smd"'`（zsh 自带一个 `log`，必须写全路径）
 - **后台任务被锁跳过时 outcome 记 `skipped`，不能记 `ok`**：worker 靠「今天目标时间之后有没有成功的 daily run」判断是否还要跑
 - **任何 run 的 kind 不要随便写 'daily'**：worker 靠「今天之后有没有成功的 daily run」决定要不要跑每日任务。
