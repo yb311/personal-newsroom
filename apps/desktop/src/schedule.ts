@@ -110,11 +110,18 @@ function applyWake(db: Db, dataDir: string): ScheduleState['problem'] {
  * At launch. SMAppService resolves the bundled plists against the app, so a
  * new version, or the same version at another location (a moved app), is
  * registered again; otherwise the job keeps running the copy it was
- * registered from. wake.conf is rewritten in case it was lost.
+ * registered from. wake.conf is rewritten in case it was lost. Switched off,
+ * both items are unregistered, whoever registered them.
  */
 export async function refreshSchedule(db: Db, dataDir: string): Promise<void> {
   if (!app.isPackaged) return;
-  if (getSetting(db, 'schedule.enabled') !== '1') { applyWake(db, dataDir); return; }
+  if (getSetting(db, 'schedule.enabled') !== '1') {
+    // Off here but still registered (the data folder was reset, or another
+    // copy registered it): nothing runs without the person's yes.
+    if (registeredOk(loginStatus('agentService', AGENT))) setLogin('agentService', AGENT, false);
+    applyWake(db, dataDir);
+    return;
+  }
   if (getSetting(db, 'schedule.registeredVersion') !== app.getVersion()
       || getSetting(db, 'schedule.registeredApp') !== appLocation()) {
     setLogin('agentService', AGENT, false);
