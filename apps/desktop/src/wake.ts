@@ -117,6 +117,7 @@ const DAEMON_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
   <key>Label</key><string>${WAKE_LABEL}</string>
+  <key>AssociatedBundleIdentifiers</key><array><string>com.yb311.personal-newsroom</string></array>
   <key>ProgramArguments</key>
   <array><string>/bin/sh</string><string>${SCRIPT}</string></array>
   <key>RunAtLoad</key><true/>

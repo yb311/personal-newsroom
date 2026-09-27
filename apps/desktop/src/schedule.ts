@@ -15,7 +15,11 @@ export const LABEL = 'com.yb311.personal-newsroom.update';
 /** Names the app this job belongs to, so Login Items shows 所闻 and its icon
  *  rather than the signing certificate's owner. */
 const APP_ID = 'com.yb311.personal-newsroom';
-const SERVICE = `${LABEL}.plist`;
+/** The same job registered through SMAppService, under a label of its own.
+ *  Once a plist in ~/Library/LaunchAgents has used a label, Background Task
+ *  Management keeps a disabled record for it, and SMAppService then refuses
+ *  that label ("Operation not permitted") forever after. */
+const SERVICE = 'com.yb311.personal-newsroom.background.plist';
 const FLASH_INTERVAL_HOURS = 3;
 
 /**

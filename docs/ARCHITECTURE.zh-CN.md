@@ -299,7 +299,7 @@ schema 嵌在 `migrations.ts` 里（打包后的主进程读不到源码旁边�
 
 ## 11. 后台与唤醒（`apps/desktop/src/schedule.ts`、`wake.ts`、`apps/worker`）
 
-**一个 launch agent**：`com.yb311.personal-newsroom.update`，每小时第 16 分钟运行 worker 的 `auto` 模式，
+**一个 launch agent**：签名包经 SMAppService 注册为 `com.yb311.personal-newsroom.background`，退回手写 plist 时叫 `com.yb311.personal-newsroom.update`（两个名字必须不同，见 AGENTS.md「踩过的坑」），每小时第 16 分钟运行 worker 的 `auto` 模式，
 由 worker 判断：过了用户选的时间且今天还没跑 → 每日任务；距上次快讯检查 ≥ 2 小时 45 分 → 快讯；否则直接退出。
 改时间不用重新注册，也不会有两个任务同时启动、重复判定同一批文章。
 

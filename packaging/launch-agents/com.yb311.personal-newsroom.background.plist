@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.yb311.personal-newsroom.update</string>
+  <string>com.yb311.personal-newsroom.background</string>
   <key>AssociatedBundleIdentifiers</key>
   <array>
     <string>com.yb311.personal-newsroom</string>
