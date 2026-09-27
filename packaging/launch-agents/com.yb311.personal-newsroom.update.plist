@@ -5,7 +5,9 @@
   <key>Label</key>
   <string>com.yb311.personal-newsroom.update</string>
   <key>AssociatedBundleIdentifiers</key>
-  <string>com.yb311.personal-newsroom</string>
+  <array>
+    <string>com.yb311.personal-newsroom</string>
+  </array>
   <key>BundleProgram</key>
   <string>Contents/Frameworks/所闻 后台更新.app/Contents/MacOS/所闻 后台更新 Helper</string>
   <key>ProgramArguments</key>

@@ -12,6 +12,9 @@ const run = promisify(execFile);
 
 /** The one background agent: hourly at minute 16, the worker decides what is due. */
 export const LABEL = 'com.yb311.personal-newsroom.update';
+/** Names the app this job belongs to, so Login Items shows 所闻 and its icon
+ *  rather than the signing certificate's owner. */
+const APP_ID = 'com.yb311.personal-newsroom';
 const SERVICE = `${LABEL}.plist`;
 const FLASH_INTERVAL_HOURS = 3;
 
@@ -62,6 +65,7 @@ function plistXml(opts: { program: string; workerPath: string; dataDir: string }
 <plist version="1.0">
 <dict>
   <key>Label</key><string>${LABEL}</string>
+  <key>AssociatedBundleIdentifiers</key><array><string>${APP_ID}</string></array>
   <key>ProgramArguments</key>
   <array>
     <string>${xml(opts.program)}</string>
