@@ -55,10 +55,25 @@ export function isPromo(text: string): boolean {
 
 const plain = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&');
 
+/**
+ * Photo-gallery chrome some publishers leave in the article (Reuters): a
+ * "Purchase Licensing Rights" link under each picture, and a "[1/49]" slide
+ * counter glued to the caption. Neither is part of the story.
+ */
+const LICENSING = /^purchase licensing rights$/i;
+const LICENSING_TAIL = /\s*purchase licensing rights\s*$/i;
+const SLIDE_COUNTER = /^\[\d+\/\d+\]\s*/;
+
 export function dropPromoHtml(html: string): string {
-  return html.replace(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi, (block, _tag, inner: string) => isPromo(plain(inner)) ? '' : block);
+  return html
+    .replace(/<(p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi, (block, _tag, inner: string) => isPromo(plain(inner)) ? '' : block)
+    .replace(/<a\b[^>]*>([^<]*)<\/a>/gi, (link, inner: string) => LICENSING.test(inner.trim()) ? '' : link)
+    .replace(/(<p\b[^>]*>\s*)<(b|strong)>\s*\[\d+\/\d+\]\s*<\/\2>\s*/gi, '$1');
 }
 
 export function dropPromoText(text: string): string {
-  return text.split('\n').filter((line) => !isPromo(line)).join('\n');
+  return text.split('\n')
+    .filter((line) => !isPromo(line) && !LICENSING.test(line.trim()))
+    .map((line) => line.replace(SLIDE_COUNTER, '').replace(LICENSING_TAIL, ''))
+    .join('\n');
 }

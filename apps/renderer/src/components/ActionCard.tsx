@@ -13,14 +13,14 @@ const CODED = new Set(['verdict', 'sensitivity', 'active', 'schedule', 'wake', '
  * can be put back offers 撤销. The words that must be the person's own (a
  * watch's intent) can be edited here before confirming.
  */
-export function ActionCard({ action, busy, onConfirm, onReject, onUndo, onOpen }: {
+export function ActionCard({ action, busy, edits, onEdit, onConfirm, onReject, onUndo, onOpen }: {
   action: AssistantAction; busy: boolean;
-  onConfirm: (edits: Record<string, string>, dontAsk: boolean) => void;
+  edits: Record<string, string>; onEdit: (edits: Record<string, string>) => void;
+  onConfirm: (dontAsk: boolean) => void;
   onReject: () => void; onUndo: () => void; onOpen: (target: NavTarget) => void;
 }) {
   const { t } = useTranslation();
   const view = action.view ?? { fields: [] };
-  const [edits, setEdits] = useState<Record<string, string>>({});
   const [dontAsk, setDontAsk] = useState(false);
   const pending = action.status === 'proposed' && !action.expired;
   const danger = action.risk === 'danger';
@@ -41,7 +41,7 @@ export function ActionCard({ action, busy, onConfirm, onReject, onUndo, onOpen }
             {pending && f.editable
               ? <textarea rows={f.key === 'intent' || f.key === 'note' ? 2 : 1} value={edits[f.key] ?? f.value}
                   aria-label={t(`assistant.field.${f.key}`, { defaultValue: f.key })}
-                  onChange={(e) => setEdits({ ...edits, [f.key]: e.target.value })} />
+                  onChange={(e) => onEdit({ ...edits, [f.key]: e.target.value })} />
               : <>{f.before !== undefined && <><s>{f.before ? value({ ...f, value: f.before }) : t('assistant.empty')}</s> → </>}{f.value ? value(f) : t('assistant.empty')}</>}
             {f.warn && <p className="action-warn"><AlertTriangle size={11} aria-hidden />{t('assistant.warnVerbatim')}</p>}
           </dd>
@@ -54,7 +54,7 @@ export function ActionCard({ action, busy, onConfirm, onReject, onUndo, onOpen }
         <label className="dont-ask"><input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} />{t('assistant.dontAsk')}</label>
         <span className="grow" />
         <button className="push" disabled={busy} onClick={onReject}><X size={12} />{t('assistant.reject')}</button>
-        <button className={danger ? 'push destructive' : 'primary'} disabled={busy} onClick={() => onConfirm(edits, dontAsk)}><Check size={12} />{t('assistant.confirm')}</button>
+        <button className={danger ? 'push destructive' : 'primary'} disabled={busy} onClick={() => onConfirm(dontAsk)}><Check size={12} />{t('assistant.confirm')}</button>
       </footer>}
       {!pending && (action.undoable || (view.open && action.status === 'done')) && <footer>
         <span className="grow" />

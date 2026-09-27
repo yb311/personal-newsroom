@@ -11,7 +11,10 @@ export function ListPane({ label, ids, selected, onSelect, children }: {
   label: string; ids: string[]; selected: string | null; onSelect: (id: string) => void; children: ReactNode;
 }) {
   const pane = useRef<HTMLElement>(null);
-  useEffect(() => { pane.current?.querySelector('.row-item.selected')?.scrollIntoView({ block: 'nearest' }); }, [selected]);
+  // Also reruns when the row count changes: a caller can set `selected` to an id
+  // (e.g. opening a watch by id) before that row's data has loaded in, so the
+  // id itself never changes once the row finally appears — only `ids.length` does.
+  useEffect(() => { pane.current?.querySelector('.row-item.selected')?.scrollIntoView({ block: 'nearest' }); }, [selected, ids.length]);
   return (
     <section ref={pane} className="list" role="listbox" aria-label={label} tabIndex={0} onKeyDown={(e) => {
       if (e.metaKey || e.ctrlKey || e.altKey || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;

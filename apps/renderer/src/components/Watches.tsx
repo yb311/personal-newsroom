@@ -288,6 +288,7 @@ function WatchItems({ watch, aiReady, revision, onOpen, onReport, onChanged }: {
   const [items, setItems] = useState<WatchItem[] | null>(null);
   const [noting, setNoting] = useState<{ id: string; verdict: 'wanted' | 'not_wanted' } | null>(null);
   const [note, setNote] = useState('');
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -296,12 +297,15 @@ function WatchItems({ watch, aiReady, revision, onOpen, onReport, onChanged }: {
   }, [watch.id, revision]);
 
   const send = async (): Promise<void> => {
-    if (!noting) return;
-    await window.pnr.correct(watch.id, noting.id, noting.verdict, note);
-    setItems((prev) => noting.verdict === 'not_wanted'
-      ? prev?.filter((i) => i.id !== noting.id) ?? null
-      : prev?.map((i) => (i.id === noting.id ? { ...i, verdict: 'wanted' } : i)) ?? null);
-    setNoting(null); setNote(''); onChanged();
+    if (!noting || sending) return;
+    setSending(true);
+    try {
+      await window.pnr.correct(watch.id, noting.id, noting.verdict, note);
+      setItems((prev) => noting.verdict === 'not_wanted'
+        ? prev?.filter((i) => i.id !== noting.id) ?? null
+        : prev?.map((i) => (i.id === noting.id ? { ...i, verdict: 'wanted' } : i)) ?? null);
+      setNoting(null); setNote(''); onChanged();
+    } finally { setSending(false); }
   };
 
   if (!items) return <p className="section-hint">{t('common.loading')}</p>;
@@ -332,10 +336,10 @@ function WatchItems({ watch, aiReady, revision, onOpen, onReport, onChanged }: {
             {it.reason && <p className="why">{it.reason}</p>}
             {noting?.id === it.id ? (
               <form className="note-row" onSubmit={(e) => { e.preventDefault(); void send(); }}>
-                <input autoFocus value={note} onChange={(e) => setNote(e.target.value)}
+                <input autoFocus value={note} disabled={sending} onChange={(e) => setNote(e.target.value)}
                        placeholder={noting.verdict === 'wanted' ? t('watches.whyWanted') : t('watches.whyNot')} />
-                <button className="primary">{noting.verdict === 'wanted' ? t('watches.markWanted') : t('watches.markNot')}</button>
-                <button type="button" className="push" onClick={() => { setNoting(null); setNote(''); }}>{t('common.cancel')}</button>
+                <button className="primary" disabled={sending}>{noting.verdict === 'wanted' ? t('watches.markWanted') : t('watches.markNot')}</button>
+                <button type="button" className="push" disabled={sending} onClick={() => { setNoting(null); setNote(''); }}>{t('common.cancel')}</button>
               </form>
             ) : (
               <div className="verdicts">

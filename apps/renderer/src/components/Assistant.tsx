@@ -23,7 +23,7 @@ const MODE_ICON: Record<AgentMode, typeof ShieldCheck> = { readonly: ShieldOff, 
 export interface ActionHandlers {
   busy: string | null;
   confirm: (a: AssistantAction, edits: Record<string, string>, dontAsk: boolean) => void;
-  confirmAll: (actions: AssistantAction[]) => void;
+  confirmAll: (actions: AssistantAction[], edits: Record<string, Record<string, string>>) => void;
   reject: (a: AssistantAction) => void; undo: (a: AssistantAction) => void; open: (target: NavTarget) => void;
 }
 
@@ -54,6 +54,9 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
   const [mode, setModeState] = useState<AgentMode>('ask');
   /** The action being confirmed, declined or undone. */
   const [busy, setBusy] = useState<string | null>(null);
+  // A ref alongside the state: two clicks fired before React re-renders would
+  // both see the same stale `busy` value and both start the action twice.
+  const busyRef = useRef<string | null>(null);
   /** The screen the person left out; anything newly opened is included again. */
   const [leftOut, setLeftOut] = useState('');
   const attached = screen && screen.label && screenKey(screen) !== leftOut ? screen : null;
@@ -62,6 +65,10 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
   const pendingRef = useRef<Pending | null>(null);
   const requestRef = useRef<string | null>(null);
   pendingRef.current = pending;
+  // The panel unmounts when closed (App.tsx renders it only while open); a
+  // confirm/reject/undo in flight at that point must not touch state afterwards.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const loadChats = async (): Promise<void> => setChats(await window.pnr.assistantList());
   useEffect(() => {
@@ -165,19 +172,20 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
   };
   // ── the agent's changes ──────────────────────────────────────────────────
   const settle = async (a: AssistantAction, work: () => Promise<ActionOutcome>): Promise<ActionOutcome | null> => {
-    if (busy || requestRef.current) return null;
-    setBusy(a.id); setError('');
+    if (busyRef.current || requestRef.current) return null;
+    busyRef.current = a.id; setBusy(a.id); setError('');
     try {
       const outcome = await work();
+      if (!mountedRef.current) return outcome;
       if (outcome.chat) setChat(outcome.chat);
       if (!outcome.ok && outcome.error) setError(t(`assistant.actionErrors.${outcome.error}`, { defaultValue: t('assistant.actionErrors.failed') }));
       return outcome;
-    } catch { setError(t('assistant.actionErrors.failed')); return null; }
-    finally { setBusy(null); }
+    } catch { if (mountedRef.current) setError(t('assistant.actionErrors.failed')); return null; }
+    finally { busyRef.current = null; if (mountedRef.current) setBusy(null); }
   };
   /** Once every proposal of a turn is settled, the turn carries on if the model had more to do. */
   const afterSettle = (outcome: ActionOutcome | null): void => {
-    if (outcome?.resume && outcome.chat) void ask('', true, outcome.chat.id);
+    if (outcome?.resume && outcome.chat && mountedRef.current) void ask('', true, outcome.chat.id);
   };
   const handlers: ActionHandlers = {
     busy,
@@ -185,9 +193,9 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
       if (dontAsk && chat) await window.pnr.assistantAllow(chat.id, a.tool);
       return window.pnr.assistantConfirm(a.id, edits);
     }).then(afterSettle),
-    confirmAll: (list) => void (async () => {
+    confirmAll: (list, edits) => void (async () => {
       let last: ActionOutcome | null = null;
-      for (const a of list) { last = await settle(a, () => window.pnr.assistantConfirm(a.id)); if (!last?.ok) return; }
+      for (const a of list) { last = await settle(a, () => window.pnr.assistantConfirm(a.id, edits[a.id] ?? {})); if (!last?.ok) return; }
       afterSettle(last);
     })(),
     reject: (a) => void settle(a, () => window.pnr.assistantReject(a.id)).then(afterSettle),
@@ -361,14 +369,19 @@ function Actions({ actions, handlers }: { actions: AssistantAction[]; handlers: 
   const looked = quiet('read'); const opened = quiet('navigate');
   const cards = actions.filter((a) => a.risk !== 'read' && a.risk !== 'navigate');
   const open = cards.filter((a) => a.status === 'proposed' && !a.expired);
+  // A deletion, or words that are not the person's own, is confirmed on its own card.
+  const routine = open.filter((a) => a.risk !== 'danger' && !a.view?.fields.some((f) => f.warn));
+  // Edits live here rather than in each card, so 全部确认 sends them too.
+  const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
   const sep = t('assistant.listSeparator');
   return <>
     {looked.length > 0 && <p className="answer-note">{t('assistant.looked', { list: looked.join(sep) })}</p>}
     {opened.length > 0 && <p className="answer-note">{t('assistant.opened', { list: opened.join(sep) })}</p>}
-    {open.length > 1 && <div className="confirm-all"><button className="push" disabled={Boolean(handlers.busy)} onClick={() => handlers.confirmAll(open)}>
-      <CheckCheck size={12} />{t('assistant.confirmAll', { count: open.length })}</button></div>}
+    {routine.length > 1 && <div className="confirm-all"><button className="push" disabled={Boolean(handlers.busy)} onClick={() => handlers.confirmAll(routine, edits)}>
+      <CheckCheck size={12} />{t('assistant.confirmAll', { count: routine.length })}</button></div>}
     {cards.map((a) => <ActionCard key={a.id} action={a} busy={Boolean(handlers.busy)}
-      onConfirm={(edits, dontAsk) => handlers.confirm(a, edits, dontAsk)} onReject={() => handlers.reject(a)}
+      edits={edits[a.id] ?? {}} onEdit={(e) => setEdits((all) => ({ ...all, [a.id]: e }))}
+      onConfirm={(dontAsk) => handlers.confirm(a, edits[a.id] ?? {}, dontAsk)} onReject={() => handlers.reject(a)}
       onUndo={() => handlers.undo(a)} onOpen={handlers.open} />)}
   </>;
 }

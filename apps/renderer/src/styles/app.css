@@ -264,6 +264,8 @@ input[type=checkbox], input[type=radio] { width: 14px; height: 14px; accent-colo
 .toolbar .search-field { width: 180px; margin: 0 4px; }
 .narrow-only { display: none; }
 .workspace-body { flex: 1; min-height: 0; display: flex; }
+.workspace-tab { flex: 1; min-width: 0; min-height: 0; display: flex; }
+.workspace-tab[hidden] { display: none; }
 
 .split-divider { width: 1px; flex: none; position: relative; z-index: 3; background: var(--separator); cursor: col-resize; touch-action: none; }
 .split-divider::after { content: ''; position: absolute; inset: 0 -4px; }
@@ -612,7 +614,7 @@ div.settings-window { height: 100%; display: flex; user-select: none; }
 .settings-body > * { max-width: 560px; margin-left: auto; margin-right: auto; }
 
 /* ── narrow windows ─────────────────────────────────────────────────────── */
-@container workspace (max-width: 620px) {
+@container workspace (max-width: 619.98px) {
   .split-view { grid-template-columns: minmax(0, 1fr); }
   .split-view > .split-divider { display: none; }
   .split-view.has-selection > .list, .split-view:not(.has-selection) > :is(.reader, .watch-detail) { display: none; }

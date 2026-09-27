@@ -165,9 +165,9 @@
     "noHistory": "暂无历史对话。",
     "deleteChat": "删除对话",
     "needAi": "连接 AI 后，可以询问任何新闻或订阅中的内容。",
-    "welcomeTitle": "问新闻，也能帮你做事",
-    "welcomeBody": "询问任何新闻、订阅里的内容，或左边正在看的东西；也可以让我添加关注、订阅新源、更新快讯。回答标注来源编号；改动会先按「权限模式」给你确认。",
-    "placeholder": "问新闻，或让我帮你做事",
+    "welcomeTitle": "提问或执行操作",
+    "welcomeBody": "可以询问新闻、订阅内容或当前打开的页面，也可以让助手添加关注、订阅来源、检查快讯。回答标注来源编号；改动按权限模式执行。",
+    "placeholder": "询问新闻，或描述要执行的操作",
     "send": "发送",
     "stop": "停止",
     "stopped": "已停止。",
@@ -175,12 +175,12 @@
     "webOn": "联网：搜索新闻与网页",
     "webNewsOnly": "联网：搜索新闻（当前 AI 服务不支持网页搜索）",
     "webOff": "不联网：只使用本地订阅",
-    "screenOn": "助手会参考左边正在看的「{{label}}」。点一下，下个问题不带上它",
-    "screenOff": "下个问题不参考「{{label}}」。点一下带上它",
-    "askedAbout": "看着：{{label}}",
+    "screenOn": "将参考当前打开的「{{label}}」。点按可在下个问题中排除",
+    "screenOff": "下个问题不参考「{{label}}」。点按可重新包含",
+    "askedAbout": "参考：{{label}}",
     "disclaimer": "回答由 AI 生成，请以原文为准。",
     "phase": {
-      "thinking": "正在理解…",
+      "thinking": "正在分析…",
       "tools": "正在处理：{{tool}}…",
       "library": "正在查找订阅中的报道…",
       "news": "正在搜索新闻…",
@@ -203,8 +203,8 @@
       "empty_question": "请输入问题。",
       "no_key": "请先填写 API 密钥。",
       "invalid_key": "API 密钥无效。",
-      "network": "连不上 AI 服务，请检查网络。",
-      "unreachable": "连不上 AI 服务，请检查网络。",
+      "network": "无法连接 AI 服务，请检查网络。",
+      "unreachable": "无法连接 AI 服务，请检查网络。",
       "rate_limited": "AI 服务限流，请稍后重试。",
       "quota_exhausted": "AI 服务的额度不足。",
       "context_exceeded": "材料超出模型的上下文上限。",
@@ -368,14 +368,14 @@
         "true": "是"
       },
       "searchFillEnabled": {
-        "1": "开启",
         "0": "关闭",
+        "1": "开启",
         "true": "开启",
         "false": "关闭"
       },
       "outsidePicksEnabled": {
-        "1": "开启",
         "0": "关闭",
+        "1": "开启",
         "true": "开启",
         "false": "关闭"
       },
@@ -389,60 +389,60 @@
       "proposed": "待确认",
       "done": "已完成",
       "running": "进行中",
-      "cancelled": "已取消",
+      "cancelled": "已拒绝",
       "blocked": "未执行",
       "failed": "失败",
       "undone": "已撤销",
       "expired": "已过期"
     },
     "actionErrors": {
-      "failed": "没能完成。",
-      "busy": "另一项更新正在进行，稍后再试。",
-      "not_found": "找不到这一项，可能已被删除。",
-      "duplicate": "这个源已经添加过了。",
-      "unrecognised": "认不出这个地址。",
-      "empty": "这个源暂时没有内容。",
+      "failed": "未能完成。",
+      "busy": "另一项更新正在进行，请稍后再试。",
+      "not_found": "未找到此项，可能已被删除。",
+      "duplicate": "此来源已添加。",
+      "unrecognised": "无法识别此地址。",
+      "empty": "此来源暂无内容。",
       "catalogue_source": "目录里的源不能删除，只能退订。",
-      "not_pending": "这一项已经处理过了。",
-      "expired": "这张卡片已过期，请重新提出。",
+      "not_pending": "此项已处理。",
+      "expired": "此操作已过期，请重新发起。",
       "invalid_args": "修改后的内容不符合要求。",
-      "unknown_tool": "这个操作已不可用。",
-      "not_undoable": "这一项不能撤销。",
+      "unknown_tool": "此操作已不可用。",
+      "not_undoable": "此项无法撤销。",
       "interrupted": "操作被中断。",
       "already_installing": "资源包正在下载。",
-      "route_not_found": "找不到这个路由。",
+      "route_not_found": "未找到此路由。",
       "rsshub_not_available": "社交源不可用：先下载资源包或填写自建地址。"
     },
     "mode": {
-      "readonly": "只看不改",
-      "ask": "每次确认",
-      "auto": "自动改，危险的问我",
-      "full": "全部自动"
+      "readonly": "只读",
+      "ask": "每次询问",
+      "auto": "自动执行（高风险时询问）",
+      "full": "全部自动执行"
     },
     "modeShort": {
-      "readonly": "只看",
-      "ask": "确认",
+      "readonly": "只读",
+      "ask": "询问",
       "auto": "自动",
       "full": "全自动"
     },
     "modeHint": {
       "readonly": "只查看和打开页面，不做任何改动。⇧Tab 切换",
-      "ask": "每项改动都先给你确认。⇧Tab 切换",
-      "auto": "能撤销的改动直接做；删除、耗费 AI 额度或系统级的操作先问你。⇧Tab 切换",
+      "ask": "每项改动都需要先确认。⇧Tab 切换",
+      "auto": "可撤销的改动直接执行；删除、消耗 AI 额度或系统级的操作先询问。⇧Tab 切换",
       "full": "所有改动直接执行。⇧Tab 切换"
     },
     "modeTitle": "权限模式",
     "fullWarn": {
-      "message": "让助手不经确认就执行所有改动？",
-      "detail": "包括删除关注、删除订阅源、耗费 AI 额度的更新和后台设置。文章里的文字不会被当作指令，但模型仍可能误解你的意思。",
-      "confirm": "全部自动"
+      "message": "允许助手无需确认即执行所有改动？",
+      "detail": "包括删除关注、删除订阅源、消耗 AI 额度的更新和后台设置。文章中的文字不会被当作指令，但模型仍可能误判你的意图。",
+      "confirm": "全部自动执行"
     },
     "empty": "（空）",
-    "warnVerbatim": "这段话不是你的原话，确认前请看一下或改成你自己的话。",
-    "blockedHint": "「只看不改」模式下不做改动。",
+    "warnVerbatim": "这不是你的原话，确认前请核对或改写。",
+    "blockedHint": "只读模式下不做任何改动。",
     "dontAsk": "本对话不再询问此类操作",
     "confirm": "确认",
-    "reject": "取消",
+    "reject": "拒绝",
     "undo": "撤销",
     "open": "打开",
     "looked": "查看了：{{list}}",
@@ -626,7 +626,7 @@
       "wake_failed": "唤醒组件没有装上。安装它需要管理员账户；普通账户请让管理员来开启。"
     },
     "workerName": "所闻 后台更新 Helper",
-    "loginItemsLocal": "这个版本没有开发者签名，后台任务以用户启动项运行，运行时在「活动监视器」中显示为「{{name}}」。",
+    "loginItemsLocal": "此版本没有开发者签名，后台任务以用户启动项运行，在「活动监视器」中显示为「{{name}}」。",
     "wake": {
       "label": "休眠时唤醒 Mac",
       "all": "每 3 小时（摘要和快讯）",
@@ -638,7 +638,7 @@
       "prompt": "「所闻」要安装一个唤醒组件，让 Mac 在休眠时按时醒来更新新闻。",
       "removePrompt": "「所闻」要移除唤醒组件，并取消已预约的唤醒。"
     },
-    "assistantMode": "助手权限"
+    "assistantMode": "权限模式"
   },
   "catalogue": {
     "title": "订阅管理",
@@ -707,8 +707,8 @@
     "rsshubMissing": "尚未安装 RSSHub 扩展。",
     "rsshubHint": "可在「社交平台」中下载扩展。",
     "failure": {
-      "unrecognised": "无法识别这个地址",
-      "duplicate": "已经订阅过这个来源",
+      "unrecognised": "无法识别此地址",
+      "duplicate": "已订阅此来源",
       "empty": "暂时没有内容",
       "parse_error": "这不是订阅地址（可能是普通网页，或被网站拦截）",
       "not_found": "地址不存在",

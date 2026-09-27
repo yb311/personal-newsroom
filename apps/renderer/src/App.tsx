@@ -113,11 +113,17 @@ export default function App() {
     return () => window.removeEventListener('resize', resized);
   }, []);
 
+  // `t` is read through a ref rather than a dependency: subscribing to the main
+  // process is not a data load, but resubscribing on every language switch
+  // could still drop a progress event landing in that instant (see AGENTS.md
+  // on effects that depend on `t`).
+  const tRef = useRef(t);
+  tRef.current = t;
   useEffect(() => window.pnr.onProgress((p) => {
     const x = p as { phase?: string; label?: string };
     const key = { watch: 'app.progress.watch', writing: 'app.progress.writing', extract: 'app.progress.extract', fetch: 'app.progress.fetch' }[x.phase ?? ''];
-    if (key && operation.current) setNote(t(key, { label: x.label }));
-  }), [t]);
+    if (key && operation.current) setNote(tRef.current(key, { label: x.label }));
+  }), []);
 
   /** One long-running operation at a time; its outcome stays in the toolbar subtitle for a few seconds. */
   const perform = async (kind: Job, message: string, task: () => Promise<string>): Promise<void> => {
@@ -199,11 +205,21 @@ export default function App() {
   // As a macOS split view does: the assistant docks while the workspace keeps
   // room for list and detail, and floats over it in a window too narrow for
   // that. The sidebar gives way first — it collapses while it does not fit and
-  // returns when it does, unless it was hidden on purpose.
-  const floating = assistantOpen && windowWidth - panelWidth - 1 < SPLIT_MIN;
+  // returns when it does, unless it was hidden on purpose. A docked assistant
+  // narrows toward its minimum before it floats, and can never be dragged wide
+  // enough to float itself mid-drag.
+  const dockRoom = windowWidth - 1 - SPLIT_MIN;
+  const floating = assistantOpen && dockRoom < PANEL.min;
   const docked = assistantOpen && !floating;
-  const sidebarFits = windowWidth - SIDEBAR - 1 - (docked ? panelWidth + 1 : 0) >= SPLIT_MIN;
+  const panelMax = docked ? Math.min(PANEL.max, dockRoom) : PANEL.max;
+  const panelShown = Math.min(panelWidth, panelMax);
+  const sidebarFits = windowWidth - SIDEBAR - 1 - (docked ? panelShown + 1 : 0) >= SPLIT_MIN;
   const sidebarShown = sidebarVisible && (sidebarFits || sidebarPinned);
+  // The list takes at most 44% of the workspace (as the CSS clamp does); the
+  // divider works with that shown width so dragging has no dead zone.
+  const workspaceWidth = windowWidth - (sidebarShown ? SIDEBAR + 1 : 0) - (docked ? panelShown + 1 : 0);
+  const listMax = Math.max(LIST.min, Math.min(LIST.max, Math.floor(workspaceWidth * 0.44)));
+  const listShown = Math.min(listWidth, listMax);
   const showSidebar = (show: boolean): void => { setSidebarVisible(show); setSidebarPinned(show && !sidebarFits); };
   const go = (next: Tab): void => { navigated.current = true; setReport(null); if (next !== tab) setViewScreen(null); setTab(next); };
 
@@ -318,13 +334,13 @@ export default function App() {
     : tab === 'flashes' ? t(importantOnly ? 'flashes.subtitleImportant' : 'flashes.subtitle', { count: counts.flashes ?? 0 })
     : t('watches.count', { count: counts.watches ?? 0 }));
   // Every tab shares one list column, so it keeps its width across them.
-  const listDivider = <SplitDivider width={listWidth} onChange={setListWidth} min={LIST.min} max={LIST.max} fallback={LIST.fallback}
+  const listDivider = <SplitDivider width={listShown} onChange={setListWidth} min={LIST.min} max={listMax} fallback={LIST.fallback}
     storageKey={LIST.key} edge="before" label={t('app.resizeList')} />;
   const spinner = (kind: Job) => <RefreshCw size={16} className={job === kind ? 'spinning' : ''} />;
 
   return (
     <div className={`app ${sidebarShown ? '' : 'sidebar-hidden'} ${floating ? 'assistant-floating' : ''}`}
-         style={{ '--list-width': `${listWidth}px`, '--panel-width': `${panelWidth}px` } as CSSProperties}>
+         style={{ '--list-width': `${listShown}px`, '--panel-width': `${panelShown}px` } as CSSProperties}>
       {sidebarShown && (
         <Sidebar tab={report ? null : tab} onTab={go} sources={sources} sourceId={sourceId} filter={filter} fresh={counts.fresh ?? 0}
           onPickSource={pickSource} onPickFilter={pickFilter} onSourceMenu={(s) => void sourceMenu(s)}
@@ -385,9 +401,12 @@ export default function App() {
                     title={`${t('assistant.toggle')} (⌘J)`} aria-label={t('assistant.toggle')}><MessageSquareText size={17} /></button>
           </div>
         </header>
-        <div className="workspace-body"><ErrorBoundary key={report ? 'report' : tab}>
-          {report ? <Report anchor={report} lang={ai?.outputLang ?? 'zh-CN'} restart={restartReport} onOpen={openItem} />
-          : tab === 'read' ? <div className={`split-view ${selected ? 'has-selection' : ''}`}>
+        <div className="workspace-body">
+          {report && <ErrorBoundary key="report"><Report anchor={report} lang={ai?.outputLang ?? 'zh-CN'} restart={restartReport} onOpen={openItem} /></ErrorBoundary>}
+          {/* A report covers the tab rather than replacing it, so going back finds the
+              article, flash or watch it was opened from still selected. */}
+          <div className="workspace-tab" hidden={Boolean(report)}><ErrorBoundary key={tab}>
+          {tab === 'read' ? <div className={`split-view ${selected ? 'has-selection' : ''}`}>
             <ItemList items={visibleItems} onMore={items.length < total && !needle ? () => void loadMore() : undefined}
               remaining={total - items.length} selected={selected} onSelect={onSelect} onMenu={(it) => void articleMenu(it)}
               query={query} onClearQuery={() => setQuery('')} filter={filter} empty={sources.length === 0} onAdd={() => setShowCatalogue(true)} />
@@ -401,10 +420,11 @@ export default function App() {
               onOpen={openItem} onReport={openReport} onOpenWatch={openWatch} onCount={(n) => setCounts((c) => ({ ...c, flashes: n }))} onScreen={setViewScreen} />
           : <Watches aiReady={aiReady} revision={revision} query={watchQuery} divider={listDivider} onSetup={() => openSettings('ai')} onOpen={openItem} onReport={openReport}
               onCount={(n, fresh) => setCounts((c) => ({ ...c, watches: n, fresh }))} request={watchRequest} onRequestDone={() => setWatchRequest(null)} onScreen={setViewScreen} />}
-        </ErrorBoundary></div>
+          </ErrorBoundary></div>
+        </div>
       </main>
       {assistantOpen && <>
-        <SplitDivider width={panelWidth} onChange={setPanelWidth} min={PANEL.min} max={PANEL.max} fallback={PANEL.fallback}
+        <SplitDivider width={panelShown} onChange={setPanelWidth} min={PANEL.min} max={panelMax} fallback={PANEL.fallback}
           storageKey={PANEL.key} edge="after" label={t('assistant.resize')} />
         <ErrorBoundary><Assistant ai={ai} screen={screen} onOpenItem={openItem} onNavigate={(target) => navigateTo.current(target)} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
       </>}
