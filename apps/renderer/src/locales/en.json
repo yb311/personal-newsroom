@@ -748,6 +748,7 @@
       "not_found": "the address doesn't exist",
       "forbidden": "the site refused access",
       "unauthorized": "the site requires signing in",
+      "blocked": "the site's bot protection blocked access",
       "rate_limited": "too many requests; the site refused for now",
       "server_error": "the site had a server error",
       "timeout": "the network timed out",

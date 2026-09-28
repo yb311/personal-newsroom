@@ -729,6 +729,7 @@
       "not_found": "地址不存在",
       "forbidden": "网站拒绝访问",
       "unauthorized": "网站要求登录",
+      "blocked": "被网站的防护拦截",
       "rate_limited": "访问过于频繁，网站暂时拒绝",
       "server_error": "网站服务器出错",
       "timeout": "网络超时",

@@ -27,8 +27,10 @@ export function Reader({ id, onLoaded, onBack }: { id: string | null; onLoaded: 
         const full = await window.pnr.getItem(id);
         if (!live) return;
         setItem(full); setLoading(false); onLoaded(full);
-        // Body not fetched yet: pull it now so opening an article just works.
-        if (full && full.bodyState === 'pending') {
+        // Body not fetched yet, or the last try hit a passing refusal (bot
+        // protection, timeout…): pull it now so opening an article just works.
+        if (full && (full.bodyState === 'pending' || (full.bodyState === 'failed' && RETRYABLE.has(full.bodyError ?? '')))) {
+          setItem({ ...full, bodyState: 'pending' });
           await window.pnr.enrichOne(id);
           const again = await window.pnr.getItem(id);
           if (live && again) setItem(again);
@@ -68,6 +70,9 @@ export function Reader({ id, onLoaded, onBack }: { id: string | null; onLoaded: 
     </section>
   );
 }
+
+/** Mirrors TRANSIENT in @pnr/reader: failures worth another try on open. */
+const RETRYABLE = new Set(['blocked', 'rate_limited', 'server_error', 'timeout', 'network']);
 
 /** Honesty rule: when the body cannot be fetched, say so and offer the browser.
  *  Never dress a feed snippet up as the article. */

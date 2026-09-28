@@ -41,6 +41,15 @@ const reasonForStatus = (status: number): string =>
   : status >= 500 ? 'server_error'
   : 'http_error';
 
+/**
+ * Bot-protection services answer with 401/403 plus their own header, not
+ * because the page needs an account. Reuters (DataDome) sends 401 to every
+ * non-browser client; calling that 「网站要求登录」 sends the reader looking for
+ * a login that would not help. We only name the block — never try to pass it.
+ */
+const botWall = (h: Headers): boolean =>
+  h.has('x-datadome') || h.get('cf-mitigated') === 'challenge';
+
 export async function download(url: string, opts: {
   accept?: string; etag?: string | null; lastModified?: string | null;
   timeoutMs?: number; headers?: Record<string, string>;
@@ -64,7 +73,7 @@ export async function download(url: string, opts: {
       lastModified: res.headers.get('last-modified')
     };
     if (res.status === 304) return { ...meta, body: new Uint8Array(), notModified: true };
-    if (!res.ok) throw new DownloadError(reasonForStatus(res.status), `http_${res.status}`);
+    if (!res.ok) throw new DownloadError(botWall(res.headers) ? 'blocked' : reasonForStatus(res.status), `http_${res.status}`);
     return { ...meta, body: new Uint8Array(await res.arrayBuffer()), notModified: false };
   } catch (e) {
     if (e instanceof DownloadError) throw e;
