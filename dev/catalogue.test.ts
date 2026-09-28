@@ -13,6 +13,18 @@ const db = openDb(join(dir, 'db.sqlite'));
 const feeds = JSON.parse(readFileSync(new URL('../catalogs/data/feeds.json', import.meta.url), 'utf8')) as any[];
 check(new Set(feeds.map((f) => f.id)).size === feeds.length, `目录里没有重复 id（${feeds.length} 个源）`);
 check(feeds.every((f) => f.name.length <= 40), '源名称不超过 40 字');
+// Hand-written coverage scores: one row per catalogue source, only known fields, whole numbers 1–10.
+const { SCORE_FIELDS } = await import('../packages/core/src/catalog-labels.ts');
+const scores = JSON.parse(readFileSync(new URL('../catalogs/data/source-scores.json', import.meta.url), 'utf8')) as { id: string; scores: Record<string, number> }[];
+const feedIds = new Set(feeds.map((f) => f.id));
+const scoreIds = new Set(scores.map((r) => r.id));
+check(scores.every((r) => feedIds.has(r.id)) && scoreIds.size === scores.length, '评分表里的每个 id 都在目录里，且不重复');
+const unscored = feeds.filter((f) => !scoreIds.has(f.id)).map((f) => f.id);
+check(unscored.length === 0, `目录里每个源都有评分行${unscored.length ? `（缺 ${unscored.slice(0, 3).join(', ')}）` : ''}`);
+check(scores.every((r) => Object.keys(r.scores).length > 0), '每个源至少在一个领域有分');
+check(scores.every((r) => Object.entries(r.scores).every(([k, v]) => k in SCORE_FIELDS && Number.isInteger(v) && v >= 1 && v <= 10)),
+      '领域都在固定清单里，分数是 1–10 的整数');
+
 const ins = db.prepare(`INSERT INTO sources (id,kind,name,domain,url,category,country,trust,enabled,added_by,created_at)
                         VALUES (?,?,?,?,?,?,?,?,?,'catalog',0)`);
 for (const f of feeds) ins.run(f.id, f.kind, f.name, f.domain ?? null, f.url, f.category ?? null, f.country ?? null, f.trust, f.featured ? 1 : 0);

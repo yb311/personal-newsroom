@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Group, Row, Select, Switch } from './Form.tsx';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage, dateTime, languageName } from '../i18n.ts';
-import type { AgentMode, AiConnection, AiStatus, ScheduleState, SocialStatus } from '../types.ts';
+import type { AgentMode, AiConnection, AiStatus, ScheduleState, SocialStatus, UpdateState } from '../types.ts';
 import { AGENT_MODES } from '../types.ts';
 
 type UiChoice = 'system' | 'zh-CN' | 'en';
@@ -105,7 +105,36 @@ function General() {
         </Row>
       ))}
     </Group>
+    <Updates />
   </>;
+}
+
+/** Version and software updates (apps/desktop/src/updater.ts does the work). */
+function Updates() {
+  const { t } = useTranslation();
+  const [u, setU] = useState<UpdateState | null>(null);
+  useEffect(() => {
+    void window.pnr.updateState().then(setU);
+    return window.pnr.onUpdate(setU);
+  }, []);
+  if (!u) return null;
+  const status = u.phase === 'unsupported' ? t(`settings.updateStatus.${u.reason}`)
+    : u.phase === 'error' ? t(`settings.updateStatus.${u.reason === 'offline' ? 'offline' : 'failed'}`)
+    : t(`settings.updateStatus.${u.phase}`, { version: u.version ?? '', percent: u.percent ?? 0 });
+  return (
+    <Group title={t('settings.updatesTitle')} footer={u.reason === 'dev' ? undefined : t('settings.autoUpdateHint')}>
+      <Row label={t('settings.version', { version: u.current })} hint={status}>
+        {u.phase === 'ready'
+          ? <button className="primary" onClick={() => void window.pnr.installUpdate()}>{t('settings.installNow')}</button>
+          : u.reason === 'location'
+            ? <button className="push" onClick={() => void window.pnr.checkForUpdates()}>{t('settings.moveNow')}</button>
+            : <button className="push" disabled={u.reason === 'dev' || u.phase === 'checking' || u.phase === 'downloading'}
+                onClick={() => void window.pnr.checkForUpdates()}>{t('settings.checkNow')}</button>}
+      </Row>
+      {u.reason !== 'dev' && <Row label={t('settings.autoUpdate')}>
+        <Switch label={t('settings.autoUpdate')} checked={u.auto} onChange={(on) => void window.pnr.setAutoUpdate(on).then(setU)} /></Row>}
+    </Group>
+  );
 }
 
 function Ai() {

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, Menu, nativeTheme, type MenuItemConstructorOptions } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import { setSink, withRunContext } from '@pnr/core';
+import { setSink, withRunContext, log } from '@pnr/core';
 import { openDb, defaultDataDir, acquireLock, releaseLock, renewLock, HEARTBEAT_MS } from '@pnr/store';
 import { ingestAll, setCuratedRoutes } from '@pnr/feed';
 import { enrichPending } from '@pnr/reader';
@@ -13,6 +13,7 @@ import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig } from './social.ts';
 import { buildToolbox } from './agent-tools.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns, refreshSchedule, setWake } from './schedule.ts';
+import { createUpdater } from './updater.ts';
 import zhCN from '../../renderer/src/locales/zh-CN.json';
 import en from '../../renderer/src/locales/en.json';
 
@@ -118,6 +119,20 @@ function openSettings(section?: string): void {
   settingsWin.on('closed', () => { settingsWin = null; });
 }
 ipcMain.handle('app:openSettings', (_e, section?: string) => openSettings(section));
+
+// ── software updates (updater.ts) ───────────────────────────────────────────
+const updater = createUpdater({
+  read: (key) => (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value,
+  write: (key, value) => writeSetting(db, key, value),
+  texts: () => (uiLanguage().resolved === 'en' ? en : zhCN).update,
+  window: () => win,
+  broadcast: (state) => broadcast('app:update', state),
+  log: (event, attrs) => log({ event, ...(attrs ? { attrs } : {}) })
+});
+ipcMain.handle('app:updateState', () => updater.state());
+ipcMain.handle('app:checkForUpdates', () => updater.check(true));
+ipcMain.handle('app:setAutoUpdate', (_e, on: boolean) => updater.setAuto(on === true));
+ipcMain.handle('app:installUpdate', () => updater.install());
 ipcMain.handle('app:broadcast', (e, command: string) => {
   for (const w of BrowserWindow.getAllWindows()) if (w.webContents !== e.sender) w.webContents.send('app:command', command);
 });
@@ -156,6 +171,7 @@ app.whenReady().then(() => {
     copyright: 'Copyright © 2026 yb311'
   });
   createWindow();
+  updater.start();
   void refreshSchedule(db, DATA_DIR).catch(() => undefined);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
@@ -191,6 +207,8 @@ function installApplicationMenu(): void {
       label: '所闻',
       submenu: [
         { role: 'about', label: m.about },
+        { label: m.checkForUpdates, click: () => void updater.check(true) },
+        { type: 'separator' },
         { label: m.settings, accelerator: 'CmdOrCtrl+,', click: () => openSettings() },
         { type: 'separator' },
         { role: 'services', label: m.services },
@@ -265,16 +283,23 @@ function seedCatalogue(): void {
   const path = bundled('feeds.json');
   if (!path) return;
   const feeds = JSON.parse(readFileSync(path, 'utf8')) as any[];
+  const scoresPath = bundled('source-scores.json');
+  const scores = new Map<string, Record<string, number>>(scoresPath
+    ? (JSON.parse(readFileSync(scoresPath, 'utf8')) as { id: string; scores: Record<string, number> }[]).map((r) => [r.id, r.scores])
+    : []);
   const upsert = db.prepare(
-    `INSERT INTO sources (id,kind,name,domain,url,category,lang,country,trust,enabled,date_hydration,added_by,created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,'catalog',?)
+    `INSERT INTO sources (id,kind,name,domain,url,category,lang,country,trust,enabled,date_hydration,added_by,created_at,scores_json)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,'catalog',?,?)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, domain = excluded.domain, category = excluded.category,
-       country = excluded.country WHERE sources.added_by = 'catalog'`);
+       country = excluded.country, scores_json = excluded.scores_json WHERE sources.added_by = 'catalog'`);
   const now = Date.now();
   db.transaction(() => {
-    for (const f of feeds)
+    for (const f of feeds) {
+      const s = scores.get(f.id);
       upsert.run(f.id, f.kind, f.name, f.domain ?? null, f.url, f.category ?? null, f.lang ?? null,
-                 f.country ?? null, f.trust, fresh && f.featured ? 1 : 0, f.dateHydration ?? null, now);
+                 f.country ?? null, f.trust, fresh && f.featured ? 1 : 0, f.dateHydration ?? null, now,
+                 s ? JSON.stringify(s) : null);
+    }
   })();
 }
 

@@ -5,3 +5,7 @@ export {
 } from './watch.ts';
 export { PRESETS, enablePreset, localisePreset, type Preset } from './presets.ts';
 export { refreshIntentVector, ensureIntentVector, generateRecallAids, prepareWatch } from './compile.ts';
+export {
+  suggestSources, addWatchSources, setWatchSourcePlacement, removeWatchSource, listWatchSources,
+  type SourceSuggestion, type WatchSource, type Placement
+} from './sources.ts';

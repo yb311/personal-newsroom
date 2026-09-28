@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { AssistantAction, NavTarget, ViewField } from '../types.ts';
 
 /** Fields whose values are codes with a translation; the rest (names, addresses, words) are shown as they are. */
-const CODED = new Set(['verdict', 'sensitivity', 'active', 'schedule', 'wake', 'force', 'searchFillEnabled', 'outsidePicksEnabled', 'uiLanguage']);
+const CODED = new Set(['verdict', 'sensitivity', 'active', 'schedule', 'wake', 'force', 'searchFillEnabled', 'outsidePicksEnabled', 'uiLanguage', 'placement']);
 
 /**
  * One change the assistant made or wants to make. Everything on it comes from

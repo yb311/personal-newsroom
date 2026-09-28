@@ -95,6 +95,7 @@ function Browse({ onChange }: { onChange: () => void }) {
             <label>
               <input type="checkbox" checked={Boolean(s.enabled)} onChange={() => void toggle(s)} />
               <span className="name">{s.name}</span>
+              {!s.enabled && s.background ? <span className="tag accent" title={t('catalogue.watchOnlyHint')}>{t('catalogue.watchOnly')}</span> : null}
               <span className="tag">{categoryLabel(s.category, i18n.language)}</span>
               {s.country && <span className="tag country">{countryLabel(s.country, i18n.language)}</span>}
               <span className="domain">{s.domain}</span>

@@ -259,7 +259,9 @@
       "open_item": "文章",
       "open_watch": "关注页",
       "open_source": "订阅源",
-      "open_settings": "设置窗口"
+      "open_settings": "设置窗口",
+      "suggest_watch_sources": "推荐来源",
+      "add_watch_sources": "为关注添加来源"
     },
     "action": {
       "list_watches": "查看关注",
@@ -307,7 +309,9 @@
       "open_item": "打开文章",
       "open_watch": "打开关注",
       "open_source": "打开订阅源",
-      "open_settings": "打开设置"
+      "open_settings": "打开设置",
+      "suggest_watch_sources": "推荐来源",
+      "add_watch_sources": "为关注添加来源"
     },
     "field": {
       "label": "名称",
@@ -339,7 +343,9 @@
       "flashes": "快讯",
       "failed": "失败",
       "searchFillEnabled": "搜索补全",
-      "outsidePicksEnabled": "关注之外"
+      "outsidePicksEnabled": "关注之外",
+      "placement": "加到哪里",
+      "sources": "来源"
     },
     "value": {
       "verdict": {
@@ -383,6 +389,10 @@
         "system": "跟随系统",
         "zh-CN": "中文",
         "en": "English"
+      },
+      "placement": {
+        "subscribe": "订阅",
+        "watch_only": "仅用于关注"
       }
     },
     "status": {
@@ -625,7 +635,25 @@
     },
     "assistantMode": "权限模式",
     "backgroundFooter": "关闭窗口后，所闻仍会按时生成今日摘要并检查快讯。后台项目在「系统设置 → 通用 → 登录项与扩展」中显示为「所闻」。",
-    "needsApproval": "需在「登录项与扩展」中允许「所闻」。"
+    "needsApproval": "需在「登录项与扩展」中允许「所闻」。",
+    "updatesTitle": "软件更新",
+    "version": "版本 {{version}}",
+    "autoUpdate": "自动检查更新",
+    "autoUpdateHint": "每 6 小时向 GitHub 查询一次。有新版本就在后台下载，下载好再问你是否重新启动。不会发送你的任何数据。",
+    "checkNow": "现在检查",
+    "installNow": "重新启动并更新",
+    "moveNow": "移到「应用程序」文件夹…",
+    "updateStatus": {
+      "idle": "还没有检查过",
+      "checking": "正在检查…",
+      "upToDate": "已是最新版本",
+      "downloading": "正在下载 {{version}}（{{percent}}%）",
+      "ready": "{{version}} 已下载，重新启动后生效",
+      "offline": "连不上 GitHub，稍后会再试",
+      "failed": "上次检查失败，稍后会再试",
+      "dev": "开发版不检查更新",
+      "location": "不在「应用程序」文件夹里，无法自动更新"
+    }
   },
   "catalogue": {
     "title": "订阅管理",
@@ -720,7 +748,9 @@
     "packError": {
       "already_installing": "正在下载中",
       "manifest_unavailable": "无法获取扩展清单，请检查网络"
-    }
+    },
+    "watchOnly": "仅用于关注",
+    "watchOnlyHint": "没有订阅，但有关注在用，所以会在后台抓取"
   },
   "rsshub": {
     "packBanner": "社交平台订阅由 RSSHub 提供，需先下载扩展（约 63 MB）。",
@@ -840,7 +870,17 @@
     "activeHint": "关闭后不再更新，已有内容保留。",
     "updateHint": "抓取最新报道并筛选；有新报道时才更新进展",
     "nothingNew": "没有新的相关报道，进展保持不变",
-    "discardConfirm": "放弃修改"
+    "discardConfirm": "放弃修改",
+    "sources": {
+      "title": "来源",
+      "hint": "新建关注时挑选的来源。仅用于关注的来源只在后台抓取，不出现在阅读列表。",
+      "subscribed": "已订阅",
+      "watchOnly": "仅用于关注",
+      "remove": "移除",
+      "more": "从来源目录再挑一些",
+      "none": "还没有为这个关注挑选来源",
+      "suggest": "推荐来源…"
+    }
   },
   "menu": {
     "about": "关于所闻",
@@ -876,7 +916,8 @@
     "copyText": "拷贝文字",
     "manageSubscriptions": "管理订阅…",
     "updateAll": "全部更新",
-    "regenerateAll": "全部重新生成"
+    "regenerateAll": "全部重新生成",
+    "checkForUpdates": "检查更新…"
   },
   "report": {
     "title": "深度报道",
@@ -906,5 +947,36 @@
       "empty_report": "模型没有给出内容，请重试。",
       "conversation_context_exceeded": "对话太长，超出模型上限。请重新撰写。"
     }
+  },
+  "sourceSuggest": {
+    "title": "为关注推荐的来源",
+    "loading": "正在从来源目录中挑选…",
+    "intro": "订阅后会出现在阅读列表；仅用于关注的来源只在后台抓取。",
+    "score": "{{field}} {{score}} 分",
+    "scoreTitle": "这个来源在该领域的报道评分（1–10）",
+    "skip": "跳过",
+    "watchOnly": "仅用于关注",
+    "subscribe": "订阅"
+  },
+  "update": {
+    "ok": "好",
+    "readyTitle": "所闻 {{version}} 已准备好",
+    "readyDetail": "重新启动后生效。选「稍后」则在下次退出所闻时自动安装。",
+    "restart": "重新启动并更新",
+    "later": "稍后",
+    "upToDate": "所闻 {{version}} 已是最新版本",
+    "downloading": "正在下载所闻 {{version}}",
+    "downloadingDetail": "在后台下载，下载好后会问你是否重新启动。",
+    "failed": "检查更新失败",
+    "offline": "连不上 GitHub，请检查网络后再试。",
+    "failedDetail": "稍后会自动再试。",
+    "devTitle": "开发版不检查更新",
+    "devDetail": "只有签名发布的版本能自动更新。",
+    "moveTitle": "把所闻移到「应用程序」文件夹？",
+    "moveDetail": "所闻现在不在「应用程序」文件夹里，macOS 不允许它在这里替换自己，所以无法自动更新。移过去后会自动重新打开。",
+    "move": "移到「应用程序」文件夹",
+    "notNow": "以后再说",
+    "dontAsk": "不再提醒",
+    "moveFailed": "没能移动。请退出所闻，手动把它拖到「应用程序」文件夹。"
   }
 }

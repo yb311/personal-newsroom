@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Db } from '@pnr/store';
 import { publicSettings } from '@pnr/ai';
 import { blockText } from '@pnr/core';
-import { getWatch, listWatches, updateWatch, deleteWatch } from '@pnr/watch';
+import { getWatch, listWatches, updateWatch, deleteWatch, listWatchSources, removeWatchSource } from '@pnr/watch';
 import { curatedRoutes } from '@pnr/feed';
 import type { ActionView, AgentTool, NavTarget, Toolbox, ToolResult } from '@pnr/generate';
 import type { Api } from './ipc.ts';
@@ -110,7 +110,7 @@ export function buildToolbox(db: Db, api: Api, actions: AppActions, hooks: { nav
     tool({ name: 'create_watch', risk: 'write', verbatim: ['intent'], editable: ['intent', 'label'],
       args: z.object({ label: z.string().min(1).max(40), intent: z.string().min(2).max(600), keywords: z.array(z.string()).max(20).optional() }),
       params: '{"label": short name, "intent": the person\'s own sentence, verbatim, "keywords"?: string[] (names and aliases that help find it)}',
-      describe: 'Start following a story or topic.',
+      describe: 'Start following a story or topic. Afterwards offer sources for it with suggest_watch_sources.',
       preview: (a) => ({ subject: a.label, fields: [{ key: 'label', value: a.label, editable: true }, { key: 'intent', value: a.intent, editable: true },
         ...(a.keywords?.length ? [{ key: 'keywords', value: a.keywords.join('、') }] : [])] }),
       async run(a) {
@@ -120,7 +120,7 @@ export function buildToolbox(db: Db, api: Api, actions: AppActions, hooks: { nav
       },
       async undo(u) { deleteWatch(db, (u as { watchId: string }).watchId); } }),
     tool({ name: 'add_presets', risk: 'write', args: z.object({ presetIds: z.array(id).min(1).max(10) }), params: '{"presetIds": string[]}',
-      describe: 'Follow topics from the ready-made library (ids from list_presets).',
+      describe: 'Follow topics from the ready-made library (ids from list_presets). Afterwards offer sources for them with suggest_watch_sources.',
       preview: (a) => ({ fields: a.presetIds.map((p) => ({ key: 'preset', value: api.presets(lang()).find((x) => x.id === p)?.label ?? p })) }),
       async run({ presetIds }) {
         const before = new Set(listWatches(db).map((w) => w.id));
@@ -131,6 +131,38 @@ export function buildToolbox(db: Db, api: Api, actions: AppActions, hooks: { nav
           view: { fields: ids.map((w) => ({ key: 'preset', value: getWatch(db, w)?.label ?? w })), open: { kind: 'watch', watchId: ids[0]! } } });
       },
       async undo(u) { for (const w of (u as { watchIds: string[] }).watchIds) deleteWatch(db, w); } }),
+    tool({ name: 'suggest_watch_sources', risk: 'read', args: z.object({ watchId: id }), params: '{"watchId": string}',
+      describe: 'Catalogue sources that would report on a watch, picked by AI from the hand-scored catalogue (the same list the app offers after a watch is created). Show them with their reasons and ask whether to subscribe to them (they appear in 阅读) or use them for the watch only (fetched in the background); then call add_watch_sources with the ones the person keeps. Empty when AI is off or nothing fits.',
+      async run({ watchId }) {
+        if (!getWatch(db, watchId)) return fail('not_found');
+        const [g] = await api.suggestSources([watchId], lang());
+        return ok((g?.sources ?? []).map((x) => ({ sourceId: x.sourceId, name: x.name, domain: x.domain, country: x.country,
+          field: x.field, score: x.score, reason: x.reason })));
+      } }),
+    tool({ name: 'add_watch_sources', risk: 'write',
+      args: z.object({ watchId: id, sourceIds: z.array(id).min(1).max(12), placement: z.enum(['subscribe', 'watch_only']) }),
+      params: '{"watchId": string, "sourceIds": string[] (from suggest_watch_sources or search_catalogue), "placement": "subscribe" | "watch_only"}',
+      describe: 'Put catalogue sources to work for a watch: "subscribe" also adds them to 阅读; "watch_only" fetches them in the background for the watch, without showing them in 阅读.',
+      preview: (a) => ({ subject: getWatch(db, a.watchId)?.label ?? a.watchId, fields: [
+        { key: 'placement', value: a.placement },
+        { key: 'sources', value: a.sourceIds.map((sid) => sourceRow(sid)?.name ?? sid).join('、') }] }),
+      async run({ watchId, sourceIds, placement }) {
+        if (!getWatch(db, watchId)) return fail('not_found');
+        const known = sourceIds.map(sourceRow).filter((s): s is NonNullable<typeof s> => Boolean(s) && !s!.id.startsWith('search:'));
+        if (!known.length) return fail('not_found');
+        const had = new Set(listWatchSources(db, watchId).map((w) => w.sourceId));
+        api.applyWatchSources(watchId, known.map((s) => s.id), placement === 'subscribe' ? 'front' : 'back');
+        return ok({ added: known.map((s) => s.name), placement }, {
+          undo: { watchId, before: known.map((s) => ({ sourceId: s.id, enabled: s.enabled, had: had.has(s.id) })) },
+          view: { ...watchView(watchId), fields: [{ key: 'placement', value: placement }, { key: 'sources', value: known.map((s) => s.name).join('、') }] } });
+      },
+      async undo(u) {
+        const { watchId, before } = u as { watchId: string; before: { sourceId: string; enabled: number; had: boolean }[] };
+        for (const b of before) {
+          if (!b.had) removeWatchSource(db, watchId, b.sourceId);
+          api.setSourceEnabled(b.sourceId, b.enabled === 1);
+        }
+      } }),
     tool({ name: 'update_watch', risk: 'write', verbatim: ['intent'], editable: ['intent', 'label'],
       args: z.object({ watchId: id, label: z.string().min(1).max(40).optional(), intent: z.string().min(2).max(600).optional(),
         keywords: z.array(z.string()).max(30).optional(), sensitivity: z.enum(['more', 'balanced', 'less']).optional(),

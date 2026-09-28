@@ -6,7 +6,7 @@ const API_METHODS = [
   'listSources', 'listItems', 'getItem', 'markRead', 'toggleStar',
   'setSourceEnabled', 'catalogue', 'setAiOption', 'stats', 'countItems', 'headlines', 'itemRefs', 'readingLanguages', 'setReadingLanguages',
   'aiStatus', 'saveAiSettings', 'presets', 'watches', 'addWatch', 'editWatch',
-  'removeWatch', 'togglePreset', 'correct', 'addPresets', 'backgroundPrompt', 'dismissBackgroundPrompt', 'today', 'editions', 'watchTimeline', 'watchSeen', 'watchItems', 'flashes', 'addSource', 'removeSource', 'rsshubRoutes', 'previewRoute', 'matchRoute', 'hasApifyToken', 'setApifyToken', 'rssHubReady'
+  'removeWatch', 'togglePreset', 'correct', 'addPresets', 'backgroundPrompt', 'dismissBackgroundPrompt', 'today', 'editions', 'watchTimeline', 'watchSeen', 'watchItems', 'flashes', 'addSource', 'removeSource', 'suggestSources', 'applyWatchSources', 'watchSources', 'moveWatchSource', 'removeWatchSource', 'rsshubRoutes', 'previewRoute', 'matchRoute', 'hasApifyToken', 'setApifyToken', 'rssHubReady'
 ] as const;
 
 const api: Record<string, unknown> = {};
@@ -69,6 +69,15 @@ contextBridge.exposeInMainWorld('pnr', {
     return () => ipcRenderer.off('assistant:event', fn);
   },
   scheduleState: () => ipcRenderer.invoke('app:scheduleState'),
+  updateState: () => ipcRenderer.invoke('app:updateState'),
+  checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+  setAutoUpdate: (on: boolean) => ipcRenderer.invoke('app:setAutoUpdate', on),
+  installUpdate: () => ipcRenderer.invoke('app:installUpdate'),
+  onUpdate: (cb: (state: unknown) => void) => {
+    const fn = (_e: unknown, state: unknown): void => cb(state);
+    ipcRenderer.on('app:update', fn);
+    return () => ipcRenderer.off('app:update', fn);
+  },
   socialStatus: () => ipcRenderer.invoke('social:status'),
   socialSetInstance: (url: string) => ipcRenderer.invoke('social:setInstance', url),
   socialInstall: () => ipcRenderer.invoke('social:install'),

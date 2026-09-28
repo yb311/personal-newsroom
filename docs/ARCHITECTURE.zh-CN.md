@@ -123,6 +123,10 @@ runDaily
 来源和许可证见 `catalogs/NOTICE` 和 §12。生成顺序是 `catalog:build`（只写 `candidates.json`）→
 `catalog:verify`（产出 `feeds.json`）→ `catalog:retry`（单线程、每域名间隔 2.5 秒捞回误杀的）。
 
+`catalogs/data/source-scores.json`：每个目录源在固定领域（`catalog-labels.ts` 的 `SCORE_FIELDS`，26 个）上的
+报道评分 1–10，**人工写的，不是软件生成的**，只写擅长的领域。启动时 `seedCatalogue` 写进 `sources.scores_json`。
+目录新增源时必须同时补评分行，`test:catalogue` 会检查。
+
 ### RSSHub：按需下载，不随包发
 
 微博、B 站、知乎、小红书、X 等没有 RSS，要靠 RSSHub。它是**库**不是服务器
@@ -170,6 +174,14 @@ runDaily
 | R1 向量 | 原话向量对近期条目向量做 KNN（sqlite-vec，0.75ms/次）。没有向量模型的服务商改用 AI 初筛（`r1_ai`），按原话缓存 |
 | R2 别名 | 召回辅助的别名、相关词和关键词做 OR 命中，免费 |
 | R3 检索 | 拿原话去查 Google News / Bing News 搜索 RSS，返回真实 URL，挂在占位源 `search:<关注>` 下。快讯检查不走 R3 |
+
+**按关注挑源**（`packages/watch/src/sources.ts`）：新建关注后，有 AI 就一次快档调用，把**原话整段**和整个目录
+（带评分，约 1.9 万 token，约 0.1 美分）交给模型挑 ≤8 个会报道这件事的源；代码丢掉编造/重复的 id，按相关领域评分排序。
+界面弹窗让用户勾选后选「订阅」（进阅读，`enabled=1`）或「仅用于关注」（只在后台抓取）；记在 `watch_sources`。
+抓取范围是 `enabled = 1 OR 在 watch_sources 里`（`sourcesToFetch`），召回不看 `enabled`，所以这些源的文章
+进 R1/R2 和快讯，但阅读列表、要闻、助手只看订阅。删除关注时级联删掉它的行，没人用的后台源就停止抓取。
+新闻助手有同样两步：`suggest_watch_sources`（只读）和 `add_watch_sources`（写，要确认、可撤销），`create_watch`/`add_presets` 的说明提示它建完关注就推荐。
+没有 AI 不弹窗。只做加法：这是召回辅助，文章是否相关仍由判定层对照原话决定。
 
 另外把「还没下文的悬念」（`open_questions`）也拿去查。并集后先做**免费排序再截断**（全部更新 40 条、
 快讯 30 条），这一步把成本降了 2.3 倍而质量没掉。
@@ -240,7 +252,7 @@ App 自己写的摘要、时间线、快讯原样给模型，背后的文章登�
 每轮先跑一步「agent 步骤」（快模型，`operation: assistant_agent`，替代原来的检索规划，所以纯提问不多花一次调用）。
 它决定走 `answer`（原来的带引用回答）、`tools`（调用工具，看到结果再走下一步，最多 6 步）还是 `done`（一句说明，单元 kind 为 `note`，不需要来源）。
 
-- **工具 = 按钮背后的同一个函数**：`createApi`（ipc.ts）和 main.ts 的 `runs.*` / `refreshFeeds` 等，锁、`runs` 记录、进度消息照旧。约 45 个：关注（增删改、纠偏、立即更新）、订阅源（目录搜索、订阅/退订、添加/删除、RSSHub 路由）、阅读状态、今日/快讯/全部更新、深度报道、设置、后台、跳转页面。
+- **工具 = 按钮背后的同一个函数**：`createApi`（ipc.ts）和 main.ts 的 `runs.*` / `refreshFeeds` 等，锁、`runs` 记录、进度消息照旧。约 47 个：关注（增删改、纠偏、立即更新、推荐和添加来源）、订阅源（目录搜索、订阅/退订、添加/删除、RSSHub 路由）、阅读状态、今日/快讯/全部更新、深度报道、设置、后台、跳转页面。
 - **风险等级写在工具定义里**（read / navigate / write / heavy / danger），模型改不了；**权限模式**（只看不改 / 每次确认 / 自动改危险的问我 / 全部自动，`settings.assistant.mode`，输入框胶囊和 ⇧Tab 切换）由 `gate()` 在主进程判定。卡片上「本对话不再询问此类」记在 `assistant_chats.allow_json`。
 - 每次调用记一行 `assistant_actions`；卡片文字由工具从数据库算出（`view_json`），不用模型写的字。可撤销的记 `undo_json`，「撤销」调工具的 `undo`。待确认的 24 小时后过期；崩溃时进行中的记失败。模型标了 `more` 的改动确认后，界面以 `resume` 续跑同一个问题。
 - **第一原则照旧**：关注的 `intent`、纠偏的 `note` 必须是用户原话；不是用户说过的话时卡片标黄，任何模式都改为确认。`update_watch` 没有 exclude 字段。
@@ -275,8 +287,8 @@ App 自己写的摘要、时间线、快讯原样给模型，背后的文章登�
 一个 SQLite 文件 `<数据目录>/newsroom.db`（默认 `~/Library/Application Support/personal-newsroom`，
 `PNR_DATA_DIR` 可改），WAL 模式；正文是旁边的文件。备份就是拷这个文件夹。
 
-schema 嵌在 `migrations.ts` 里（打包后的主进程读不到源码旁边的 .sql 文件）。**还没发布过版本，
-所以现在只有一个 `001_schema`**；发布之后迁移只追加不修改。打开一个由未发布开发版建的库
+schema 嵌在 `migrations.ts` 里（打包后的主进程读不到源码旁边的 .sql 文件）。**0.1.0 带着 `001_schema` 发布了，
+从此迁移只追加不修改**（`002_watch_sources` 起）。打开一个由未发布开发版建的库
 （迁移名不认识）会直接报错，挪开重建即可。
 
 | 分组 | 表 |
@@ -339,6 +351,17 @@ macOS 13 起「应用程序」里的 App 包也受保护，其它程序不能随
    这推翻了原来「root 绝不执行 bundle 里的东西（bundle 用户可写）」的规则——macOS 13 起有签名要求和 App 包保护，那条理由不再成立。
    代价：第一次开启要去「登录项与扩展」批准（系统要求，App 不能代弹密码框）。
 3. **只在每日摘要时间唤醒**，不再每 3 小时唤醒。休眠期间的快讯没人在看，醒来时自动补查；少唤醒也省电。
+
+### 软件更新（`apps/desktop/src/updater.ts`、`update-logic.ts`）
+
+`electron-updater` 从 GitHub Release 取更新（Squirrel.Mac）。打包配置里的 `publish`（github / yb311 / personal-newsroom）
+让 electron-builder 生成 `latest-mac.yml` 和 zip 的 `.blockmap`，发布工作流把它们和 zip 一起传上去，并检查 yml 里的版本号和 zip 文件名。
+App 启动 15 秒后查一次、之后每 6 小时一次（设置 → 通用 → 软件更新可关），**自动后台下载，下载好弹原生对话框**
+「重新启动并更新 / 稍后」，稍后就在下次退出时安装。菜单「所闻 → 检查更新…」手动查，结果总会告诉用户。
+只连 GitHub，Squirrel 只接受同一团队签名的包。开发版不检查；不在 `/Applications` 的副本（从 DMG 或「下载」里直接运行）
+不能替换自己，提示移过去（`app.moveToApplicationsFolder`，可选「不再提醒」）。后台更新程序在 App 包里，跟着一起更新。
+0.1.0 没有更新程序，装 0.1.0 的人要手动装一次下一个版本。同一仓库的 RSSHub 资源包 Release 必须 `--latest=false`，
+不能抢走「Latest」标记。
 
 ## 12. 实测记录
 

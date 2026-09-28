@@ -5,9 +5,8 @@
  * undefined and loose .sql files are not part of the build output. Embedding
  * removes that whole class of packaging failure.
  *
- * Migrations are append-only once a version has been released: never edit an
- * applied one, add the next. Nothing has been released yet, so everything is
- * still the one schema below.
+ * Migrations are append-only since 0.1.0 was released: never edit an applied
+ * one, add the next at the bottom of MIGRATIONS.
  */
 export interface Migration { name: string; sql: string }
 
@@ -524,6 +523,29 @@ CREATE VIRTUAL TABLE watch_vectors USING vec0(
 );
 `;
 
+/**
+ * 0.1.0 shipped with 001_schema, so from here on the schema only grows by
+ * appending migrations; a released one is never edited.
+ */
+const WATCH_SOURCES = `
+-- Hand-written coverage scores from catalogs/data/source-scores.json,
+-- { field: 1–10 }. Refreshed at every launch; NULL for sources the person added.
+ALTER TABLE sources ADD COLUMN scores_json TEXT;
+
+-- Sources a watch brought in when it was created. 'front' ones are ordinary
+-- subscriptions (sources.enabled = 1); 'back' ones are fetched only for the
+-- watches, and never show in 阅读. A 'back' source nobody lists stops being fetched.
+CREATE TABLE watch_sources (
+  watch_id   TEXT NOT NULL REFERENCES watches(id) ON DELETE CASCADE,
+  source_id  TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+  placement  TEXT NOT NULL,                -- front | back
+  added_at   INTEGER NOT NULL,
+  PRIMARY KEY (watch_id, source_id)
+);
+CREATE INDEX watch_sources_source ON watch_sources(source_id);
+`;
+
 export const MIGRATIONS: Migration[] = [
-  { name: '001_schema', sql: SCHEMA }
+  { name: '001_schema', sql: SCHEMA },
+  { name: '002_watch_sources', sql: WATCH_SOURCES }
 ];

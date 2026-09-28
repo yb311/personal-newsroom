@@ -144,18 +144,23 @@ export async function ingestSource(db: Db, source: SourceRecord, opts: IngestOpt
   }
 }
 
+/** What a fetch covers: subscriptions, plus the sources watches fetch for themselves (watch_sources 'back'). */
+export function sourcesToFetch(db: Db): SourceRecord[] {
+  return db.prepare(
+    `SELECT id, kind, name, domain, url, category, lang, country, trust, enabled,
+            date_hydration AS dateHydration, config_json AS configJson,
+            etag, last_modified AS lastModified
+     FROM sources WHERE enabled = 1 OR id IN (SELECT source_id FROM watch_sources)`
+  ).all() as SourceRecord[];
+}
+
 /** Runs enabled sources with bounded concurrency. */
 export async function ingestAll(db: Db, concurrency = 8, opts: IngestOptions = {}): Promise<{ sources: number; inserted: number }> {
   if (flags.disableFetch) {
     log({ event: 'feed.ingest', phase: 'skipped', reasonCode: 'PNR_DISABLE_FETCH' });
     return { sources: 0, inserted: 0 };
   }
-  const sources = db.prepare(
-    `SELECT id, kind, name, domain, url, category, lang, country, trust, enabled,
-            date_hydration AS dateHydration, config_json AS configJson,
-            etag, last_modified AS lastModified
-     FROM sources WHERE enabled = 1`
-  ).all() as SourceRecord[];
+  const sources = sourcesToFetch(db);
   const queue = [...sources];
   // Each worker accumulates locally. `total += await f()` would be a lost-update
   // race: the read of `total` happens before the await, so a worker can overwrite

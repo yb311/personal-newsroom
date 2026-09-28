@@ -1,7 +1,8 @@
 import { Dialog } from './Dialog.tsx';
+import { SourceSuggest } from './SourceSuggest.tsx';
 import { Trash2, Bookmark, ChevronLeft, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { ItemRef, Milestone, OpenQuestion, OutsidePick, PresetRow, Screen, Sensitivity, WatchItem, WatchRow } from '../types.ts';
+import type { ItemRef, Milestone, OpenQuestion, OutsidePick, PresetRow, Screen, Sensitivity, WatchItem, WatchRow, WatchSourceRow } from '../types.ts';
 import { Cited, Cites } from './Cites.tsx';
 import { Group, Row, Select, Switch } from './Form.tsx';
 import { ListPane, Row as ListRow } from './ListPane.tsx';
@@ -23,12 +24,14 @@ export type WatchRequest = { draft: OutsidePick['suggestion'] | null } | { open:
  * from the toolbar), the picked one on the right. Presets and written intents
  * are the same object; the only difference is who wrote the sentence.
  */
-export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, onReport, onCount, request, onRequestDone, onScreen }: {
+export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, onReport, onCount, request, onRequestDone, onScreen, onSourcesChanged }: {
   aiReady: boolean; revision: number; query: string; divider: ReactNode; onSetup: () => void; onOpen: (id: string) => void; onReport: OpenReport;
   /** How many watches, and how many new developments across the active ones. */
   onCount: (n: number, fresh: number) => void; request: WatchRequest | null; onRequestDone: () => void;
   /** Tells the assistant which watch is open. */
   onScreen: (screen: Screen | null) => void;
+  /** Sources were subscribed or put to work for a watch: fetch them now. */
+  onSourcesChanged: () => void;
 }) {
   const { t } = useTranslation();
   const [watches, setWatches] = useState<WatchRow[] | null>(null);
@@ -39,6 +42,8 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
   const [picked, setPicked] = useState(() => Boolean(request && 'open' in request));
   const [adding, setAdding] = useState<{ draft: OutsidePick['suggestion'] | null } | null>(null);
   const [dirty, setDirty] = useState(false);
+  /** Watches just created, whose suggested sources are being offered. */
+  const [suggestFor, setSuggestFor] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     const w = await window.pnr.watches();
@@ -80,7 +85,14 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
   const q = query.trim().toLocaleLowerCase();
   const shown = list.filter((w) => `${w.label} ${w.intent} ${w.keywords.join(' ')}`.toLocaleLowerCase().includes(q));
   const addDialog = adding && <AddWatch prefill={adding.draft} onClose={() => setAdding(null)}
-    onAdded={async (id) => { setAdding(null); await load(); if (id) { setDirty(false); setOpen(id); setPicked(true); } }} />;
+    onAdded={async (ids) => {
+      setAdding(null); await load();
+      const id = ids[0];
+      if (id) { setDirty(false); setOpen(id); setPicked(true); }
+      if (aiReady && ids.length) setSuggestFor(ids);
+    }} />;
+  const suggestDialog = suggestFor && <SourceSuggest watchIds={suggestFor}
+    onClose={(added) => { setSuggestFor(null); if (added) onSourcesChanged(); }} />;
 
   if (!watches) return <section className="page" />;
   // Nothing to list yet: one invitation instead of an empty list beside an empty detail.
@@ -93,6 +105,7 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
         <button className="push" onClick={() => setAdding({ draft: null })}>{t('watches.add')}</button>
       </div>
       {addDialog}
+      {suggestDialog}
     </section>
   );
 
@@ -117,19 +130,20 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
           {!aiReady && (
             <div className="notice">{t('watches.noAi')}<button className="link" onClick={onSetup}>{t('common.connectAi')}</button></div>
           )}
-          {selected ? <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} revision={revision} onChanged={load} initialTab={section}
+          {selected ? <WatchDetail key={selected.id} watch={selected} aiReady={aiReady} revision={revision} onChanged={load} initialTab={section} onSourcesChanged={onSourcesChanged}
               dirty={dirty} onDirty={setDirty} confirmLeave={confirmLeave} onOpen={onOpen} onReport={onReport} />
             : <div className="empty-state"><Bookmark size={30} strokeWidth={1.4} /><h3>{t('watches.pickTitle')}</h3><p>{t('watches.pickHint')}</p></div>}
         </div>
       </section>
       {addDialog}
+      {suggestDialog}
     </div>
   );
 }
 
 // ── adding ──────────────────────────────────────────────────────────────────
 
-function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded: (id: string | null) => void; prefill: OutsidePick['suggestion'] | null }) {
+function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded: (ids: string[]) => void; prefill: OutsidePick['suggestion'] | null }) {
   const { t, i18n } = useTranslation();
   const [mode, setMode] = useState<'library' | 'custom'>(prefill ? 'custom' : 'library');
   const [presets, setPresets] = useState<PresetRow[]>([]);
@@ -158,11 +172,11 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
     try {
       if (mode === 'library') {
         const ids = await window.pnr.addPresets([...picked], i18n.language);
-        onAdded(ids[0] ?? null);
+        onAdded(ids);
       } else {
         const intent = draft.intent.trim();
         const w = await window.pnr.addWatch({ label: draft.label.trim() || intent.slice(0, 16), intent, keywords: splitKeywords(draft.keywords) });
-        onAdded(w.id);
+        onAdded([w.id]);
       }
     } catch { setError(t('watches.addFailed')); }
     finally { setBusy(false); }
@@ -223,8 +237,8 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
 
 const TABS: WatchTab[] = ['timeline', 'items', 'settings'];
 
-function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, dirty, onDirty, confirmLeave, onOpen, onReport }: {
-  watch: WatchRow; aiReady: boolean; revision: number; onChanged: () => void; initialTab: WatchTab | null;
+function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, dirty, onDirty, confirmLeave, onOpen, onReport, onSourcesChanged }: {
+  watch: WatchRow; aiReady: boolean; revision: number; onChanged: () => void; initialTab: WatchTab | null; onSourcesChanged: () => void;
   dirty: boolean; onDirty: (dirty: boolean) => void; confirmLeave: () => Promise<boolean>; onOpen: (id: string) => void; onReport: OpenReport;
 }) {
   const { t } = useTranslation();
@@ -278,7 +292,7 @@ function WatchDetail({ watch, aiReady, revision: outer, onChanged, initialTab, d
       </nav>
       {tab === 'items' && <WatchItems watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} onReport={onReport} onChanged={onChanged} />}
       {tab === 'timeline' && <WatchTimeline watch={watch} aiReady={aiReady} revision={revision} onOpen={onOpen} onReport={onReport} onSeen={onChanged} />}
-      {tab === 'settings' && <WatchSettings watch={watch} onChanged={onChanged} onDirty={onDirty} />}
+      {tab === 'settings' && <WatchSettings watch={watch} aiReady={aiReady} onChanged={onChanged} onDirty={onDirty} onSourcesChanged={onSourcesChanged} />}
     </section>
   );
 }
@@ -423,7 +437,9 @@ function WatchTimeline({ watch, aiReady, revision, onOpen, onReport, onSeen }: {
 const LANGS: [string, string][] = [['zh-CN', '中文'], ['en-US', 'English'], ['ja-JP', '日本語']];
 const SENSITIVITY: Sensitivity[] = ['more', 'balanced', 'less'];
 
-function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChanged: () => void; onDirty: (dirty: boolean) => void }) {
+function WatchSettings({ watch, aiReady, onChanged, onDirty, onSourcesChanged }: {
+  watch: WatchRow; aiReady: boolean; onChanged: () => void; onDirty: (dirty: boolean) => void; onSourcesChanged: () => void;
+}) {
   const { t } = useTranslation();
   const initial = useMemo(() => ({
     label: watch.label, intent: watch.intent, keywords: watch.keywords.join(', '),
@@ -475,6 +491,7 @@ function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChang
         <Row label={t('watches.active')} hint={t('watches.activeHint')}>
           <Switch label={t('watches.active')} checked={form.active} onChange={(on) => setForm({ ...form, active: on })} /></Row>
       </Group>
+      <WatchSources watch={watch} aiReady={aiReady} onSourcesChanged={onSourcesChanged} />
       {watch.recallAids && (
         <Group title={t('watches.aids')} footer={t('watches.aidsHint')}>
           <Chips title={t('watches.aliases')} items={watch.recallAids.aliases} />
@@ -493,6 +510,39 @@ function WatchSettings({ watch, onChanged, onDirty }: { watch: WatchRow; onChang
         <button className="primary" onClick={() => void save()} disabled={saving || !dirty || !form.intent.trim()}>{saving ? t('common.saving') : t('common.save')}</button>
       </div>
     </div>
+  );
+}
+
+/** The catalogue sources this watch brought in, and a way to ask for more. */
+function WatchSources({ watch, aiReady, onSourcesChanged }: { watch: WatchRow; aiReady: boolean; onSourcesChanged: () => void }) {
+  const { t } = useTranslation();
+  const [rows, setRows] = useState<WatchSourceRow[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const load = useCallback(async () => setRows(await window.pnr.watchSources(watch.id)), [watch.id]);
+  useEffect(() => { void load(); }, [load]);
+  const subscribe = async (id: string): Promise<void> => { await window.pnr.moveWatchSource(watch.id, id, 'front'); void load(); onSourcesChanged(); };
+  const remove = async (id: string): Promise<void> => { await window.pnr.removeWatchSource(watch.id, id); void load(); };
+
+  if (!rows.length && !aiReady) return null;
+  return (
+    <Group title={t('watches.sources.title')} footer={t('watches.sources.hint')}>
+      {rows.length > 0 && <div className="row wide"><ul className="watch-sources">
+        {rows.map((s) => (
+          <li key={s.sourceId}>
+            <span className="name">{s.name}</span>
+            <span className="tag">{s.placement === 'front' ? t('watches.sources.subscribed') : t('watches.sources.watchOnly')}</span>
+            {s.placement === 'back' && <button className="push" onClick={() => void subscribe(s.sourceId)}>{t('sourceSuggest.subscribe')}</button>}
+            <button className="push" onClick={() => void remove(s.sourceId)}>{t('watches.sources.remove')}</button>
+          </li>
+        ))}
+      </ul></div>}
+      {aiReady && <Row label={rows.length ? t('watches.sources.more') : t('watches.sources.none')}>
+        <button className="push" disabled={suggesting} onClick={() => setSuggesting(true)}>{t('watches.sources.suggest')}</button></Row>}
+      {suggesting && <SourceSuggest watchIds={[watch.id]} onClose={(added) => {
+        setSuggesting(false);
+        if (added) { void load(); onSourcesChanged(); }
+      }} />}
+    </Group>
   );
 }
 

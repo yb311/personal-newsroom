@@ -51,7 +51,18 @@ git push origin v0.1.1
 
 - `personal-newsroom-X.Y.Z-arm64.dmg`
 - `personal-newsroom-X.Y.Z-arm64.zip`
+- `personal-newsroom-X.Y.Z-arm64.zip.blockmap`
+- `latest-mac.yml`
 - `SHA256SUMS.txt`
+
+`latest-mac.yml` 是已安装的所闻用来发现新版本的文件，zip 是自动更新下载的包，`.blockmap` 让更新只下载变化的部分。
+发布任务会检查 `latest-mac.yml` 里的版本号和 zip 文件名，少了它们，已安装的用户就收不到这次更新。
+0.1.0 没有自动更新功能，装了 0.1.0 的人需要手动下载安装一次之后的版本。
+
+## 发布 RSSHub 资源包时
+
+资源包的 Release 和 App 在同一个仓库。自动更新只看标着 **Latest** 的 Release，所以创建资源包 Release 时必须加
+`--latest=false`，否则已安装的所闻会去资源包的 Release 里找更新，找不到 `latest-mac.yml` 就报检查失败。
 
 发布任务还会检查主应用、Electron 辅助进程、`pnr-reader`、`pnr-wake`（唤醒程序）、公证票据和 DMG 内最终应用。
 

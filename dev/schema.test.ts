@@ -4,6 +4,7 @@ import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
+import * as sqliteVec from 'sqlite-vec';
 import { MIGRATIONS } from '../packages/store/src/migrations.ts';
 
 const p = join(tmpdir(), `pnr-verify-${Date.now()}.db`);
@@ -62,6 +63,23 @@ let refused = false;
 try { openDb(stale).close(); } catch { refused = true; }
 for (const s of ['','-wal','-shm']) rmSync(stale+s,{force:true});
 if (!refused) throw new Error('stale development database was opened');
-if (MIGRATIONS.length !== 1) throw new Error('expected one schema migration before the first release');
+if (MIGRATIONS[0]!.name !== '001_schema') throw new Error('released migrations must never be renamed or reordered');
 
-console.log('\n✅ schema 新建、幂等、拒绝旧开发库 验证通过');
+// 0.1.0 用户的库只跑过 001_schema：打开时要补上后面的迁移，原有数据不动。
+const released = join(tmpdir(), `pnr-010-${Date.now()}.db`);
+const v010 = new Database(released);
+v010.loadExtension(sqliteVec.getLoadablePath());
+v010.exec(MIGRATIONS[0]!.sql);
+v010.exec("CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL); INSERT INTO _migrations VALUES ('001_schema', 0)");
+v010.prepare("INSERT INTO sources (id,kind,name,url,trust,enabled,added_by,created_at) VALUES ('keep','rss','旧源','https://x',0.9,1,'user',0)").run();
+v010.close();
+const upgraded = openDb(released);
+const applied = (upgraded.prepare('SELECT name FROM _migrations ORDER BY name').all() as { name: string }[]).map((r) => r.name);
+const hasCol = (upgraded.prepare("SELECT COUNT(*) c FROM pragma_table_info('sources') WHERE name='scores_json'").get() as { c: number }).c === 1;
+const hasTable = Boolean(upgraded.prepare("SELECT 1 FROM sqlite_master WHERE name='watch_sources'").get());
+const kept = Boolean(upgraded.prepare("SELECT 1 FROM sources WHERE id='keep'").get());
+upgraded.close();
+for (const s of ['','-wal','-shm']) rmSync(released+s,{force:true});
+if (applied.join() !== MIGRATIONS.map((m) => m.name).join() || !hasCol || !hasTable || !kept) throw new Error('0.1.0 database did not upgrade cleanly');
+
+console.log('\n✅ schema 新建、幂等、拒绝旧开发库、0.1.0 的库能升级 验证通过');

@@ -109,6 +109,15 @@ jobs:
           scripts/verify-package.sh "$mount_dir/所闻.app"
           spctl --assess --type execute --verbose=4 "$mount_dir/所闻.app"
 
+      - name: Verify update metadata
+        # The installed app reads latest-mac.yml to find the new version; without
+        # it (or with a zip name it does not list) nobody gets the update.
+        run: |
+          test -f release/latest-mac.yml
+          zip_name="$(basename release/*.zip)"
+          grep -q "url: ${zip_name}" release/latest-mac.yml
+          grep -q "^version: ${GITHUB_REF_NAME#v}$" release/latest-mac.yml
+
       - name: Create checksums
         run: shasum -a 256 release/*.dmg release/*.zip > release/SHA256SUMS.txt
 
@@ -119,6 +128,8 @@ jobs:
           path: |
             release/*.dmg
             release/*.zip
+            release/*.zip.blockmap
+            release/latest-mac.yml
             release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
@@ -131,6 +142,8 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             release/*.dmg \
             release/*.zip \
+            release/*.zip.blockmap \
+            release/latest-mac.yml \
             release/SHA256SUMS.txt \
             --verify-tag \
             --title "所闻 ${GITHUB_REF_NAME#v}" \

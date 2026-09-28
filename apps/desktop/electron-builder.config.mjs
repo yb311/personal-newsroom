@@ -44,6 +44,11 @@ export default {
     'node_modules/**/*.node',
     'node_modules/**/*.dylib'
   ],
+  // Where the app looks for updates (apps/desktop/src/updater.ts). With a
+  // publish target, the build also writes latest-mac.yml and the zip's
+  // .blockmap; the release workflow uploads them next to the zip. Builds are
+  // still published by that workflow (`--publish never`), not by electron-builder.
+  publish: [{ provider: 'github', owner: 'yb311', repo: 'personal-newsroom', releaseType: 'release' }],
   // ASCII only: GitHub strips non-ASCII from release asset names (v0.1.0 shipped as "-0.1.0-arm64.dmg").
   artifactName: 'personal-newsroom-${version}-${arch}.${ext}',
   mac: {

@@ -83,3 +83,23 @@ export const categoryLabel = (key: string | null, lang?: string): string =>
 /** The catalogue stores countries in English; Chinese gets its own names. */
 export const countryLabel = (name: string | null, lang?: string): string | null =>
   name ? (isZh(lang) ? COUNTRIES[name] ?? name : name) : null;
+
+/**
+ * The fixed fields of `catalogs/data/source-scores.json`: how well a source
+ * covers each one, 1–10, hand-written. Key → [Chinese, English].
+ * `dev/catalogue.test.ts` rejects a field that is not listed here.
+ */
+export const SCORE_FIELDS: Record<string, [zh: string, en: string]> = {
+  world: ['国际时政', 'World'], china: ['中国', 'China'], us: ['美国', 'United States'],
+  americas: ['美洲', 'Americas'], europe: ['欧洲', 'Europe'], 'russia-ukraine': ['俄罗斯与乌克兰', 'Russia & Ukraine'],
+  mideast: ['中东', 'Middle East'], asia: ['亚太', 'Asia-Pacific'], 'south-asia': ['南亚', 'South Asia'],
+  oceania: ['大洋洲', 'Oceania'], africa: ['非洲', 'Africa'], business: ['商业经济', 'Business'],
+  markets: ['金融市场', 'Markets'], crypto: ['加密货币', 'Crypto'], tech: ['科技', 'Technology'],
+  ai: ['人工智能', 'AI'], dev: ['软件开发', 'Software'], security: ['网络安全', 'Cybersecurity'],
+  science: ['科学', 'Science'], space: ['太空', 'Space'], health: ['健康医学', 'Health'],
+  climate: ['气候环境', 'Climate'], sports: ['体育', 'Sports'], culture: ['文化娱乐', 'Culture'],
+  games: ['游戏', 'Games'], lifestyle: ['生活方式', 'Lifestyle']
+};
+
+export const scoreFieldLabel = (key: string, lang?: string): string =>
+  SCORE_FIELDS[key]?.[isZh(lang) ? 0 : 1] ?? key;

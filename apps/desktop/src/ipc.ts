@@ -1,7 +1,8 @@
 import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
 import { checkConnection, publicSettings, resolveProvider, writeSetting, invalidateProvider, GEMINI_MODELS, OPENAI_MODELS, ANTHROPIC_MODELS, type AiConnection } from '@pnr/ai';
-import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection } from '@pnr/watch';
+import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection, getWatch,
+  suggestSources, addWatchSources, setWatchSourcePlacement, removeWatchSource, listWatchSources, type SourceSuggestion, type Placement } from '@pnr/watch';
 import { unseenDevelopments, markWatchSeen, timeline, getDigest, recentFlashes, openQuestions, readOutsidePicks } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
 import { CATEGORIES, countryLabel } from '@pnr/core/catalog-labels';
@@ -28,6 +29,8 @@ export interface SourceRow {
   unread: number; total: number; lastError: string | null;
   /** Publication time of the newest item, to spot sources that stopped publishing. */
   newest: number | null;
+  /** Not subscribed, but fetched because a watch uses it (catalogue only). */
+  background?: number;
 }
 
 /** Items found by a news search sit under a placeholder source ("搜索发现",
@@ -260,7 +263,8 @@ export function createApi(db: Db, dataDir: string) {
     catalogue(opts: { q?: string; category?: string | null; country?: string | null; limit?: number } = {}): CatalogueResult {
       const all = db.prepare(`
         SELECT id, name, kind, category, country, domain, enabled, last_error AS lastError,
-               0 AS unread, 0 AS total, NULL AS newest
+               0 AS unread, 0 AS total, NULL AS newest,
+               (enabled = 0 AND id IN (SELECT source_id FROM watch_sources)) AS background
         FROM sources WHERE added_by != 'search'`).all() as SourceRow[];
       const words = (opts.q ?? '').toLowerCase().split(/\s+/).filter(Boolean);
       const scored = all.map((s) => ({ s, score: scoreSource(s, words) })).filter((x) => x.score > 0);
@@ -336,6 +340,32 @@ export function createApi(db: Db, dataDir: string) {
       return createWatch(db, { origin: 'intent', label: input.label, intent: input.intent,
                                keywords: input.keywords ?? [], outputLang: input.outputLang ?? null });
     },
+    /**
+     * Catalogue sources the model picks for newly created watches, one list per
+     * watch. Empty without AI, or when the call fails: the dialog then simply
+     * does not appear.
+     */
+    async suggestSources(watchIds: string[], lang?: string): Promise<{ watchId: string; label: string; sources: SourceSuggestion[] }[]> {
+      const provider = await resolveProvider(db);
+      if (!provider) return [];
+      const out: { watchId: string; label: string; sources: SourceSuggestion[] }[] = [];
+      for (const id of watchIds) {
+        const w = getWatch(db, id);
+        if (!w) continue;
+        try { out.push({ watchId: id, label: w.label, sources: await suggestSources(db, provider, w, { lang }) }); }
+        catch { /* logged by the provider; this watch just gets no suggestions */ }
+      }
+      return out.filter((x) => x.sources.length);
+    },
+    /** The picks the person kept: 'front' subscribes them, 'back' fetches them for the watch only. */
+    applyWatchSources(watchId: string, sourceIds: string[], placement: Placement): void {
+      addWatchSources(db, watchId, sourceIds, placement === 'front' ? 'front' : 'back');
+    },
+    watchSources(watchId: string): unknown { return listWatchSources(db, watchId); },
+    moveWatchSource(watchId: string, sourceId: string, placement: Placement): void {
+      setWatchSourcePlacement(db, watchId, sourceId, placement === 'front' ? 'front' : 'back');
+    },
+    removeWatchSource(watchId: string, sourceId: string): void { removeWatchSource(db, watchId, sourceId); },
     /** Adds several presets at once, from the topic library. */
     addPresets(ids: string[], lang?: string): string[] {
       return ids.map((id) => enablePreset(db, id, lang)).filter((x): x is string => Boolean(x));

@@ -270,7 +270,9 @@
       "open_item": "article",
       "open_watch": "watch",
       "open_source": "source",
-      "open_settings": "Settings"
+      "open_settings": "Settings",
+      "suggest_watch_sources": "suggesting sources",
+      "add_watch_sources": "adding sources to a watch"
     },
     "action": {
       "list_watches": "View watches",
@@ -318,7 +320,9 @@
       "open_item": "Open article",
       "open_watch": "Open watch",
       "open_source": "Open source",
-      "open_settings": "Open Settings"
+      "open_settings": "Open Settings",
+      "suggest_watch_sources": "Suggest sources",
+      "add_watch_sources": "Add sources to watch"
     },
     "field": {
       "label": "Name",
@@ -350,7 +354,9 @@
       "flashes": "Flashes",
       "failed": "Failed",
       "searchFillEnabled": "Search fill",
-      "outsidePicksEnabled": "Beyond your watches"
+      "outsidePicksEnabled": "Beyond your watches",
+      "placement": "Add to",
+      "sources": "Sources"
     },
     "value": {
       "verdict": {
@@ -394,6 +400,10 @@
         "system": "Match system",
         "zh-CN": "中文",
         "en": "English"
+      },
+      "placement": {
+        "subscribe": "Subscribe",
+        "watch_only": "Watch only"
       }
     },
     "status": {
@@ -643,7 +653,25 @@
     },
     "assistantMode": "Permission Mode",
     "backgroundFooter": "After you close the window, 所闻 keeps writing the daily brief and checking for flashes on schedule. Its background items appear as “所闻” in System Settings → General → Login Items & Extensions.",
-    "needsApproval": "Allow “所闻” in Login Items & Extensions."
+    "needsApproval": "Allow “所闻” in Login Items & Extensions.",
+    "updatesTitle": "Software Update",
+    "version": "Version {{version}}",
+    "autoUpdate": "Check for updates automatically",
+    "autoUpdateHint": "Asks GitHub every 6 hours. A new version downloads in the background, then you are asked whether to restart. None of your data is sent.",
+    "checkNow": "Check Now",
+    "installNow": "Restart and Update",
+    "moveNow": "Move to Applications Folder…",
+    "updateStatus": {
+      "idle": "Not checked yet",
+      "checking": "Checking…",
+      "upToDate": "Up to date",
+      "downloading": "Downloading {{version}} ({{percent}}%)",
+      "ready": "{{version}} downloaded; restart to finish",
+      "offline": "GitHub can’t be reached; will try again later",
+      "failed": "The last check failed; will try again later",
+      "dev": "Development builds don’t check for updates",
+      "location": "Not in the Applications folder, so it can’t update"
+    }
   },
   "catalogue": {
     "title": "Subscriptions",
@@ -739,7 +767,9 @@
     "packError": {
       "already_installing": "already downloading",
       "manifest_unavailable": "couldn't get the extension manifest; check your network"
-    }
+    },
+    "watchOnly": "Watch only",
+    "watchOnlyHint": "Not subscribed, but fetched in the background for a watch"
   },
   "rsshub": {
     "packBanner": "Social platforms come through RSSHub, which needs a one-time download (about 63 MB).",
@@ -865,7 +895,17 @@
     "activeHint": "When off, the watch stops updating and keeps what it has.",
     "updateHint": "Fetch the latest coverage and filter it; the timeline is updated only when something new passes",
     "nothingNew": "No new coverage; the timeline is unchanged",
-    "discardConfirm": "Discard Changes"
+    "discardConfirm": "Discard Changes",
+    "sources": {
+      "title": "Sources",
+      "hint": "Sources chosen for this watch. Watch-only sources are fetched in the background and do not appear in Reading.",
+      "subscribed": "Subscribed",
+      "watchOnly": "Watch only",
+      "remove": "Remove",
+      "more": "Find more in the source catalogue",
+      "none": "No sources chosen for this watch yet",
+      "suggest": "Suggest Sources…"
+    }
   },
   "menu": {
     "about": "About 所闻",
@@ -901,7 +941,8 @@
     "copyText": "Copy Text",
     "manageSubscriptions": "Manage Subscriptions…",
     "updateAll": "Update All",
-    "regenerateAll": "Regenerate All"
+    "regenerateAll": "Regenerate All",
+    "checkForUpdates": "Check for Updates…"
   },
   "report": {
     "title": "Deep Report",
@@ -932,5 +973,36 @@
       "empty_report": "The model returned nothing. Try again.",
       "conversation_context_exceeded": "The conversation is longer than the model allows. Write it again."
     }
+  },
+  "sourceSuggest": {
+    "title": "Suggested Sources",
+    "loading": "Choosing from the source catalogue…",
+    "intro": "Subscribed sources appear in Reading. Watch-only sources are fetched in the background.",
+    "score": "{{field}} {{score}}",
+    "scoreTitle": "How well this source covers the field (1–10)",
+    "skip": "Skip",
+    "watchOnly": "Watch Only",
+    "subscribe": "Subscribe"
+  },
+  "update": {
+    "ok": "OK",
+    "readyTitle": "所闻 {{version}} is ready to install",
+    "readyDetail": "It takes effect after a restart. Choose Later to install it the next time you quit 所闻.",
+    "restart": "Restart and Update",
+    "later": "Later",
+    "upToDate": "所闻 {{version}} is up to date",
+    "downloading": "Downloading 所闻 {{version}}",
+    "downloadingDetail": "It downloads in the background. You will be asked to restart when it is ready.",
+    "failed": "Couldn’t check for updates",
+    "offline": "GitHub can’t be reached. Check your connection and try again.",
+    "failedDetail": "It will try again later.",
+    "devTitle": "Development builds don’t check for updates",
+    "devDetail": "Only signed releases update themselves.",
+    "moveTitle": "Move 所闻 to the Applications folder?",
+    "moveDetail": "所闻 isn’t in the Applications folder, where macOS lets it replace itself, so it can’t update automatically. It reopens after the move.",
+    "move": "Move to Applications Folder",
+    "notNow": "Not Now",
+    "dontAsk": "Don’t ask again",
+    "moveFailed": "The move didn’t work. Quit 所闻 and drag it to the Applications folder yourself."
   }
 }

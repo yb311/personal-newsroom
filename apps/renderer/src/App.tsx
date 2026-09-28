@@ -422,7 +422,8 @@ export default function App() {
           : tab === 'flashes' ? <Flashes aiReady={aiReady} revision={revision} important={importantOnly} divider={listDivider} onSetup={() => openSettings('ai')}
               onOpen={openItem} onReport={openReport} onOpenWatch={openWatch} onCount={(n) => setCounts((c) => ({ ...c, flashes: n }))} onScreen={setViewScreen} />
           : <Watches aiReady={aiReady} revision={revision} query={watchQuery} divider={listDivider} onSetup={() => openSettings('ai')} onOpen={openItem} onReport={openReport}
-              onCount={(n, fresh) => setCounts((c) => ({ ...c, watches: n, fresh }))} request={watchRequest} onRequestDone={() => setWatchRequest(null)} onScreen={setViewScreen} />}
+              onCount={(n, fresh) => setCounts((c) => ({ ...c, watches: n, fresh }))} request={watchRequest} onRequestDone={() => setWatchRequest(null)} onScreen={setViewScreen}
+              onSourcesChanged={() => { void loadSources(); void refresh(); }} />}
           </ErrorBoundary></div>
         </div>
       </main>

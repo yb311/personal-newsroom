@@ -76,6 +76,8 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 更新按钮 | 工具栏分两半，**左半在列表正上方，放作用于列表的操作**，右半放作用于选中项的操作（同 Mail）。**↻ 只表示「取新内容」**，只在阅读（更新订阅）和快讯（检查新快讯）出现，紧挨列表标题。**「全部更新」是唯一的全局按钮**：只在侧栏标题栏，**侧栏收起时随侧栏一起隐藏**（不在工具栏放只有图标的副本，它会和列表的 ↻ 挨在一起分不清），菜单 ⇧⌘R 始终可用；按住 ⌥ 变成「全部重新生成」（⌥⇧⌘R）。**AI 重写用带文字的按钮，放在被重写的东西上**：今日摘要文首「重新生成」**只重写摘要这一份**（一次调用，不抓取不判定）；单个关注的「立即更新」（先抓取再筛选，有新报道才重读进展）。**所有写作一律增量**（`pipeline.ts`）：进展只在有新过闸报道时重读（`watches.progress_at`）、快讯只看模型没见过的候选（`flash_considered`）、摘要只在有新进展或新关注有材料时重写（`digestDue`）、关注之外一天一次、AI 初筛按关注原话缓存（`prescreen_results`）；`force` 才全部重写 | 2026-09-22 用户反馈四个一样的 ↻ 分不清；2026-09-24 用户要求以省 token 为目标设计按钮，并要一个全部更新的按钮；2026-09-25 用户反馈侧栏收起时阅读页出现两个 ↻ 很奇怪 |
 | 右侧分栏 | **新闻助手**：通用问答，不绑定文章，可联网（本地订阅 + Google News + 厂商网页搜索）。**它知道左边打开的是什么**（文章、文章列表、今日摘要/往期、关注之外、快讯、关注、深度报道）：界面只传「是哪一个」（`ScreenFocus`），正文由主进程从数据库完整读取（`packages/generate/src/screen.ts`），打开的文章整篇作为 s1；App 自己写的摘要/时间线/快讯原样给模型，背后的文章登记成 `sN` 供引用。输入框上的眼睛胶囊显示附带了什么，点一下下个问题不带；问题下方记「看着：…」 | 侧栏只放助手；2026-09-25 用户要求助手知道左边在看什么 |
 | 助手即 agent | 助手能做按钮能做的事：**工具就是按钮背后的同一个函数**（`apps/desktop/src/agent-tools.ts` 包 `createApi` 和 main.ts 的 `runs.*`），循环在 `packages/generate/src/agent.ts`，每步走 `provider.generate`（replay/成本体检/假模型照常可用），不用厂商原生 tool calling。**风险等级写在工具上、放行由主进程 `gate()` 按权限模式判定**（只看不改 / 每次确认（默认）/ 自动改危险的问我 / 全部自动，胶囊 + ⇧Tab 切换），模型说什么都不算确认。卡片文字由代码从数据库算出，可撤销的给撤销。关注 intent、纠偏 note 必须是用户原话，否则标黄并强制确认。**API key/token 永不做成工具**，像密钥的输入本地拦截；文章正文永不进 agent 步骤 | 2026-09-25 用户要求「所有操作都能让助手完成」，权限「跟 Codex、Claude Code 一样的模式控制，用户可以调整」 |
+| 按关注挑源 | 新建关注后（有 AI）一次快档调用，把**原话整段** + 整个内置目录（带人工评分 `catalogs/data/source-scores.json`）交给模型挑 ≤8 个源，弹窗问「跳过 / 仅用于关注 / 订阅」。「仅用于关注」= 不进阅读、只在后台抓取（`watch_sources`，抓取看 `sourcesToFetch`）。评分是**人工写死的表**，不是软件生成的；目录加源必须补评分行。助手同样能做：`suggest_watch_sources` + `add_watch_sources` | 2026-09-27 用户提出关注的内容不在订阅源里怎么办；不全开 550 个源（成本、阅读被淹没） |
+| 自动更新 | `electron-updater` + GitHub Release（`apps/desktop/src/updater.ts`）：启动后和每 6 小时检查，**自动后台下载，下载好再问**「重新启动并更新 / 稍后」，稍后则退出时安装。菜单「检查更新…」，设置 → 通用可关自动检查。不在 `/Applications` 时提示移过去。发布必须带 `latest-mac.yml` + zip + blockmap；资源包 Release 必须 `--latest=false` | 2026-09-27 用户选了「自动下载，下完再问」 |
 | 深度报道 | 保留，但**不在侧栏**：从文章/快讯/进展进入，在主区域以文档视图打开，工具栏返回 | 绑定一条新闻，材料快照存 `conversations` 表；失败的首稿不会被当成已存报道恢复 |
 | 界面形态 | **按 macOS 应用做布局**：设置是独立窗口（⌘,，System Settings 式分组）、原生右键菜单、状态写在工具栏副标题 | 不要加网页式状态栏、卡片、悬停高亮 |
 | 主区域布局 | **今日 / 快讯 / 阅读 / 关注一律「左列表 + 右详情」分栏**（`ListPane.tsx`，方向键切换，列宽共用）。今日列表：今日摘要 → 关注之外 → 往期；**有摘要时不显示要闻**，没摘要时要闻代替。AI 写的文档用编号角标 + 文末来源列表，不用来源名胶囊 | 2026-09-22 用户反馈「太像网页、今日太杂」：长滚动页 + 卡片 + 网格就是网页感的来源 |
@@ -129,21 +131,21 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 ## 进度（截至 2026-09-25）
 
 M-1 技术验证到 M6 全部完成（验证结论并进了 `docs/ARCHITECTURE.zh-CN.md` §12）。剩下 M7 开源打磨，见下面「剩余工作」。
-**还没发布过任何版本**，所以不需要兼容任何旧数据、旧设置或旧的后台任务——见「踩过的坑」里关于 schema 的一条。
+**0.1.0 已于 2026-09-27 公开发布**（GitHub Release `v0.1.0`），从此要兼容已安装用户的数据库、设置和后台任务——见「踩过的坑」里关于 schema 的一条。
 
 | 包 | 内容 | 验证 |
 |---|---|---|
 | `@pnr/core` | `DiscoveredItem` 统一契约、`canonicalDedupKey`、`RichBlock`、结构化日志、下载、开关 | — |
-| `@pnr/store` | 一个 schema（`001_schema`，**SQL 嵌在 TS 里**）：32 张表 + 2 个 vec0 虚拟表；SQLite 锁；正文文件 | `test:schema` |
+| `@pnr/store` | 只追加的迁移（`001_schema` 起，**SQL 嵌在 TS 里**）：33 张表 + 2 个 vec0 虚拟表；SQLite 锁；正文文件 | `test:schema` |
 | `@pnr/feed` | **12 种源适配器** + 注册表分发 + 粘贴内容自动识别 + 并发入库去重 + RSSHub 资源包 | `test:adapters` · `test:resolve` · `test:ingest` · `test:catalogue` |
 | `native/reader` | Go 阅读核心：feed/sitemap 解析、编码识别、正文抽取、HTML 清洗、语言识别 | `reader:test`（含 Miniflux 原有测试 + 34 页抽取基准） |
 | `@pnr/reader-core` | 常驻子进程客户端（按需启动、崩溃重启、空闲 unref） | — |
 | `@pnr/reader` | 下载页面 → 阅读核心抽取 → 落盘 `{html,text,words}`；付费墙名单 | `test:reader` |
 | `@pnr/ai` | Vercel AI SDK Provider（Gemini / OpenAI / Claude / 兼容接口 / Ollama）、无 key 闸门、流式/搜索、向量代次、按请求计价、录放 | `test:ai`（真实 SDK + 模拟 HTTP）· `test:ai-live`（付费实测） |
-| `@pnr/watch` | Watch 模型、37 个预置主题（5 组，中英两套）、意图向量、召回辅助、纠偏 | `test:watch` · `test:watches` |
+| `@pnr/watch` | Watch 模型、37 个预置主题（5 组，中英两套）、意图向量、召回辅助、纠偏、按关注挑源 | `test:watch` · `test:watches` · `test:source-suggest` |
 | `@pnr/recall` | R1/R2/R3 三路并集、判定前免费排序截断、批量判定、意图闸门、无 AI 时的关键词匹配 | `test:pipeline` |
 | `@pnr/generate` | 流程编排、今日摘要、进展、快讯、关注之外、搜索补全、深度报道、新闻助手 | `test:today` · `test:generate` · `test:flash-cap` · `test:search-fill` · `test:outside` · `test:report` · `test:assistant` |
-| `apps/desktop` | Electron 主进程、IPC、菜单、设置窗口、源目录与自定义源、后台调度、唤醒组件 | `test:wake` · 界面逐屏截图验证 |
+| `apps/desktop` | Electron 主进程、IPC、菜单、设置窗口、源目录与自定义源、后台调度、唤醒组件、自动更新 | `test:wake` · `test:update` · 界面逐屏截图验证 |
 | `apps/renderer` | 今日 / 快讯 / 阅读 / 关注 + 新闻助手分栏 + 深度报道 + 设置 | `test:i18n` |
 | `apps/worker` | 无界面 worker，`auto` / `daily` / `flashes` / `fetch` 四种模式，日志写库 | 实跑 59s 全绿 |
 | `assets` | 应用图标：`AppIcon.icon` 是唯一源，`Assets.car`（26+）/ `icon.icns`（26 以前）由 `npm run icon:build` 生成 | 六种外观 + 16/32/64/128 各尺寸目视检查 |
@@ -189,7 +191,7 @@ M-1 技术验证到 M6 全部完成（验证结论并进了 `docs/ARCHITECTURE.z
 ### 剩余工作
 
 - **发布第一个签名公证版本**：流程已接好（`docs/RELEASING.zh-CN.md`，打 `vX.Y.Z` 标签触发），还没正式发过
-- 自动更新、一键卸载、贡献指南
+- 一键卸载、贡献指南
 
 ### 打包时的图标接线（别漏了其中一半）
 
@@ -212,9 +214,9 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
 
 ### 踩过的坑（别再踩）
 
-- **发布前 schema 只有一个 `001_schema`**（`packages/store/src/migrations.ts`）：要改表结构就直接改它，
-  不写 ALTER、不写兼容旧数据的读取分支；自己的开发库打开时会报「未发布的开发版」，挪开重建即可。
-  **发布第一个版本之后**才改成只追加新迁移、永不修改已发布的
+- **0.1.0 已发布，迁移只追加、永不修改已发布的**（`packages/store/src/migrations.ts` 的 `MIGRATIONS`）：
+  改表结构就在末尾加 `00N_xxx`（`ALTER TABLE … ADD COLUMN`、`CREATE TABLE`），`001_schema` 必须和 `v0.1.0` 标签里一字不差。
+  `test:schema` 用一份只跑过 `001_schema` 的库验证能升级。2026-09-27 差点直接改了 `001_schema`：已安装的库不会重跑它，升级后缺表直接出错
 
 - **界面文字只放在词典里**：`apps/renderer/src/locales/zh-CN.json`、`en.json`（i18next + react-i18next），
   组件里不写中文句子；菜单由主进程读同一份词典。主进程和各包返回**原因码**（`duplicate`、

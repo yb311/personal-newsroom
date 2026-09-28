@@ -160,6 +160,27 @@ check(navigated.at(-1)?.kind === 'source', '继续做完剩下的一步');
 await undoAction(db, toolbox, sub.id);
 check((db.prepare("SELECT enabled FROM sources WHERE id='bbc'").get() as { enabled: number }).enabled === 0, '订阅可撤销');
 
+console.log('\n=== 为关注添加来源 ===');
+db.prepare(`INSERT INTO sources (id,kind,name,url,trust,enabled,added_by,created_at) VALUES ('nhk','rss','NHK','https://nhk.test/rss',0.9,0,'catalog',?)`).run(now);
+const sw = listWatches(db)[0]!.id;
+check(agentPrompts[0]!.includes('suggest_watch_sources') && agentPrompts[0]!.includes('add_watch_sources'), 'agent 看得到推荐来源和添加来源两个工具');
+chat = await ask('给这个关注推荐来源', 'ask', [{ route: 'tools', calls: [{ tool: 'suggest_watch_sources', args: { watchId: sw } }] }, { route: 'done', reply: '没有合适的。' }]);
+check(chat.messages.at(-1)!.status === 'complete' && !agentPrompts.at(-1)!.includes('invalid args'), '推荐来源不用确认；没配 AI 时如实返回空');
+chat = await ask('NHK 只给这个关注用', 'ask', [{ route: 'tools', calls: [{ tool: 'add_watch_sources', args: { watchId: sw, sourceIds: ['nhk'], placement: 'watch_only' } }] }]);
+const addSrc = lastActions(chat)[0]!;
+check(addSrc.status === 'proposed', '添加来源要先确认');
+await confirmAction(db, toolbox, addSrc.id);
+const placed = db.prepare("SELECT placement FROM watch_sources WHERE watch_id = ? AND source_id = 'nhk'").get(sw) as { placement: string } | undefined;
+check(placed?.placement === 'back' && (db.prepare("SELECT enabled FROM sources WHERE id='nhk'").get() as { enabled: number }).enabled === 0,
+  '确认后只用于关注，不进阅读');
+await undoAction(db, toolbox, addSrc.id);
+check(!db.prepare("SELECT 1 FROM watch_sources WHERE source_id = 'nhk'").get(), '添加来源可撤销');
+chat = await ask('NHK 订阅，也给这个关注用', 'full', [{ route: 'tools', calls: [{ tool: 'add_watch_sources', args: { watchId: sw, sourceIds: ['nhk', 'ghost'], placement: 'subscribe' } }] }]);
+check((db.prepare("SELECT enabled FROM sources WHERE id='nhk'").get() as { enabled: number }).enabled === 1
+  && !db.prepare("SELECT 1 FROM watch_sources WHERE source_id = 'ghost'").get(), '选「订阅」会进阅读；不存在的 id 被忽略');
+await undoAction(db, toolbox, lastActions(chat)[0]!.id);
+check((db.prepare("SELECT enabled FROM sources WHERE id='nhk'").get() as { enabled: number }).enabled === 0, '撤销后退订');
+
 console.log('\n=== 阅读状态、耗时任务 ===');
 chat = await ask('把 Wire 全部标为已读', 'auto', [{ route: 'tools', calls: [{ tool: 'mark_read', args: { sourceId: 'wire' } }] }]);
 check(api.unreadIds('wire').length === 0, '按来源全部标为已读');

@@ -15,6 +15,23 @@ export interface SourceRow {
   country: string | null; domain: string | null; enabled: number;
   unread: number; total: number; lastError: string | null;
   newest?: number | null;
+  /** Not subscribed, but fetched because a watch uses it (catalogue only). */
+  background?: number;
+}
+export interface UpdateState {
+  phase: 'unsupported' | 'idle' | 'checking' | 'upToDate' | 'downloading' | 'ready' | 'error';
+  current: string; version: string | null; percent: number | null;
+  reason: 'dev' | 'location' | 'offline' | 'failed' | null;
+  checkedAt: number | null; auto: boolean;
+}
+export interface SourceSuggestion {
+  sourceId: string; name: string; domain: string | null; country: string | null; category: string | null;
+  score: number; field: string | null; reason: string;
+}
+export type SourceSuggestions = { watchId: string; label: string; sources: SourceSuggestion[] }[];
+export interface WatchSourceRow {
+  sourceId: string; name: string; domain: string | null; country: string | null;
+  placement: 'front' | 'back'; enabled: boolean; addedAt: number;
 }
 export interface RouteParam { key: string; description: string; optional: boolean; options?: { value: string; label: string }[]; default?: string; advanced?: boolean }
 export interface CuratedRoute { id: string; platform: string; name: string; path: string; example: string; params: RouteParam[]; sources: string[]; site: string | null }
@@ -206,6 +223,11 @@ export interface Pnr {
   watches(): Promise<WatchRow[]>;
   addWatch(i: { label: string; intent: string; keywords?: string[]; outputLang?: string | null }): Promise<WatchRow>;
   addPresets(ids: string[], lang?: string): Promise<string[]>;
+  suggestSources(watchIds: string[], lang?: string): Promise<SourceSuggestions>;
+  applyWatchSources(watchId: string, sourceIds: string[], placement: 'front' | 'back'): Promise<void>;
+  watchSources(watchId: string): Promise<WatchSourceRow[]>;
+  moveWatchSource(watchId: string, sourceId: string, placement: 'front' | 'back'): Promise<void>;
+  removeWatchSource(watchId: string, sourceId: string): Promise<void>;
   uiLanguage(): Promise<{ choice: 'system' | 'zh-CN' | 'en'; resolved: 'zh-CN' | 'en' }>;
   setUiLanguage(choice: 'system' | 'zh-CN' | 'en'): Promise<{ choice: 'system' | 'zh-CN' | 'en'; resolved: 'zh-CN' | 'en' }>;
   backgroundPrompt(): Promise<boolean>;
@@ -252,6 +274,11 @@ export interface Pnr {
   assistantCancel(requestId: string): Promise<boolean>;
   onAssistantEvent(cb: (event: AssistantEvent) => void): () => void;
   scheduleState(): Promise<ScheduleState>;
+  updateState(): Promise<UpdateState>;
+  checkForUpdates(): Promise<UpdateState>;
+  setAutoUpdate(on: boolean): Promise<UpdateState>;
+  installUpdate(): Promise<void>;
+  onUpdate(cb: (state: UpdateState) => void): () => void;
   setSchedule(on: boolean, hour?: number): Promise<ScheduleState>;
   /** A native macOS confirmation sheet; true when the first (confirming) button is chosen. */
   confirm(opts: { message: string; detail?: string; confirm: string; cancel: string; destructive?: boolean }): Promise<boolean>;

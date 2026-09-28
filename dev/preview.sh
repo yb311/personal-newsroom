@@ -43,6 +43,8 @@ cat > "$OUT/preview.html" <<'HTML'
     // ?lang=en previews the English interface.
     uiLanguage: async () => { const l = window.__ui ?? (new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'zh-CN'); return { choice: l, resolved: l }; },
     setUiLanguage: async (c) => { window.__ui = c; return { choice: c, resolved: c === 'en' ? 'en' : 'zh-CN' }; },
+    updateState: async () => ({ phase: 'upToDate', current: '0.1.1', version: null, percent: null, reason: null, checkedAt: Date.now(), auto: true }),
+    checkForUpdates: async () => ({}), setAutoUpdate: async () => ({}), installUpdate: async () => {}, onUpdate: () => () => {},
     scheduleState: async () => ({ enabled: true, supported: true, status: 'enabled', dailyHour: 7, flashIntervalHours: 3, lastRun: { kind: 'daily', at: Date.now() - 3 * 3600e3, outcome: 'ok', stats: null }, wake: { on: true, status: 'enabled', next: Date.now() + 16 * 3600e3 } }),
     socialStatus: async () => ({ instanceUrl: null, pack: { installed: false } }), onSocialProgress: () => () => {},
     hasApifyToken: async () => false, rssHubReady: async () => false, rsshubRoutes: async () => [],
