@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "typecheck": "tsc --build",
-    "test:ci": "npm run reader:test && npm run test:schema && npm run test:ai && npm run test:search-fill && npm run test:flash-cap && npm run test:assistant && npm run test:agent && npm run test:report && npm run test:outside && npm run test:watch && npm run test:today && npm run test:catalogue && npm run test:watches && npm run test:source-suggest && npm run test:i18n && npm run test:resolve && npm run test:wake && npm run test:update",
+    "test:ci": "npm run reader:test && npm run test:schema && npm run test:ai && npm run test:search-fill && npm run test:flash-cap && npm run test:assistant && npm run test:agent && npm run test:report && npm run test:outside && npm run test:watch && npm run test:today && npm run test:catalogue && npm run test:watches && npm run test:source-suggest && npm run test:i18n && npm run test:resolve && npm run test:wake && npm run test:update && npm run test:add-source && npm run test:translate && npm run test:layout",
     "reader:build": "scripts/build-reader.sh",
     "reader:test": "cd native/reader && go test ./...",
     "doctor": "node --experimental-strip-types dev/doctor.ts",
@@ -50,6 +50,9 @@
     "test:resolve": "node --experimental-strip-types dev/resolve.test.ts",
     "test:wake": "node --experimental-strip-types dev/wake.test.ts",
     "test:update": "node --experimental-strip-types dev/update.test.ts",
+    "test:translate": "PNR_DISABLE_FETCH=1 node --experimental-strip-types dev/translate.test.ts",
+    "test:add-source": "PNR_DISABLE_FETCH=1 node --experimental-strip-types dev/add-source.test.ts",
+    "test:layout": "npm run build:renderer --workspace=@pnr/desktop --silent && electron dev/layout.test.mjs",
     "icon:build": "electron dev/make-icon.mjs",
     "worker": "npm run build --workspace=@pnr/worker && ELECTRON_RUN_AS_NODE=1 electron apps/worker/dist/worker.cjs",
     "package:prepare": "npm run reader:build && npm run build --workspace=@pnr/desktop && npm run build --workspace=@pnr/worker && node scripts/prepare-package.mjs",

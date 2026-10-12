@@ -10,3 +10,5 @@ export { generateOutsidePicks, readOutsidePicks, outsideEnabled, outsideDue, typ
 export { runAgent, gate, getAgentMode, setAgentMode, allowTool, confirmAction, rejectAction, undoAction, chatActions, looksLikeSecret, AGENT_MODES, MAX_STEPS, PROPOSAL_TTL,
   type AgentTool, type AgentMode, type Toolbox, type ToolResult, type ActionView, type ViewField, type NavTarget, type Risk, type AssistantAction, type ActionStatus, type ResolveResult } from './agent.ts';
 export { describeScreen, type ScreenFocus, type ScreenInput, type ScreenMaterial } from './screen.ts';
+export { translateSettings, setTranslateOption, translateText, translateTexts, translateItem, translateItems, readTranslation, headlineTranslations,
+  segmentHtml, hashText, isForeign, baseLang, MAX_BATCH, type TranslateSettings, type ItemTranslation, type BatchProgress, type BatchResult, type Block } from './translate.ts';

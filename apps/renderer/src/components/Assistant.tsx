@@ -1,11 +1,15 @@
 import { ArrowUp, CheckCheck, ChevronRight, Eye, EyeOff, Globe, History, MessageSquareText, Plus, ShieldCheck, ShieldOff, Square, Trash2, X, Zap } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ActionOutcome, AgentMode, AiStatus, AssistantAction, AssistantChat, AssistantChatSummary, AssistantEvent, AssistantMessage, AssistantPhase, AssistantSource, AssistantUnit, NavTarget, Screen } from '../types.ts';
 import { AGENT_MODES } from '../types.ts';
 import { ActionCard } from './ActionCard.tsx';
 import { ago } from '../i18n.ts';
 import { Cited } from './Cites.tsx';
+import { targetName, translateSelection } from '../translate.ts';
+
+/** An answer's translation, unit by unit, while it is being made or once it is. */
+type AnswerTranslation = (string | null)[] | 'loading';
 
 const CHAT_KEY = 'pnr.assistantChat';
 const WEB_KEY = 'pnr.assistantWeb';
@@ -39,14 +43,19 @@ const screenKey = (s: Screen | null): string =>
  * sources the app gathered — the reader's library, news search and, when
  * switched on, the web.
  */
-export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose }: {
-  ai: AiStatus | null; screen: Screen | null; onOpenItem: (id: string) => void; onNavigate: (target: NavTarget) => void; onSetup: () => void; onClose: () => void;
+export function Assistant({ ai, screen, quote, onOpenItem, onNavigate, onSetup, onClose }: {
+  ai: AiStatus | null; screen: Screen | null;
+  /** Text to quote in the input (问助手 on a selection); `n` changes for each new request. */
+  quote: { text: string; n: number } | null;
+  onOpenItem: (id: string) => void; onNavigate: (target: NavTarget) => void; onSetup: () => void; onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [chat, setChat] = useState<AssistantChat | null>(null);
   const [chats, setChats] = useState<AssistantChatSummary[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [draft, setDraft] = useState('');
+  /** Answers translated on request (right-click → 翻译这条回答), by message. */
+  const [answerTr, setAnswerTr] = useState<Record<string, AnswerTranslation>>({});
   const [web, setWeb] = useState(() => recall(WEB_KEY) !== '0');
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState('');
@@ -103,7 +112,8 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
           const units = raw.flatMap((unit) => {
             const text = typeof unit?.text === 'string' ? unit.text : '';
             if (!text) return [];
-            return [{ kind: unit.kind === 'listItem' ? 'listItem' as const : 'paragraph' as const, text,
+            return [{ kind: unit.kind === 'listItem' ? 'listItem' as const : unit.kind === 'translation' ? 'translation' as const : 'paragraph' as const, text,
+              ...(typeof unit.lang === 'string' ? { lang: unit.lang } : {}),
               sourceRefIds: Array.isArray(unit.sourceRefIds) ? unit.sourceRefIds.filter((id): id is string => typeof id === 'string') : [],
               supported: unit.supported === true }];
           });
@@ -125,6 +135,14 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
     const el = scroller.current;
     if (el && !showHistory) el.scrollTop = el.scrollHeight;
   }, [chat, pending, showHistory]);
+
+  // 问助手 on selected text: quoted at the top of the input, ready for the question.
+  useEffect(() => {
+    if (!quote) return;
+    setShowHistory(false);
+    setDraft((d) => t('assistant.quote', { text: quote.text.replace(/\s+/g, ' ').slice(0, 1_200) }) + d);
+    requestAnimationFrame(() => { const el = input.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
+  }, [quote?.n]);
 
   // The composer grows with its text, up to a few lines.
   useLayoutEffect(() => {
@@ -223,6 +241,34 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
     await loadChats();
   };
 
+  /** Right-click on an answer: translate it (or hide its translation), copy it, or translate the selection. */
+  const answerMenu = async (m: AssistantMessage, e: MouseEvent): Promise<void> => {
+    e.preventDefault();
+    const units = m.answer?.units ?? [];
+    const selected = window.getSelection()?.toString().trim() ?? '';
+    const current = answerTr[m.id];
+    const choice = await window.pnr.contextMenu([
+      ...(selected ? [{ id: 'selection', label: t('translate.menuSelection', { text: selected.length > 16 ? `${selected.slice(0, 15)}…` : selected }) },
+        { id: 'copySelection', label: t('menu.copy') }, { separator: true }] : []),
+      { id: 'translate', label: current && current !== 'loading' ? t('translate.answerHide') : t('translate.answer'), enabled: units.length > 0 && current !== 'loading' },
+      { id: 'copy', label: t('assistant.copyAnswer'), enabled: units.length > 0 }
+    ]);
+    if (choice === 'selection') translateSelection();
+    else if (choice === 'copySelection') void window.pnr.copyText(selected);
+    else if (choice === 'copy') void window.pnr.copyText(units.map((u) => u.text).join('\n\n'));
+    else if (choice === 'translate') {
+      if (current) { setAnswerTr(({ [m.id]: _gone, ...rest }) => rest); return; }
+      setAnswerTr((all) => ({ ...all, [m.id]: 'loading' }));
+      const r = await window.pnr.translateTexts(units.map((u) => u.text)).catch(() => null);
+      if (!mountedRef.current) return;
+      if (r?.ok) setAnswerTr((all) => ({ ...all, [m.id]: r.texts }));
+      else {
+        setAnswerTr(({ [m.id]: _gone, ...rest }) => rest);
+        setError(t(`translate.error.${r && !r.ok ? r.error : 'failed'}`, { defaultValue: t('translate.error.failed') }));
+      }
+    }
+  };
+
   const sources = useMemo(() => new Map((chat?.sources ?? []).map((s) => [s.refId, s])), [chat]);
   const openSource = (s: AssistantSource): void => {
     if (s.kind === 'library' && s.itemId) onOpenItem(s.itemId); else void window.pnr.openExternal(s.url);
@@ -264,6 +310,7 @@ export function Assistant({ ai, screen, onOpenItem, onNavigate, onSetup, onClose
       {chat?.messages.map((m) => m.role === 'user'
         ? <Question key={m.id} text={m.content ?? ''} screenLabel={m.screenLabel} />
         : <Answer key={m.id} message={m} sources={sources} onSource={openSource} handlers={handlers}
+            translation={answerTr[m.id]} onMenu={(e) => void answerMenu(m, e)}
             retry={m.status === 'failed' && m.id === last?.id ? questionBefore(m) : null} onRetry={(q) => void ask(q)} describe={describe} />)}
       {pending && <>
         {pending.question !== null && <Question text={pending.question} screenLabel={pending.screenLabel} />}
@@ -331,9 +378,10 @@ function Question({ text, screenLabel }: { text: string; screenLabel: string | n
   </>;
 }
 
-function Answer({ message, sources, onSource, handlers, retry, onRetry, describe }: {
+function Answer({ message, sources, onSource, handlers, retry, onRetry, describe, translation, onMenu }: {
   message: AssistantMessage; sources: Map<string, AssistantSource>; onSource: (s: AssistantSource) => void; handlers: ActionHandlers;
   retry: string | null; onRetry: (question: string) => void; describe: (code: string | null) => string;
+  translation: AnswerTranslation | undefined; onMenu: (e: MouseEvent) => void;
 }) {
   const { t } = useTranslation();
   const actions = message.actions.length > 0 ? <Actions actions={message.actions} handlers={handlers} /> : null;
@@ -344,10 +392,11 @@ function Answer({ message, sources, onSource, handlers, retry, onRetry, describe
   const units = message.answer.units;
   const cited = [...new Set(units.flatMap((u) => u.sourceRefIds))].map((r) => sources.get(r)).filter((s): s is AssistantSource => Boolean(s));
   return (
-    <div className="answer">
+    <div className="answer" onContextMenu={onMenu}>
       {actions}
-      <Units units={units} sources={sources} onSource={onSource} />
-      {units.some((u) => !u.supported && u.kind !== 'note') && <p className="answer-note">{t('assistant.unsourced')}</p>}
+      <Units units={units} sources={sources} onSource={onSource} translations={Array.isArray(translation) ? translation : undefined} />
+      {translation === 'loading' && <p className="answer-note"><span className="spinner" aria-hidden />{t('translate.selection.translating')}</p>}
+      {units.some((u) => !u.supported && u.kind !== 'note' && u.kind !== 'translation') && <p className="answer-note">{t('assistant.unsourced')}</p>}
       {cited.length > 0 && <details className="answer-sources" open={cited.length <= 3}>
         <summary><ChevronRight size={11} strokeWidth={2.25} aria-hidden />{t('assistant.sources', { count: cited.length })}</summary>
         <ol>{cited.map((s) => (
@@ -386,7 +435,12 @@ function Actions({ actions, handlers }: { actions: AssistantAction[]; handlers: 
   </>;
 }
 
-function Units({ units, sources, onSource }: { units: AssistantUnit[]; sources: Map<string, AssistantSource>; onSource: (s: AssistantSource) => void }) {
+function Units({ units, sources, onSource, translations }: {
+  units: AssistantUnit[]; sources: Map<string, AssistantSource>; onSource: (s: AssistantSource) => void;
+  /** One per unit, when the answer was translated on request. */
+  translations?: (string | null)[] | undefined;
+}) {
+  const { t } = useTranslation();
   // Consecutive list items form one list; everything else is a paragraph.
   const blocks: { list: boolean; units: AssistantUnit[] }[] = [];
   for (const u of units) {
@@ -399,7 +453,15 @@ function Units({ units, sources, onSource }: { units: AssistantUnit[]; sources: 
     return found.length === 0 ? null : <span className="refs">{found.map((s) =>
       <button key={s.refId} className="ref" title={[s.publisher, s.title].filter(Boolean).join(' · ')} onClick={() => onSource(s)}>{s.refId.slice(1)}</button>)}</span>;
   };
-  return <>{blocks.map((b, i) => b.units[0]!.kind === 'note' ? <p key={i} className="answer-agent-note">{b.units[0]!.text}</p> : b.list
-    ? <ul key={i}>{b.units.map((u, j) => <li key={j}><Cited text={u.text}>{refs(u)}</Cited></li>)}</ul>
-    : <p key={i}><Cited text={b.units[0]!.text}>{refs(b.units[0]!)}</Cited></p>)}</>;
+  // A translation made on request sits under the unit it translates.
+  const tr = (u: AssistantUnit) => { const text = translations?.[units.indexOf(u)]; return text ? <span className="unit-tr">{text}</span> : null; };
+  return <>{blocks.map((b, i) => {
+    const u = b.units[0]!;
+    if (u.kind === 'translation') return <div key={i} className="answer-translation">
+      <span className="eyebrow">{t('assistant.translationLabel', { lang: targetName(u.lang ?? '') })}</span><p lang={u.lang}>{u.text}</p>{tr(u)}</div>;
+    if (u.kind === 'note') return <p key={i} className="answer-agent-note">{u.text}{tr(u)}</p>;
+    return b.list
+      ? <ul key={i}>{b.units.map((x, j) => <li key={j}><Cited text={x.text}>{refs(x)}</Cited>{tr(x)}</li>)}</ul>
+      : <p key={i}><Cited text={u.text}>{refs(u)}</Cited>{tr(u)}</p>;
+  })}</>;
 }

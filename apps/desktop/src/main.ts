@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, Menu, nativeTheme, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, Menu, nativeTheme, screen, type MenuItemConstructorOptions } from 'electron';
 import { join, dirname } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { setSink, withRunContext, log } from '@pnr/core';
@@ -8,7 +8,8 @@ import { enrichPending } from '@pnr/reader';
 import { resolveProvider, readSettings, writeSetting, type Provider } from '@pnr/ai';
 import { runDaily, runFlashCheck, runWatch, rewriteDigest, getReport, startReport, askReport, recoverReports, askAssistant, getChat, listChats, deleteChat, recoverAssistant,
          confirmAction, rejectAction, undoAction, allowTool, getAgentMode, setAgentMode, type AgentMode, type NavTarget,
-         type AssistantEvent, type AssistantAskInput, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult } from '@pnr/generate';
+         type AssistantEvent, type AssistantAskInput, type ReportEvent, type ReportStartInput, type RunOptions, type RunResult,
+         translateItems, translateSettings } from '@pnr/generate';
 import { createApi } from './ipc.ts';
 import { socialApi, applyRssHubConfig } from './social.ts';
 import { buildToolbox } from './agent-tools.ts';
@@ -85,9 +86,20 @@ const broadcast = (channel: string, ...args: unknown[]): void => {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, ...args);
 };
 
+/** The main window opens at 1440×1000 — wide enough for sidebar, list, article and
+ *  a docked assistant side by side — or, on a smaller screen, as large as fits
+ *  with the same proportions. */
+function defaultSize(): { width: number; height: number } {
+  const W = 1440, H = 1000;
+  const area = screen.getPrimaryDisplay().workAreaSize;
+  const scale = Math.min(1, (area.width - 40) / W, (area.height - 40) / H);
+  return { width: Math.round(W * scale), height: Math.round(H * scale) };
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
-    width: 1180, height: 820, minWidth: 760, minHeight: 520,
+    // minWidth keeps a docked assistant (320) beside a one-column workspace (400): App.tsx never floats it.
+    ...defaultSize(), minWidth: 760, minHeight: 520,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     backgroundColor: paper(),
@@ -239,6 +251,7 @@ function installApplicationMenu(): void {
       { label: m.sidebar, accelerator: 'CmdOrCtrl+Ctrl+S', click: send('sidebar') },
       { label: m.assistant, accelerator: 'CmdOrCtrl+J', click: send('assistant') },
       { label: m.search, accelerator: 'CmdOrCtrl+F', click: send('search') },
+      { label: m.translate, accelerator: 'Shift+CmdOrCtrl+T', click: send('translate') },
       { label: m.refresh, accelerator: 'CmdOrCtrl+R', click: send('refresh') },
       { label: m.updateAll, accelerator: 'Shift+CmdOrCtrl+R', click: send('updateAll') },
       { label: m.regenerateAll, accelerator: 'Alt+Shift+CmdOrCtrl+R', click: send('regenerateAll') },
@@ -389,6 +402,28 @@ const runs = {
   digest: () => run('digest', ['daily'], async (p, o) =>
     p ? rewriteDigest(db, p, o) : { fetched: 0, watches: 0, failed: 0, mode: 'keywords' as const })
 };
+/**
+ * 批量翻译: headlines (and, with `full`, whole texts) of the articles a list
+ * shows. One batch at a time; progress goes to the toolbar subtitle as a run's
+ * does, and 停止翻译 ends it after the article in hand.
+ */
+let translating: AbortController | null = null;
+async function translateBatch(ids: string[], full: boolean): Promise<Record<string, unknown>> {
+  if (translating) return { busy: true };
+  const provider = await resolveProvider(db);
+  if (!provider) return { error: 'no_ai' };
+  const controller = new AbortController(); translating = controller;
+  try {
+    return { ...await translateItems(db, provider, DATA_DIR, (Array.isArray(ids) ? ids : []).map(String), translateSettings(db).target, {
+      full, signal: controller.signal,
+      onProgress: (p) => win?.webContents.send('app:progress', { phase: 'translate', label: `${p.done}/${p.total}` })
+    }) };
+  } catch (err) { return { error: String(err).slice(0, 160) }; }
+  finally { translating = null; }
+}
+ipcMain.handle('app:translateBatch', (_e, ids: string[], full?: boolean) => translateBatch(ids, full === true));
+ipcMain.handle('app:translateCancel', () => { translating?.abort(); return true; });
+
 ipcMain.handle('app:runAll', (_e, force?: boolean) => runs.all(Boolean(force)));
 ipcMain.handle('app:runFlashes', () => runs.flashes());
 ipcMain.handle('app:runWatch', (_e, id: string) => runs.watch(id));
@@ -460,6 +495,7 @@ const dictionary = () => (uiLanguage().resolved === 'en' ? en : zhCN);
 const toolbox = buildToolbox(db, api, {
   refresh: refreshFeeds,
   runAll: (force) => runs.all(force), runFlashes: () => runs.flashes(), runWatch: (id) => runs.watch(id), rewriteDigest: () => runs.digest(),
+  translateBatch,
   uiLanguage, setUiLanguage,
   scheduleState: () => ({ ...scheduleState(db), runs: recentRuns(db) }),
   setSchedule: (on, hour) => (on ? enableSchedule(db, DATA_DIR, hour ?? 7) : disableSchedule(db, DATA_DIR)),

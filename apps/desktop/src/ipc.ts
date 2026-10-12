@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import type { Db } from '@pnr/store';
 import { readBody } from '@pnr/store';
 import { checkConnection, publicSettings, resolveProvider, writeSetting, invalidateProvider, GEMINI_MODELS, OPENAI_MODELS, ANTHROPIC_MODELS, type AiConnection } from '@pnr/ai';
 import { listWatches, createWatch, updateWatch, deleteWatch, enablePreset, PRESETS, localisePreset, addCorrection, getWatch,
   suggestSources, addWatchSources, setWatchSourcePlacement, removeWatchSource, listWatchSources, type SourceSuggestion, type Placement } from '@pnr/watch';
-import { unseenDevelopments, markWatchSeen, timeline, getDigest, recentFlashes, openQuestions, readOutsidePicks } from '@pnr/generate';
+import { unseenDevelopments, markWatchSeen, timeline, getDigest, recentFlashes, openQuestions, readOutsidePicks,
+  segmentHtml, readTranslation, headlineTranslations, translateSettings, setTranslateOption, translateItem, translateText, translateTexts, type ItemTranslation } from '@pnr/generate';
 import { localDateKey } from '@pnr/core';
 import { CATEGORIES, countryLabel } from '@pnr/core/catalog-labels';
 import { ingestSource, rssHubMode, resolveSourceInput, curatedRoutes, matchRouteFromUrl, adapterFor, normalizeItems, APIFY_TOKEN_KEY } from '@pnr/feed';
@@ -21,6 +23,10 @@ export interface ItemRow {
   dateEstimated: number;
   /** ISO 639-1 code detected by the reader core, or null. */
   lang: string | null;
+  /** Headline and snippet in the translation language, once translated (批量翻译, 全文翻译). */
+  titleTr?: string | null; snippetTr?: string | null;
+  /** The whole text has been translated. */
+  translatedFull?: boolean;
 }
 
 export interface SourceRow {
@@ -47,6 +53,7 @@ const ITEM_COLS = `
 /** The reading-language filter: an empty list means every language is shown. */
 const READING_LANGS_KEY = 'reader.languages';
 
+/** `html` has its blocks marked (`data-pnr-b`) so translations can sit beside them. */
 export interface ItemBody { html: string; words: number; source: 'feed' | 'page' }
 
 export interface CatalogueResult {
@@ -121,6 +128,15 @@ export function createApi(db: Db, dataDir: string) {
     return { where: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
   };
 
+  /** Adds what is already translated to list rows. Costs nothing: it only reads the cache. */
+  const withTranslations = <T extends ItemRow>(rows: T[]): T[] => {
+    const found = headlineTranslations(db, rows.map((r) => r.id), translateSettings(db).target);
+    return found.size ? rows.map((r) => {
+      const t = found.get(r.id);
+      return t ? { ...r, titleTr: t.title, snippetTr: t.snippet, translatedFull: t.full } : r;
+    }) : rows;
+  };
+
   const refsFor = (ids: string[]): ItemRef[] => {
     const unique = [...new Set(ids)];
     if (unique.length === 0) return [];
@@ -148,12 +164,12 @@ export function createApi(db: Db, dataDir: string) {
 
     listItems(opts: ItemQuery & { limit?: number; offset?: number }): ItemRow[] {
       const { where, params } = itemFilter(opts);
-      return db.prepare(`
+      return withTranslations(db.prepare(`
         SELECT ${ITEM_COLS} FROM items i
         JOIN sources s ON s.id = i.source_id
         LEFT JOIN reading_state r ON r.item_id = i.id
         ${where} ORDER BY i.published_at DESC LIMIT ? OFFSET ?`)
-        .all(...params, opts.limit ?? 60, opts.offset ?? 0) as ItemRow[];
+        .all(...params, opts.limit ?? 60, opts.offset ?? 0) as ItemRow[]);
     },
 
     countItems(opts: ItemQuery): number {
@@ -179,7 +195,8 @@ export function createApi(db: Db, dataDir: string) {
         .run(READING_LANGS_KEY, JSON.stringify(langs), Date.now());
     },
 
-    getItem(id: string): (ItemRow & { body: ItemBody | null; bodyError: string | null }) | null {
+    /** One article, with its body cut into blocks and whatever of it is already translated. */
+    getItem(id: string): (ItemRow & { body: ItemBody | null; bodyError: string | null; translation: ItemTranslation }) | null {
       const row = db.prepare(`
         SELECT ${ITEM_COLS}, i.body_path AS bodyPath, i.body_error AS bodyError
         FROM items i JOIN sources s ON s.id = i.source_id
@@ -187,7 +204,41 @@ export function createApi(db: Db, dataDir: string) {
       if (!row) return null;
       const { bodyPath, ...rest } = row;
       const b = readBody(bodyPath);
-      return { ...rest, body: b ? { html: b.html, words: b.words, source: b.source } : null };
+      const segmented = b ? segmentHtml(b.html) : null;
+      return { ...rest, body: b ? { html: segmented!.html, words: b.words, source: b.source } : null,
+        translation: readTranslation(db, id, translateSettings(db).target, segmented?.blocks ?? []) };
+    },
+
+    // ── translation ────────────────────────────────────────────────────────
+    // Each needs AI; without it they answer `no_ai` and the reader says so.
+    /**
+     * 全文翻译 and 段落翻译: the headline and the given blocks of one article
+     * (all of them when `indices` is null). The reader asks a few blocks at a
+     * time, so a long article fills in as it goes.
+     */
+    async translateItem(id: string, indices: number[] | null, title = true): Promise<{ ok: true; translation: ItemTranslation } | { ok: false; error: string }> {
+      const provider = await resolveProvider(db);
+      if (!provider) return { ok: false, error: 'no_ai' };
+      try {
+        return { ok: true, translation: await translateItem(db, provider, id, translateSettings(db).target, { ...(indices ? { indices } : {}), title }) };
+      } catch (error) { return { ok: false, error: String((error as Error).message ?? error) === 'not_found' ? 'not_found' : 'failed' }; }
+    },
+    /** 划词翻译: selected text, into the translation language (or out of it, when it is already in it). */
+    async translateText(text: string): Promise<{ ok: true; to: string; text: string } | { ok: false; error: string }> {
+      const clean = String(text ?? '').trim();
+      if (!clean) return { ok: false, error: 'empty' };
+      if (clean.length > 4_000) return { ok: false, error: 'too_long' };
+      const provider = await resolveProvider(db);
+      if (!provider) return { ok: false, error: 'no_ai' };
+      try { return { ok: true, ...await translateText(provider, clean, translateSettings(db).target) }; }
+      catch { return { ok: false, error: 'failed' }; }
+    },
+    /** Several short texts at once (an assistant answer, unit by unit). */
+    async translateTexts(texts: string[]): Promise<{ ok: true; texts: (string | null)[] } | { ok: false; error: string }> {
+      const list = (Array.isArray(texts) ? texts : []).map((x) => String(x ?? '').slice(0, 4_000)).slice(0, 60);
+      const provider = await resolveProvider(db);
+      if (!provider) return { ok: false, error: 'no_ai' };
+      return { ok: true, texts: await translateTexts(provider, list, translateSettings(db).target, { operation: 'translate_text' }) };
     },
 
     markRead(id: string, read: boolean): void {
@@ -288,14 +339,18 @@ export function createApi(db: Db, dataDir: string) {
       const provider = await resolveProvider(db);
       return {
         ...publicSettings(db), available: provider !== null, webSearch: Boolean(provider?.capabilities.search),
+        translate: translateSettings(db),
         // Model fields are shared by the cloud providers; the form shows each one's own defaults.
         defaults: { gemini: GEMINI_MODELS, openai: OPENAI_MODELS, anthropic: ANTHROPIC_MODELS }
       };
     },
 
     /** Preferences that need no connection check: saved as they are toggled. */
-    setAiOption(key: 'outputLang' | 'searchFillEnabled' | 'outsidePicksEnabled', value: string): void {
-      if (key === 'outputLang') writeSetting(db, 'outputLang', value);
+    setAiOption(key: 'outputLang' | 'searchFillEnabled' | 'outsidePicksEnabled' | 'translateTarget' | 'translateAuto' | 'translateSelection', value: string): void {
+      if (key === 'translateTarget') setTranslateOption(db, 'target', value);
+      else if (key === 'translateAuto') setTranslateOption(db, 'auto', value);
+      else if (key === 'translateSelection') setTranslateOption(db, 'selection', value);
+      else if (key === 'outputLang') writeSetting(db, 'outputLang', value);
       else if (key === 'searchFillEnabled' || key === 'outsidePicksEnabled') writeSetting(db, `ai.${key}`, value === '1' ? '1' : '0');
       invalidateProvider(db);
     },
@@ -485,7 +540,7 @@ export function createApi(db: Db, dataDir: string) {
     /** What passed for a watch, with the judge's score and reason (or a
      *  keyword-match marker) and the person's own verdict, if they gave one. */
     watchItems(id: string, limit = 60): unknown[] {
-      return db.prepare(
+      return withTranslations(db.prepare(
         `SELECT ${ITEM_COLS}, m.intent_score AS score, m.reason, m.recalled_by AS arms,
                 (SELECT verdict FROM corrections c WHERE c.watch_id = m.watch_id AND c.item_id = m.item_id
                  ORDER BY c.id DESC LIMIT 1) AS verdict
@@ -494,7 +549,7 @@ export function createApi(db: Db, dataDir: string) {
          LEFT JOIN reading_state r ON r.item_id = i.id
          WHERE m.watch_id = ? AND m.passed_gate = 1
          ORDER BY i.published_at DESC LIMIT ?`
-      ).all(id, limit);
+      ).all(id, limit) as ItemRow[]);
     },
 
     /**
@@ -507,7 +562,13 @@ export function createApi(db: Db, dataDir: string) {
       if (!resolved) return { ok: false, error: 'unrecognised' };
       const { kind, url, domain } = resolved;
 
-      const id = `user-${kind}-${Buffer.from(url).toString('base64url').slice(0, 24)}`;
+      // Older sources were named from the first 18 bytes of the address, so two routes of
+      // one platform (/bilibili/user/video/<uid>) shared an id and the second was refused as a duplicate.
+      // A duplicate is now the same kind and address; the id is a hash of the whole address.
+      if (db.prepare("SELECT 1 FROM sources WHERE kind = ? AND url = ? AND added_by = 'user'").get(kind, url)) {
+        return { ok: false, error: 'duplicate' };
+      }
+      const id = `user-${kind}-${createHash('sha1').update(url).digest('base64url').slice(0, 16)}`;
       if (db.prepare('SELECT 1 FROM sources WHERE id = ?').get(id)) {
         return { ok: false, error: 'duplicate' };
       }

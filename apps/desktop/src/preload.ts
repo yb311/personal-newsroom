@@ -6,7 +6,8 @@ const API_METHODS = [
   'listSources', 'listItems', 'getItem', 'markRead', 'toggleStar',
   'setSourceEnabled', 'catalogue', 'setAiOption', 'stats', 'countItems', 'headlines', 'itemRefs', 'readingLanguages', 'setReadingLanguages',
   'aiStatus', 'saveAiSettings', 'presets', 'watches', 'addWatch', 'editWatch',
-  'removeWatch', 'togglePreset', 'correct', 'addPresets', 'backgroundPrompt', 'dismissBackgroundPrompt', 'today', 'editions', 'watchTimeline', 'watchSeen', 'watchItems', 'flashes', 'addSource', 'removeSource', 'suggestSources', 'applyWatchSources', 'watchSources', 'moveWatchSource', 'removeWatchSource', 'rsshubRoutes', 'previewRoute', 'matchRoute', 'hasApifyToken', 'setApifyToken', 'rssHubReady'
+  'removeWatch', 'togglePreset', 'correct', 'addPresets', 'backgroundPrompt', 'dismissBackgroundPrompt', 'today', 'editions', 'watchTimeline', 'watchSeen', 'watchItems', 'flashes', 'addSource', 'removeSource', 'suggestSources', 'applyWatchSources', 'watchSources', 'moveWatchSource', 'removeWatchSource', 'rsshubRoutes', 'previewRoute', 'matchRoute', 'hasApifyToken', 'setApifyToken', 'rssHubReady',
+  'translateItem', 'translateText', 'translateTexts'
 ] as const;
 
 const api: Record<string, unknown> = {};
@@ -28,6 +29,8 @@ contextBridge.exposeInMainWorld('pnr', {
   rewriteDigest: () => ipcRenderer.invoke('app:rewriteDigest'),
   runFlashes: () => ipcRenderer.invoke('app:runFlashes'),
   runWatch: (id: string) => ipcRenderer.invoke('app:runWatch', id),
+  translateBatch: (ids: string[], full?: boolean) => ipcRenderer.invoke('app:translateBatch', ids, Boolean(full)),
+  translateCancel: () => ipcRenderer.invoke('app:translateCancel'),
   reportGet: (selector: unknown) => ipcRenderer.invoke('report:get', selector),
   reportStart: (input: unknown) => ipcRenderer.invoke('report:start', input),
   reportAsk: (input: unknown) => ipcRenderer.invoke('report:ask', input),

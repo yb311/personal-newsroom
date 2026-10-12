@@ -545,7 +545,30 @@ CREATE TABLE watch_sources (
 CREATE INDEX watch_sources_source ON watch_sources(source_id);
 `;
 
+/**
+ * Translations of articles, made when the person asks (翻译 in the reader, the
+ * list's batch translation, the assistant). One row per article and target
+ * language. Body blocks are keyed by a hash of their source text, so a
+ * paragraph translated on its own and the same paragraph in a full
+ * translation are one entry, and a re-extracted body only translates what changed.
+ */
+const TRANSLATIONS = `
+CREATE TABLE item_translations (
+  item_id       TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  target        TEXT NOT NULL,             -- language code, e.g. zh-CN
+  title         TEXT,
+  title_hash    TEXT,                      -- hash of the title it translates
+  snippet       TEXT,
+  snippet_hash  TEXT,
+  blocks_json   TEXT NOT NULL DEFAULT '{}',-- { hash of a body block's text: its translation }
+  full_at       INTEGER,                   -- when every block of the body was translated
+  updated_at    INTEGER NOT NULL,
+  PRIMARY KEY (item_id, target)
+);
+`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_schema', sql: SCHEMA },
-  { name: '002_watch_sources', sql: WATCH_SOURCES }
+  { name: '002_watch_sources', sql: WATCH_SOURCES },
+  { name: '003_translations', sql: TRANSLATIONS }
 ];

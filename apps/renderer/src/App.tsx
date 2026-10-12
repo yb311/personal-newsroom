@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, CircleDot, ExternalLink, FileSearch, ListFilter, MessageSquareText, PanelLeft, Plus, RefreshCw, RotateCcw, Search, Star } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { ChevronDown, ChevronLeft, ChevronUp, CircleDot, ExternalLink, FileSearch, Languages, ListFilter, MessageSquareText, PanelLeft, Plus, RefreshCw, RotateCcw, Search, Star } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AiStatus, ItemRow, MenuEntry, NavTarget, OutsidePick, ReportAnchor, Screen, SourceRow } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -14,6 +14,8 @@ import { Assistant } from './components/Assistant.tsx';
 import { Report } from './components/Report.tsx';
 import { SplitDivider, storedWidth } from './components/SplitDivider.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { SelectionPopover } from './components/SelectionPopover.tsx';
+import { isForeign, listTranslated, preferredMode, rememberListTranslated, rememberMode, translateSettings, type TranslateMode } from './translate.ts';
 import { ago } from './i18n.ts';
 import type { WatchTab } from './components/Watches.tsx';
 
@@ -26,17 +28,25 @@ export type OpenReport = (anchor: ReportAnchor) => void;
 /** The long operations the window starts. Each has one home: the control that starts it
  *  sits with what it updates, and only that control spins while it runs. 全部更新
  *  ('all') is the one control for everything; it sits in the sidebar's title bar. */
-type Job = 'fetch' | 'flashes' | 'all' | 'digest';
+type Job = 'fetch' | 'flashes' | 'all' | 'digest' | 'translate';
 
 /** How many articles the list loads at a time. */
 const PAGE = 200;
+/** Whole texts one 批量翻译 takes on (MAX_BATCH.full in @pnr/generate). */
+const MAX_FULL = 50;
 const LIST = { min: 250, max: 460, fallback: 320, key: 'pnr.listWidth' };
 const PANEL = { min: 320, max: 620, fallback: 380, key: 'pnr.assistantWidth' };
 /** The sidebar's min leaves room for the traffic lights and its two title-bar buttons. */
 const SIDEBAR = { min: 190, max: 360, fallback: 220, key: 'pnr.sidebarWidth' };
 /** The narrowest workspace that still splits list and detail side by side —
- *  keep in step with `@container workspace` in app.css. */
-const SPLIT_MIN = 620;
+ *  keep in step with `@container workspace` in app.css. The list takes at most
+ *  44%, so the detail keeps at least ~390px: enough for its whole toolbar
+ *  (back/forward, five actions, a search field, the assistant) without crowding. */
+const SPLIT_MIN = 700;
+/** The narrowest workspace showing list or detail one at a time. The window's
+ *  minimum width (main.ts) leaves this beside a docked assistant at its minimum,
+ *  so the assistant never has to float over the page. */
+const STACK_MIN = 400;
 const readFlag = (key: string, fallback: boolean): boolean => {
   try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1'; } catch { return fallback; }
 };
@@ -75,6 +85,12 @@ export default function App() {
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [revision, setRevision] = useState(0);
   const [watchRequest, setWatchRequest] = useState<WatchRequest | null>(null);
+  /** How the open article is shown: as published, or translated (see translate.ts). */
+  const [trMode, setTrMode] = useState<TranslateMode>('original');
+  /** Lists show translated headlines where there are some. */
+  const [showTranslated, setShowTranslated] = useState(listTranslated);
+  /** Text to quote in the assistant's composer (问助手 on a selection). */
+  const [quote, setQuote] = useState<{ text: string; n: number } | null>(null);
   /** What 今日, 快讯 or 关注 has open, as they report it for the assistant. */
   const [viewScreen, setViewScreen] = useState<Screen | null>(null);
   const requestId = useRef(0);
@@ -83,14 +99,23 @@ export default function App() {
   const navigated = useRef(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const aiReady = Boolean(ai?.available);
+  const trSettings = translateSettings(ai);
 
   const loadSources = useCallback(async () => setSources(await window.pnr.listSources()), []);
+  // Which articles the list shows is read from `scope` when a load starts, never
+  // captured in a closure. A long-running action (a refresh after adding a source)
+  // holds on to `loadItems` for seconds; with a captured scope it would, on
+  // finishing, put the articles of the source you had open back then into the
+  // list of the source you have open now. `loadItems` is therefore stable.
+  const scope = useRef({ sourceId, filter });
+  scope.current = { sourceId, filter };
   const loadItems = useCallback(async () => {
     const request = ++requestId.current;
-    const scope = { ...(sourceId ? { sourceId } : {}), filter };
-    const [rows, count] = await Promise.all([window.pnr.listItems({ ...scope, limit: PAGE }), window.pnr.countItems(scope)]);
+    const { sourceId: source, filter: which } = scope.current;
+    const query = { ...(source ? { sourceId: source } : {}), filter: which };
+    const [rows, count] = await Promise.all([window.pnr.listItems({ ...query, limit: PAGE }), window.pnr.countItems(query)]);
     if (request === requestId.current) { setItems(rows); setTotal(count); }
-  }, [sourceId, filter]);
+  }, []);
   const loadMore = async (): Promise<void> => {
     const request = requestId.current;
     const more = await window.pnr.listItems({ ...(sourceId ? { sourceId } : {}), filter, limit: PAGE, offset: items.length });
@@ -106,7 +131,7 @@ export default function App() {
 
   useEffect(() => { void loadSources(); void loadAi(); }, [loadSources, loadAi]);
   useEffect(() => { void loadFresh(); }, [loadFresh, revision]);
-  useEffect(() => { void loadItems(); }, [loadItems]);
+  useEffect(() => { void loadItems(); }, [loadItems, sourceId, filter]);
   useEffect(() => () => clearTimeout(noticeTimer.current), []);
   useEffect(() => {
     const resized = (): void => { setWindowWidth(window.innerWidth); setSidebarPinned(false); };
@@ -122,7 +147,7 @@ export default function App() {
   tRef.current = t;
   useEffect(() => window.pnr.onProgress((p) => {
     const x = p as { phase?: string; label?: string };
-    const key = { watch: 'app.progress.watch', writing: 'app.progress.writing', extract: 'app.progress.extract', fetch: 'app.progress.fetch' }[x.phase ?? ''];
+    const key = { watch: 'app.progress.watch', writing: 'app.progress.writing', extract: 'app.progress.extract', fetch: 'app.progress.fetch', translate: 'app.progress.translate' }[x.phase ?? ''];
     if (key && operation.current) setNote(tRef.current(key, { label: x.label }));
   }), []);
 
@@ -200,25 +225,49 @@ export default function App() {
   };
   const openSettings = (section?: string): void => { void window.pnr.openSettings(section); };
 
-  // As a macOS split view does: the assistant docks while the workspace keeps
-  // room for list and detail, and floats over it in a window too narrow for
-  // that. The sidebar gives way first — it collapses while it does not fit and
-  // returns when it does, unless it was hidden on purpose. A docked assistant
-  // narrows toward its minimum before it floats, and the sidebar before it
-  // collapses; neither can be dragged wide enough to hide itself mid-drag.
-  const dockRoom = windowWidth - 1 - SPLIT_MIN;
-  const floating = assistantOpen && dockRoom < PANEL.min;
-  const docked = assistantOpen && !floating;
-  const panelMax = docked ? Math.min(PANEL.max, dockRoom) : PANEL.max;
-  const panelShown = Math.min(panelWidth, panelMax);
-  const sidebarRoom = windowWidth - 1 - (docked ? panelShown + 1 : 0) - SPLIT_MIN;
-  const sidebarFits = sidebarRoom >= SIDEBAR.min;
+  // As a macOS split view does, a narrowing window takes space in a fixed order:
+  //   1. the sidebar narrows to its minimum;
+  //   2. the assistant narrows to its minimum;
+  //   3. the sidebar collapses (and returns when the window widens again);
+  //   4. list and detail stop sitting side by side and show one at a time.
+  // Panes shrink before anything disappears. The assistant always stays docked,
+  // so it can always be resized. A divider moves only within the room the
+  // current arrangement leaves: dragging never hides the sidebar or squeezes
+  // list and detail into one column (hide the sidebar to give the assistant
+  // more). Dragging one pane wider pushes the other toward its minimum, and the
+  // pushed width is remembered, so the two dividers never lock each other. A sidebar shown on request although it does not fit (pinned) keeps
+  // its place, and the workspace makes do with one column.
+  const panelMin = assistantOpen ? PANEL.min + 1 : 0;
+  const sidebarFits = windowWidth - panelMin - (SIDEBAR.min + 1) >= SPLIT_MIN;
   const sidebarShown = sidebarVisible && (sidebarFits || sidebarPinned);
-  const sidebarMax = Math.max(SIDEBAR.min, Math.min(SIDEBAR.max, sidebarRoom));
-  const sidebarShownWidth = Math.min(sidebarWidth, sidebarMax);
+  const sidebarMin = sidebarShown ? SIDEBAR.min + 1 : 0;
+  const floor = windowWidth - panelMin - sidebarMin >= SPLIT_MIN ? SPLIT_MIN : STACK_MIN;
+  const panelMax = Math.max(PANEL.min, Math.min(PANEL.max, windowWidth - 1 - floor - sidebarMin));
+  const panelShown = Math.min(panelWidth, panelMax);
+  const panelPart = assistantOpen ? panelShown + 1 : 0;
+  const sidebarMax = Math.max(SIDEBAR.min, Math.min(SIDEBAR.max, windowWidth - 1 - panelMin - floor));
+  const sidebarShownWidth = Math.min(sidebarWidth, sidebarMax, Math.max(SIDEBAR.min, windowWidth - 1 - panelPart - floor));
+  const resizeSidebar = (width: number): void => {
+    setSidebarWidth(width);
+    const room = windowWidth - (width + 1) - floor - 1;
+    if (assistantOpen && panelShown > room) {
+      const next = Math.max(PANEL.min, room);
+      setPanelWidth(next);
+      try { localStorage.setItem(PANEL.key, String(next)); } catch { /* Storage may be unavailable. */ }
+    }
+  };
+  const resizePanel = (width: number): void => {
+    setPanelWidth(width);
+    const room = windowWidth - (width + 1) - floor - 1;
+    if (sidebarShown && sidebarShownWidth > room) {
+      const next = Math.max(SIDEBAR.min, room);
+      setSidebarWidth(next);
+      try { localStorage.setItem(SIDEBAR.key, String(next)); } catch { /* Storage may be unavailable. */ }
+    }
+  };
   // The list takes at most 44% of the workspace (as the CSS clamp does); the
   // divider works with that shown width so dragging has no dead zone.
-  const workspaceWidth = windowWidth - (sidebarShown ? sidebarShownWidth + 1 : 0) - (docked ? panelShown + 1 : 0);
+  const workspaceWidth = windowWidth - (sidebarShown ? sidebarShownWidth + 1 : 0) - panelPart;
   const listMax = Math.max(LIST.min, Math.min(LIST.max, Math.floor(workspaceWidth * 0.44)));
   const listShown = Math.min(listWidth, listMax);
   const showSidebar = (show: boolean): void => { setSidebarVisible(show); setSidebarPinned(show && !sidebarFits); };
@@ -238,6 +287,7 @@ export default function App() {
     else if (c === 'refresh') void refresh();
     else if (c === 'updateAll') void runAll(false);
     else if (c === 'regenerateAll') void runAll(true);
+    else if (c === 'translate') { if (tab === 'read' && !report && article && aiReady) toggleTranslate(); }
     else if ((TABS as string[]).includes(c)) go(c as Tab);
   };
   useEffect(() => window.pnr.onCommand?.((c) => command.current(c)), []);
@@ -251,7 +301,8 @@ export default function App() {
     patchItem(id, { readAt: read ? Date.now() : null });
     void loadSources();
   };
-  const onSelect = (id: string): void => { setSelected(id); void setRead(id, true); };
+  // Each article opens as published; 自动翻译外文文章 (below) translates foreign ones once they load.
+  const onSelect = (id: string): void => { if (id !== selected) setTrMode('original'); setSelected(id); void setRead(id, true); };
   const onStar = async (id: string): Promise<void> => {
     const on = await window.pnr.toggleStar(id);
     patchItem(id, { starredAt: on ? Date.now() : null });
@@ -269,7 +320,7 @@ export default function App() {
   const navigateTo = useRef<(target: NavTarget) => void>(() => {});
   navigateTo.current = (target) => {
     if (target.kind === 'tab') go(target.tab);
-    else if (target.kind === 'item') openItem(target.itemId);
+    else if (target.kind === 'item') { openItem(target.itemId); if (target.translate) { rememberMode(target.translate); setTrMode(target.translate); } }
     else if (target.kind === 'watch') openWatch(target.watchId, target.section);
     else if (target.kind === 'source') pickSource(target.sourceId);
     else if (target.kind === 'settings') openSettings(target.section);
@@ -285,6 +336,7 @@ export default function App() {
     const entries: MenuEntry[] = [
       { id: 'open', label: t('menu.openOriginal') },
       { id: 'report', label: t('report.open'), enabled: aiReady },
+      { id: 'translate', label: t('translate.whole'), enabled: aiReady },
       { separator: true },
       { id: 'read', label: it.readAt ? t('reader.markUnread') : t('reader.markRead') },
       { id: 'star', label: it.starredAt ? t('list.unstar') : t('list.star') },
@@ -294,6 +346,7 @@ export default function App() {
     const choice = await window.pnr.contextMenu(entries);
     if (choice === 'open') void window.pnr.openExternal(it.url);
     else if (choice === 'report') openReport({ anchorItemId: it.id, itemIds: [it.id], topic: it.title });
+    else if (choice === 'translate') { openItem(it.id); setTrMode(preferredMode()); }
     else if (choice === 'read') void setRead(it.id, !it.readAt);
     else if (choice === 'star') void onStar(it.id);
     else if (choice === 'copy') void window.pnr.copyText(it.url);
@@ -308,13 +361,80 @@ export default function App() {
   };
 
   const needle = query.trim().toLocaleLowerCase();
-  const visibleItems = needle ? items.filter((i) => `${i.title} ${i.sourceName ?? ''} ${i.snippet ?? ''}`.toLocaleLowerCase().includes(needle)) : items;
+  const visibleItems = needle ? items.filter((i) => `${i.title} ${i.titleTr ?? ''} ${i.sourceName ?? ''} ${i.snippet ?? ''}`.toLocaleLowerCase().includes(needle)) : items;
   const selectedIndex = visibleItems.findIndex((i) => i.id === selected);
   const stepArticle = (delta: number): void => {
     const next = visibleItems[selectedIndex < 0 ? 0 : selectedIndex + delta];
     if (next) onSelect(next.id);
   };
   const article = selected && current?.id === selected ? current : null;
+
+  // ── 翻译 ──────────────────────────────────────────────────────────────────
+  // 自动翻译外文文章: once an article has loaded, a foreign one opens translated.
+  const autoFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!article || autoFor.current === article.id) return;
+    autoFor.current = article.id;
+    if (trSettings.auto && aiReady && trMode === 'original' && isForeign(article.lang, trSettings.target)) setTrMode(preferredMode());
+  }, [article?.id]);
+  /** The toolbar's 翻译: translated in the way last chosen, or back to the original. */
+  const toggleTranslate = (): void => setTrMode((m) => (m === 'original' ? preferredMode() : 'original'));
+  /** Right-click on 翻译: how to show it, and the preferences. */
+  const translateMenu = async (): Promise<void> => {
+    const choice = await window.pnr.contextMenu([
+      { id: 'original', label: t('translate.original'), checked: trMode === 'original' },
+      { id: 'bilingual', label: t('translate.bilingual'), checked: trMode === 'bilingual', enabled: aiReady },
+      { id: 'translation', label: t('translate.translation'), checked: trMode === 'translation', enabled: aiReady },
+      { separator: true },
+      { id: 'auto', label: t('settings.translateAuto'), checked: trSettings.auto, enabled: aiReady },
+      { id: 'settings', label: t('translate.settingsMenu') }
+    ]);
+    if (choice === 'bilingual' || choice === 'translation') { rememberMode(choice); setTrMode(choice); }
+    else if (choice === 'original') setTrMode('original');
+    else if (choice === 'auto') { await window.pnr.setAiOption('translateAuto', trSettings.auto ? '0' : '1'); void loadAi(); }
+    else if (choice === 'settings') openSettings('ai');
+  };
+  /** A translated headline shows in the list at once. */
+  const onTitleTranslated = (id: string, title: string): void => {
+    setItems((prev) => prev.map((i) => (i.id === id && i.titleTr !== title ? { ...i, titleTr: title } : i)));
+  };
+  /** 问助手 on selected text: the assistant opens with it quoted in the input. */
+  const askAbout = (text: string): void => { setQuote({ text, n: Date.now() }); if (!assistantOpen) toggleAssistant(true); };
+  /**
+   * 批量翻译 — the list's 翻译 button. Headlines and snippets of the foreign
+   * articles the list shows (cheap, many per call), or their whole texts. While
+   * it runs, the same button stops it.
+   */
+  const translateList = async (): Promise<void> => {
+    if (job === 'translate') {
+      if (await window.pnr.contextMenu([{ id: 'stop', label: t('translate.list.stop') }]) === 'stop') void window.pnr.translateCancel();
+      return;
+    }
+    const foreign = visibleItems.filter((i) => isForeign(i.lang, trSettings.target));
+    const titles = foreign.filter((i) => !i.titleTr).map((i) => i.id);
+    const full = foreign.filter((i) => !i.translatedFull).slice(0, MAX_FULL).map((i) => i.id);
+    const choice = await window.pnr.contextMenu([
+      { id: 'titles', label: t('translate.list.titles', { count: titles.length }), enabled: aiReady && titles.length > 0 && !busy },
+      { id: 'full', label: t('translate.list.full', { count: full.length }), enabled: aiReady && full.length > 0 && !busy },
+      { separator: true },
+      { id: 'show', label: t('translate.list.showTranslated'), checked: showTranslated },
+      { id: 'settings', label: t('translate.settingsMenu') }
+    ]);
+    if (choice === 'show') { rememberListTranslated(!showTranslated); setShowTranslated(!showTranslated); return; }
+    if (choice === 'settings') { openSettings('ai'); return; }
+    if (choice !== 'titles' && choice !== 'full') return;
+    const ids = choice === 'full' ? full : titles;
+    if (choice === 'full' && !await window.pnr.confirm({ message: t('translate.list.confirm.message', { count: ids.length }),
+      detail: t('translate.list.confirm.detail'), confirm: t('translate.list.confirm.confirm'), cancel: t('common.cancel') })) return;
+    if (!showTranslated) { rememberListTranslated(true); setShowTranslated(true); }
+    await perform('translate', t('translate.list.starting'), async () => {
+      const r = await window.pnr.translateBatch(ids, choice === 'full');
+      await loadItems();
+      if (r.busy) return t('app.busy');
+      if (r.error) return t(`translate.error.${r.error}`, { defaultValue: t('translate.error.failed') });
+      return t(r.cancelled ? 'translate.list.stopped' : 'translate.list.done', { count: r.translated ?? 0 }) + (r.failed ? t('app.partial', { count: r.failed }) : '');
+    });
+  };
   const source = sources.find((s) => s.id === sourceId);
   /** What the assistant is told is open on the left. 阅读 and a deep report are known
    *  here; the other views report their own selection through `onScreen`. */
@@ -340,21 +460,21 @@ export default function App() {
   const spinner = (kind: Job) => <RefreshCw size={16} className={job === kind ? 'spinning' : ''} />;
 
   return (
-    <div className={`app ${sidebarShown ? '' : 'sidebar-hidden'} ${floating ? 'assistant-floating' : ''}`}
+    <div className={`app ${sidebarShown ? '' : 'sidebar-hidden'}`}
          style={{ '--sidebar-width': `${sidebarShownWidth}px`, '--list-width': `${listShown}px`, '--panel-width': `${panelShown}px` } as CSSProperties}>
       {sidebarShown && <>
         <Sidebar tab={report ? null : tab} onTab={go} sources={sources} sourceId={sourceId} filter={filter} fresh={counts.fresh ?? 0}
           onPickSource={pickSource} onPickFilter={pickFilter} onSourceMenu={(s) => void sourceMenu(s)}
           onAdd={() => setShowCatalogue(true)} onSettings={() => openSettings()} onHide={() => showSidebar(false)} aiReady={aiReady}
           updateAll={<UpdateAll running={job === 'all'} disabled={busy} onRun={(force) => void runAll(force)} />} />
-        <SplitDivider width={sidebarShownWidth} onChange={setSidebarWidth} min={SIDEBAR.min} max={sidebarMax} fallback={SIDEBAR.fallback}
+        <SplitDivider width={sidebarShownWidth} onChange={resizeSidebar} min={SIDEBAR.min} max={sidebarMax} fallback={SIDEBAR.fallback}
           storageKey={SIDEBAR.key} edge="before" label={t('app.resizeSidebar')} />
       </>}
       <main className="workspace">
         {/* As in Mail: what acts on the list sits above the list, what acts on the
             item sits above the item. A refresh button therefore always sits next
             to the name of the list it refreshes. */}
-        <header className={`toolbar ${report ? 'whole' : ''}`}>
+        <header className={`toolbar ${report ? 'whole' : ''} ${!report && tab === 'read' ? (selected ? 'item-only' : 'list-only') : ''}`}>
           <div className="toolbar-list">
             {/* 全部更新 lives in the sidebar and hides with it, as a sidebar's own controls
                 do on the Mac; ⇧⌘R still runs it. An icon-only copy here stood next to the
@@ -366,8 +486,11 @@ export default function App() {
               <h1>{title}</h1>
               <p>{busy && <span className="spinner" aria-hidden />}{subtitle}</p>
             </div>
-            {!report && tab === 'read' && <button className="tool" onClick={() => void refresh()} disabled={busy}
+            {!report && tab === 'read' && <button className="tool list-action" onClick={() => void refresh()} disabled={busy}
               title={`${t('app.refresh')} (⌘R)`} aria-label={t('app.refresh')}>{spinner('fetch')}</button>}
+            {!report && tab === 'read' && <button className="tool list-action" onClick={() => void translateList()} disabled={(busy && job !== 'translate') || !aiReady}
+              aria-pressed={job === 'translate'} title={aiReady ? (job === 'translate' ? t('translate.list.stop') : t('translate.list.button')) : t('translate.needAi')}
+              aria-label={t('translate.list.button')} aria-haspopup="menu"><span className={`menu-glyph ${job === 'translate' ? 'pulsing' : ''}`}><Languages size={15} /><ChevronDown size={9} strokeWidth={2.5} /></span></button>}
             {!report && tab === 'flashes' && <>
               {/* A filter toggle, as Mail's: it narrows the list the title counts. */}
               <button className="tool" aria-pressed={importantOnly} title={t('flashes.importantOnly')} aria-label={t('flashes.importantOnly')}
@@ -378,11 +501,14 @@ export default function App() {
             {!report && tab === 'watches' && <button className="tool" title={t('watches.add')} aria-label={t('watches.add')} onClick={addWatch}><Plus size={17} /></button>}
           </div>
           <div className="toolbar-detail">
+            {/* What acts on the article sits at the right, beside the search field, as in
+                Mail: the list's own buttons end at the divider and these start well clear of it. */}
+            <span className="grow" />
             {report && <button className="tool" title={t('report.restart')} aria-label={t('report.restart')} onClick={() => setRestartReport((v) => v + 1)}><RotateCcw size={16} /></button>}
             {!report && tab === 'read' && <>
               <div className="tool-group">
-                <button className="tool" aria-label={t('app.prevArticle')} title={t('app.prevArticle')} disabled={selectedIndex <= 0} onClick={() => stepArticle(-1)}><ChevronLeft size={17} /></button>
-                <button className="tool" aria-label={t('app.nextArticle')} title={t('app.nextArticle')} disabled={!visibleItems.length || selectedIndex === visibleItems.length - 1} onClick={() => stepArticle(1)}><ChevronRight size={17} /></button>
+                <button className="tool" aria-label={t('app.prevArticle')} title={t('app.prevArticle')} disabled={selectedIndex <= 0} onClick={() => stepArticle(-1)}><ChevronUp size={17} /></button>
+                <button className="tool" aria-label={t('app.nextArticle')} title={t('app.nextArticle')} disabled={!visibleItems.length || selectedIndex === visibleItems.length - 1} onClick={() => stepArticle(1)}><ChevronDown size={17} /></button>
               </div>
               <button className="tool" disabled={!article} aria-pressed={Boolean(article?.starredAt)} title={article?.starredAt ? t('list.unstar') : t('list.star')} aria-label={t('list.star')}
                 onClick={() => { if (article) void onStar(article.id); }}><Star size={16} fill={article?.starredAt ? 'currentColor' : 'none'} /></button>
@@ -390,10 +516,12 @@ export default function App() {
                 onClick={() => { if (article) void setRead(article.id, !article.readAt); }}><CircleDot size={16} /></button>
               <button className="tool" disabled={!article} title={t('reader.original')} aria-label={t('reader.original')}
                 onClick={() => { if (article) void window.pnr.openExternal(article.url); }}><ExternalLink size={16} /></button>
+              <button className="tool" disabled={!article || !aiReady} aria-pressed={trMode !== 'original'} aria-label={t('translate.button')}
+                title={aiReady ? `${trMode === 'original' ? t('translate.button') : t('translate.showOriginal')} (⇧⌘T)` : t('translate.needAi')}
+                onClick={toggleTranslate} onContextMenu={(e) => { e.preventDefault(); if (article && aiReady) void translateMenu(); }}><Languages size={16} /></button>
               <button className="tool" disabled={!article || !aiReady} title={aiReady ? t('report.open') : t('report.needAi')} aria-label={t('report.open')}
                 onClick={() => { if (article) openReport({ anchorItemId: article.id, itemIds: [article.id], topic: article.title }); }}><FileSearch size={16} /></button>
             </>}
-            <span className="grow" />
             {!report && tab === 'read' && <label className="search-field"><Search size={13} />
               <input type="search" aria-label={t('list.search')} placeholder={t('list.search')} value={query}
                 onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }} /></label>}
@@ -410,13 +538,13 @@ export default function App() {
               article, flash or watch it was opened from still selected. */}
           <div className="workspace-tab" hidden={Boolean(report)}><ErrorBoundary key={tab}>
           {tab === 'read' ? <div className={`split-view ${selected ? 'has-selection' : ''}`}>
-            <ItemList items={visibleItems} onMore={items.length < total && !needle ? () => void loadMore() : undefined}
+            <ItemList items={visibleItems} translated={showTranslated} onMore={items.length < total && !needle ? () => void loadMore() : undefined}
               remaining={total - items.length} selected={selected} onSelect={onSelect} onMenu={(it) => void articleMenu(it)}
               query={query} onClearQuery={() => setQuery('')} filter={filter} empty={sources.length === 0} onAdd={() => setShowCatalogue(true)} />
             {listDivider}
-            <Reader id={selected} onLoaded={setCurrent} />
+            <Reader id={selected} onLoaded={setCurrent} translate={{ mode: trMode, onMode: setTrMode, target: trSettings.target, aiReady, onTitle: onTitleTranslated, onAsk: askAbout }} />
           </div>
-          : tab === 'today' ? <Today aiReady={aiReady} revision={revision} job={job === 'all' || job === 'digest' ? job : null} busy={busy} divider={listDivider} onSetup={() => openSettings('ai')}
+          : tab === 'today' ? <Today aiReady={aiReady} translate={{ target: trSettings.target, aiReady, auto: trSettings.auto, onTitle: () => {}, onAsk: askAbout }} revision={revision} job={job === 'all' || job === 'digest' ? job : null} busy={busy} divider={listDivider} onSetup={() => openSettings('ai')}
               onWrite={() => void runAll(false)} onRewrite={() => void rewriteDigest()} onOpen={openItem} onRead={(id) => void setRead(id, true)} onReport={openReport} onFollow={followOutside}
               onAddWatch={addWatch} onOpenWatch={openWatch} onScreen={setViewScreen} />
           : tab === 'flashes' ? <Flashes aiReady={aiReady} revision={revision} important={importantOnly} divider={listDivider} onSetup={() => openSettings('ai')}
@@ -428,9 +556,9 @@ export default function App() {
         </div>
       </main>
       {assistantOpen && <>
-        <SplitDivider width={panelShown} onChange={setPanelWidth} min={PANEL.min} max={panelMax} fallback={PANEL.fallback}
+        <SplitDivider width={panelShown} onChange={resizePanel} min={PANEL.min} max={panelMax} fallback={PANEL.fallback}
           storageKey={PANEL.key} edge="after" label={t('assistant.resize')} />
-        <ErrorBoundary><Assistant ai={ai} screen={screen} onOpenItem={openItem} onNavigate={(target) => navigateTo.current(target)} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
+        <ErrorBoundary><Assistant ai={ai} screen={screen} quote={quote} onOpenItem={openItem} onNavigate={(target) => navigateTo.current(target)} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
       </>}
       {showCatalogue && <Catalogue onClose={(changed) => {
         setShowCatalogue(false); void loadSources(); void loadItems();
@@ -438,6 +566,7 @@ export default function App() {
         if (changed) void refresh();
       }} />}
       {askBackground && <BackgroundPrompt onDone={() => setAskBackground(false)} />}
+      <SelectionPopover offer={trSettings.selection} aiReady={aiReady} onAsk={askAbout} />
     </div>
   );
 }
@@ -458,13 +587,44 @@ function useOptionKey(): boolean {
  * 全部更新 — brings every view up to date in one run and writes only what has
  * something new. Holding ⌥ turns it into 全部重新生成, which writes everything
  * again (after changing the output language, say).
+ *
+ * It sits in the sidebar's title bar, right of the traffic lights, in whatever
+ * room the sidebar's width leaves. The words are shown only while they fit (the
+ * button then shrinks to its icon, whose name is still its tooltip and
+ * accessible label), so the button can never run under the traffic lights or
+ * out of the sidebar, in any language and at any width. ⌥'s longer label shows
+ * only if it too fits; otherwise the usual one stays.
  */
 function UpdateAll({ running, disabled, onRun }: { running: boolean; disabled: boolean; onRun: (force: boolean) => void }) {
   const { t } = useTranslation();
   const option = useOptionKey();
-  const label = t(option ? 'app.regenerateAll' : 'app.updateAll');
-  return <button className="tool labeled" disabled={disabled} onClick={(e) => onRun(e.altKey)}
-    title={`${label} (${option ? '⌥⇧⌘R' : '⇧⌘R'})\n${t(option ? 'app.regenerateAllHint' : 'app.updateAllHint')}`} aria-label={label}>
-    <RefreshCw size={14} className={running ? 'spinning' : ''} /><span>{label}</span>
-  </button>;
+  const slot = useRef<HTMLDivElement>(null);
+  const usual = t('app.updateAll');
+  const alternate = t('app.regenerateAll');
+  const [room, setRoom] = useState({ width: Infinity, usual: 0, alternate: 0 });
+  // Each label's real width is measured on an invisible copy of the button, so
+  // padding, icon, font and language are all accounted for.
+  useLayoutEffect(() => {
+    const el = slot.current!;
+    const measure = (): void => {
+      const next = { width: el.clientWidth, usual: el.querySelector<HTMLElement>('.measure-usual')!.offsetWidth, alternate: el.querySelector<HTMLElement>('.measure-alternate')!.offsetWidth };
+      setRoom((r) => (r.width === next.width && r.usual === next.usual && r.alternate === next.alternate ? r : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [usual, alternate]);
+  const label = option ? alternate : usual;
+  const words = option && room.width >= room.alternate ? alternate : room.width >= room.usual ? usual : null;
+  const copy = (text: string, measure: string) => (
+    <button className={`tool labeled ${measure}`} aria-hidden tabIndex={-1}><RefreshCw size={14} /><span>{text}</span></button>
+  );
+  return <div ref={slot} className="update-all-slot">
+    {copy(usual, 'measure-usual')}{copy(alternate, 'measure-alternate')}
+    <button className={`tool ${words ? 'labeled' : ''}`} disabled={disabled} onClick={(e) => onRun(e.altKey)}
+      title={`${label} (${option ? '⌥⇧⌘R' : '⇧⌘R'})\n${t(option ? 'app.regenerateAllHint' : 'app.updateAllHint')}`} aria-label={label}>
+      <RefreshCw size={words ? 14 : 16} className={running ? 'spinning' : ''} />{words && <span>{words}</span>}
+    </button>
+  </div>;
 }

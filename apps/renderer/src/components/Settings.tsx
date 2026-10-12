@@ -14,6 +14,10 @@ const PROVIDERS: ProviderChoice[] = ['gemini', 'openai', 'anthropic', 'openai-co
 const CLOUD = new Set<ProviderChoice>(['gemini', 'openai', 'anthropic', 'openai-compatible']);
 /** Output languages, each named in itself. */
 const OUTPUT_LANGS: [string, string][] = [['zh-CN', '中文'], ['en-US', 'English'], ['ja-JP', '日本語']];
+/** Languages translations can go into, each named in itself. */
+const TRANSLATE_LANGS: [string, string][] = [['zh-CN', 'zh-Hans'], ['zh-TW', 'zh-Hant'], ['en-US', 'en'], ['ja-JP', 'ja'], ['ko-KR', 'ko'],
+  ['fr-FR', 'fr'], ['de-DE', 'de'], ['es-ES', 'es'], ['ru-RU', 'ru']];
+const ownName = (code: string): string => { try { return new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code; } catch { return code; } };
 
 /** Which message the settings screen shows after saving AI settings. */
 const connectionKey = (c: AiConnection): string =>
@@ -240,7 +244,34 @@ function AiForm({ status, onSaved }: { status: AiStatus; onSaved: () => Promise<
         <Switch label={t('settings.outsidePicks')} checked={options.outsidePicksEnabled} onChange={(on) => void setOption('outsidePicksEnabled', on)} /></Row>
       <AssistantModeRow />
     </Group>
+
+    <TranslateGroup initial={status.translate ?? { target: status.outputLang, choice: '', auto: false, selection: true }} outputLang={options.outputLang} />
   </>;
+}
+
+/** 翻译: which language, and whether foreign articles and selections are translated without asking. */
+function TranslateGroup({ initial, outputLang }: { initial: NonNullable<AiStatus['translate']>; outputLang: string }) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(initial);
+  const set = async (key: 'translateTarget' | 'translateAuto' | 'translateSelection', v: string): Promise<void> => {
+    setValue((x) => key === 'translateTarget' ? { ...x, choice: v } : key === 'translateAuto' ? { ...x, auto: v === '1' } : { ...x, selection: v === '1' });
+    await window.pnr.setAiOption(key, v);
+    changed();
+  };
+  const following = OUTPUT_LANGS.find(([v]) => v === outputLang)?.[1] ?? outputLang;
+  return (
+    <Group title={t('settings.translateTitle')} footer={t('settings.translateFooter')}>
+      <Row label={t('settings.translateTarget')} hint={t('settings.translateTargetHint')}>
+        <Select value={value.choice} onChange={(e) => void set('translateTarget', e.target.value)} aria-label={t('settings.translateTarget')}>
+          <option value="">{t('settings.followOutput', { lang: following })}</option>
+          {TRANSLATE_LANGS.map(([v, name]) => <option key={v} value={v}>{ownName(name)}</option>)}
+        </Select></Row>
+      <Row label={t('settings.translateAuto')} hint={t('settings.translateAutoHint')}>
+        <Switch label={t('settings.translateAuto')} checked={value.auto} onChange={(on) => void set('translateAuto', on ? '1' : '0')} /></Row>
+      <Row label={t('settings.translateSelection')} hint={t('settings.translateSelectionHint')}>
+        <Switch label={t('settings.translateSelection')} checked={value.selection} onChange={(on) => void set('translateSelection', on ? '1' : '0')} /></Row>
+    </Group>
+  );
 }
 
 /** How freely the news assistant may change things; the chip under its input box sets the same value. */

@@ -56,7 +56,8 @@
       "fetch": "Fetching subscriptions…",
       "watch": "Working on “{{label}}”…",
       "extract": "Reading article text…",
-      "writing": "Writing…"
+      "writing": "Writing…",
+      "translate": "Translating {{label}}"
     },
     "failed": "That didn't finish. Try again.",
     "crashed": "Something went wrong in this part of the window.",
@@ -140,7 +141,7 @@
     "loadFailed": "The article couldn't be loaded. Try again.",
     "markRead": "Mark as Read",
     "markUnread": "Mark as Unread",
-    "original": "Original",
+    "original": "Open in Browser",
     "words_one": "1 word",
     "words_other": "{{count}} words",
     "short": " · Brief",
@@ -272,7 +273,11 @@
       "open_source": "source",
       "open_settings": "Settings",
       "suggest_watch_sources": "suggesting sources",
-      "add_watch_sources": "adding sources to a watch"
+      "add_watch_sources": "adding sources to a watch",
+      "translate_text": "translate text",
+      "translate_article": "translate article",
+      "translate_articles": "translate articles",
+      "set_translation": "translation settings"
     },
     "action": {
       "list_watches": "View watches",
@@ -322,7 +327,11 @@
       "open_source": "Open source",
       "open_settings": "Open Settings",
       "suggest_watch_sources": "Suggest sources",
-      "add_watch_sources": "Add sources to watch"
+      "add_watch_sources": "Add sources to watch",
+      "translate_text": "Translate text",
+      "translate_article": "Translate article",
+      "translate_articles": "Translate articles",
+      "set_translation": "Change translation settings"
     },
     "field": {
       "label": "Name",
@@ -356,7 +365,14 @@
       "searchFillEnabled": "Search fill",
       "outsidePicksEnabled": "Beyond your watches",
       "placement": "Add to",
-      "sources": "Sources"
+      "sources": "Sources",
+      "translateWhat": "Scope",
+      "translateTarget": "Target language",
+      "translateAuto": "Translate foreign articles",
+      "translateSelection": "Translate selection",
+      "articles": "Articles",
+      "translated": "Translated",
+      "skipped": "Skipped"
     },
     "value": {
       "verdict": {
@@ -404,6 +420,18 @@
       "placement": {
         "subscribe": "Subscribe",
         "watch_only": "Watch only"
+      },
+      "translateWhat": {
+        "titles": "Headlines and snippets",
+        "full": "Full text"
+      },
+      "translateAuto": {
+        "on": "On",
+        "off": "Off"
+      },
+      "translateSelection": {
+        "on": "On",
+        "off": "Off"
       }
     },
     "status": {
@@ -432,7 +460,8 @@
       "interrupted": "The action was interrupted.",
       "already_installing": "The pack is already downloading.",
       "route_not_found": "That route does not exist.",
-      "rsshub_not_available": "Social sources are not set up: download the pack or set your own instance."
+      "rsshub_not_available": "Social sources are not set up: download the pack or set your own instance.",
+      "no_ai": "Connect AI first."
     },
     "mode": {
       "readonly": "Read Only",
@@ -473,7 +502,10 @@
     "example2": "What am I following, and what has moved?",
     "example3": "Check for new flashes",
     "confirmAll_one": "Confirm {{count}}",
-    "confirmAll_other": "Confirm All ({{count}})"
+    "confirmAll_other": "Confirm All ({{count}})",
+    "quote": "“{{text}}”\n",
+    "copyAnswer": "Copy Answer",
+    "translationLabel": "Translation · {{lang}}"
   },
   "outside": {
     "title": "Beyond Your Watches",
@@ -671,7 +703,16 @@
       "failed": "The last check failed; will try again later",
       "dev": "Development builds don’t check for updates",
       "location": "Not in the Applications folder, so it can’t update"
-    }
+    },
+    "translateTitle": "Translation",
+    "translateFooter": "Translation uses the fast model. Translations are stored on this Mac and never charged twice.",
+    "translateTarget": "Target Language",
+    "translateTargetHint": "Used for articles, lists and selected text.",
+    "followOutput": "Same as Writing Language ({{lang}})",
+    "translateAuto": "Translate Foreign Articles",
+    "translateAutoHint": "Foreign-language articles open translated. Each one uses AI.",
+    "translateSelection": "Translate Selection",
+    "translateSelectionHint": "Show Translate and Ask Assistant when text is selected."
   },
   "catalogue": {
     "title": "Subscriptions",
@@ -943,7 +984,8 @@
     "manageSubscriptions": "Manage Subscriptions…",
     "updateAll": "Update All",
     "regenerateAll": "Regenerate All",
-    "checkForUpdates": "Check for Updates…"
+    "checkForUpdates": "Check for Updates…",
+    "translate": "Translate Article"
   },
   "report": {
     "title": "Deep Report",
@@ -1005,5 +1047,63 @@
     "notNow": "Not Now",
     "dontAsk": "Don’t ask again",
     "moveFailed": "The move didn’t work. Quit 所闻 and drag it to the Applications folder yourself."
+  },
+  "translate": {
+    "button": "Translate",
+    "needAi": "Translation needs AI",
+    "display": "Display",
+    "original": "Original",
+    "bilingual": "Bilingual",
+    "translation": "Translation",
+    "showOriginal": "Show Original",
+    "settingsMenu": "Translation Settings…",
+    "whole": "Translate Article",
+    "paragraph": "Translate Paragraph",
+    "hideParagraph": "Hide Paragraph Translation",
+    "menuSelection": "Translate “{{text}}”",
+    "from": "Translated from {{lang}}",
+    "translated": "Translated",
+    "answer": "Translate Answer",
+    "answerHide": "Hide Translation",
+    "bar": {
+      "translating": "Translating… {{done}} of {{total}}",
+      "from": "{{from}} → {{lang}}",
+      "done": "Translated into {{lang}}",
+      "failed_one": "{{count}} paragraph not translated",
+      "failed_other": "{{count}} paragraphs not translated"
+    },
+    "selection": {
+      "label": "Translate Selection",
+      "translate": "Translate",
+      "ask": "Ask Assistant",
+      "translating": "Translating…"
+    },
+    "list": {
+      "button": "Translate List…",
+      "stop": "Stop Translating",
+      "starting": "Translating…",
+      "showTranslated": "Show Translated Headlines",
+      "titles_one": "Translate Headline and Snippet ({{count}} foreign)",
+      "titles_other": "Translate Headlines and Snippets ({{count}} foreign)",
+      "full_one": "Translate Full Text ({{count}} foreign)",
+      "full_other": "Translate Full Text ({{count}} foreign)",
+      "done_one": "Translated {{count}} article",
+      "done_other": "Translated {{count}} articles",
+      "stopped_one": "Stopped after {{count}} article",
+      "stopped_other": "Stopped after {{count}} articles",
+      "confirm": {
+        "message_one": "Translate the full text of {{count}} article?",
+        "message_other": "Translate the full text of {{count}} articles?",
+        "detail": "Translated by AI and charged by length, usually under one cent per article. Articles not yet downloaded are downloaded first. Existing translations are not charged again.",
+        "confirm": "Translate"
+      }
+    },
+    "error": {
+      "no_ai": "Translation needs AI.",
+      "failed": "Translation failed. Try again later.",
+      "too_long": "The selection is too long. Select less text and try again.",
+      "empty": "There is no text to translate.",
+      "not_found": "This article could not be found."
+    }
   }
 }

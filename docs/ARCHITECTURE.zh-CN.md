@@ -259,6 +259,26 @@ App 自己写的摘要、时间线、快讯原样给模型，背后的文章登�
 - **安全**：文章正文从不进 agent 步骤（工具只返回标题和 id，工具结果在 prompt 里标为不可信数据）；**填 API key / token 不做成工具**，像密钥的输入在本地拦下，不发给模型也不存。
 - 离线测试 `npm run test:agent`（脚本化模型 + 真实工具 + 临时数据库）。
 
+### 翻译（`translate.ts`，2026-10-12 用户要求）
+
+翻译不是写作：要的是逐句读懂原文，所以 prompt 只许翻、不许增删和概括，原文永远一键可回（默认「双语」）。
+**只在用户要求时翻**（自动翻译外文文章是设置里的开关，默认关）。
+
+- **切块**：`segmentHtml` 把清洗过的正文切成叶子块（最内层的段落、列表项、标题、单元格、图注；跳过代码），
+  给块标 `data-pnr-b="N"`、把原文包进 `<span class="pnr-o">`。同样的 HTML 永远切出同样的编号，界面和主进程靠它对齐。
+  译文放进块里、原文后面（`.pnr-t`），所以链接、图片、表格结构都是文章自己的；「译文」模式只是藏起 `.pnr-o`
+- **缓存**：`item_translations` 每篇文章 × 目标语言一行，正文块按**原文哈希**存，所以段落翻译、全文翻译、批量翻译共用一份，
+  正文重抽后只翻变了的块；标题、摘要各带原文哈希，原文改了旧译文就不算数。模型漏掉的块留空，不拿原文充数，下次再补
+- **调用**：快速模型，按输出上限把多块打包一次调用，三路并发；阅读器每次只要几块，长文边译边显示
+- **四种入口**：全文（工具栏「翻译」⇧⌘T；文首翻译条切「原文 · 双语 · 译文」）、段落（原文模式下右键段落或 ⌥ 点段落）、
+  划词（`SelectionPopover`，选中文字后出现「翻译 / 问助手」，文章、AI 文档、助手回答都适用）、
+  批量（列表上方「翻译列表」：外文标题+摘要一次最多 300 篇，全文最多 50 篇且先确认；`app:translateBatch`，进度在工具栏副标题，可停止）
+- **助手**：`translate_text`（read）的译文经 `ToolResult.say` 原样作为 `translation` 单元给用户，不让 agent 模型转述；
+  `translate_article`（navigate，等于按翻译按钮）、`translate_articles`（heavy，先出卡片）、`set_translation`（write，可撤销）；
+  右键回答可「翻译这条回答」（逐单元，译文排在各单元下面）；划词的「问助手」把选中文字引在输入框里
+- 目标语言默认跟随撰写语言（设置 → AI → 翻译），已经是目标语言的选中文字改译成英文（目标是英文时译成中文）
+- 离线测试 `npm run test:translate`
+
 ## 9. AI 层（`packages/ai`）
 
 业务层只依赖项目自己的 `Provider` 接口（`generate` / `stream` / `embed` / `search`），
@@ -299,6 +319,7 @@ schema 嵌在 `migrations.ts` 里（打包后的主进程读不到源码旁边�
 | 搜索补全 | `search_materials` · `search_material_sources` |
 | 深度报道 | `conversations` · `conversation_messages` · `conversation_sources` |
 | 新闻助手 | `assistant_chats` · `assistant_messages` · `assistant_sources` · `assistant_actions` |
+| 翻译 | `item_translations`（`003_translations`） |
 | AI | `ai_runtime` · `embedding_cache_meta` · `watch_vector_meta` · `ai_requests` · `embeddings`、`watch_vectors`（sqlite-vec） |
 | 基础设施 | `locks` · `runs` · `events` · `circuit_breakers` · `settings` |
 

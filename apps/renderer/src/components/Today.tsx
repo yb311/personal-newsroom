@@ -5,7 +5,7 @@ import type { OpenReport } from '../App.tsx';
 import { Blocks } from './Blocks.tsx';
 import { Cited, numberSources, Refs, SourceList } from './Cites.tsx';
 import { Detail, ListPane, Row } from './ListPane.tsx';
-import { Reader } from './Reader.tsx';
+import { Reader, type ReaderTranslate } from './Reader.tsx';
 import { useTranslation } from 'react-i18next';
 import { ago, clock, dateTime, scriptLang } from '../i18n.ts';
 
@@ -30,9 +30,12 @@ const LONG_DAY: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric', we
  * Without a brief (no AI yet, or not written today) the list carries the last
  * day's headlines instead, so 今日 is still a front page, never a blank.
  */
-export function Today({ aiReady, revision, job, busy, divider, onSetup, onWrite, onRewrite, onOpen, onRead, onReport, onFollow, onAddWatch, onOpenWatch, onScreen }: {
+export function Today({ aiReady, translate, revision, job, busy, divider, onSetup, onWrite, onRewrite, onOpen, onRead, onReport, onFollow, onAddWatch, onOpenWatch, onScreen }: {
   /** 'all' while 全部更新 runs (it writes the first brief), 'digest' while the brief is rewritten. */
-  aiReady: boolean; revision: number; job: 'all' | 'digest' | null; busy: boolean; divider: ReactNode; onSetup: () => void;
+  aiReady: boolean;
+  /** For the reader of a headline (翻译 there keeps its own mode). */
+  translate: ReaderTranslate;
+  revision: number; job: 'all' | 'digest' | null; busy: boolean; divider: ReactNode; onSetup: () => void;
   /** No brief yet: 全部更新 gathers the material and writes it. */
   onWrite: () => void;
   /** A brief exists: write it again from what is already judged, nothing else. */
@@ -139,7 +142,7 @@ export function Today({ aiReady, revision, job, busy, divider, onSetup, onWrite,
       </ListPane>
       {divider}
 
-      {current.kind === 'headline' ? <Reader key={active} id={current.item.id} onLoaded={() => {}} onBack={back} />
+      {current.kind === 'headline' ? <Reader key={active} id={current.item.id} onLoaded={() => {}} onBack={back} translate={translate} />
       : current.kind === 'outside' ? <Outside key={active} pick={current.pick} refs={refs} aiReady={aiReady}
           onOpen={onOpen} onReport={onReport} onFollow={onFollow} onBack={back} />
       : current.kind === 'edition' ? <PastEdition key={active} date={current.edition.date} onOpen={onOpen} onOpenWatch={onOpenWatch} onBack={back} />

@@ -29,7 +29,8 @@ import { actionLines, chatActions, getAgentMode, recoverActions, looksLikeSecret
  */
 
 export type AssistantSourceKind = 'library' | 'news' | 'web';
-export interface AssistantUnit { kind: 'paragraph' | 'listItem' | 'note'; text: string; sourceRefIds: string[]; supported: boolean }
+/** `note`: the agent's own words about what it did. `translation`: a tool's translation, shown as it came back (`lang` is its language). */
+export interface AssistantUnit { kind: 'paragraph' | 'listItem' | 'note' | 'translation'; text: string; sourceRefIds: string[]; supported: boolean; lang?: string }
 export interface AssistantAnswer { units: AssistantUnit[] }
 export interface AssistantSource {
   refId: string; kind: AssistantSourceKind; itemId: string | null;
@@ -117,6 +118,7 @@ const softFailure = (text: string): boolean => text.length < 160
 const abortIfNeeded = (signal?: AbortSignal): void => { if (signal?.aborted) throw new DOMException('Aborted', 'AbortError'); };
 const plainAnswer = (answer: AssistantAnswer | null): string => (answer?.units ?? []).map((u) => u.text).join(' ');
 const note = (text: string): AssistantUnit => ({ kind: 'note', text, sourceRefIds: [], supported: false });
+const translation = (t: { text: string; lang: string }): AssistantUnit => ({ kind: 'translation', text: t.text, lang: t.lang, sourceRefIds: [], supported: false });
 
 // ── reading ─────────────────────────────────────────────────────────────────
 
@@ -391,6 +393,7 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
     // The agent step decides whether this is a question for the news or work for the app.
     let q: { keywords: string[]; searchQuery: string } | null = null;
     let appState = '';
+    let toldAsIs: AssistantUnit[] = [];
     if (toolbox) {
       send({ type: 'phase', phase: 'thinking' });
       const outcome = await runAgent(db, provider, {
@@ -401,8 +404,9 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
         onStep: (tool) => send({ type: 'phase', phase: 'tools', tool }),
         onAction: () => send({ type: 'action' })
       }, { keywords: roughTerms(question), searchQuery: question });
+      toldAsIs = outcome.said.map(translation);
       if (outcome.route === 'done') {
-        const answer: AssistantAnswer = { units: outcome.reply ? [note(outcome.reply)] : [] };
+        const answer: AssistantAnswer = { units: [...toldAsIs, ...(outcome.reply ? [note(outcome.reply)] : [])] };
         const acted = db.prepare('SELECT 1 FROM assistant_actions WHERE message_id = ? LIMIT 1').get(messageId);
         if (!answer.units.length && !acted) throw new Error('empty_answer');
         finish('complete', answer, null);
@@ -474,11 +478,12 @@ export async function askAssistant(db: Db, provider: Provider, dataDir: string, 
     let final: AssistantAnswer | null = null;
     for await (const event of provider.stream<AssistantAnswer>(prompt, { schema: ANSWER_SCHEMA as unknown as Record<string, unknown>,
       model: provider.writeModel, temperature: 0.2, operation: 'assistant_answer', ...(signal ? { signal } : {}) })) {
-      if (event.type === 'partial') send({ type: 'partial', value: event.value });
+      if (event.type === 'partial') send({ type: 'partial', value: toldAsIs.length ? { units: [...toldAsIs, ...(event.value.units ?? [])] as AssistantUnit[] } : event.value });
       else if (event.type === 'error') throw event.error;
       else final = event.result.data;
     }
     const answer = clean(final ?? { units: [] }, new Set(all.map((s) => s.refId)));
+    answer.units.unshift(...toldAsIs);
     if (!answer.units.length) throw new Error('empty_answer');
     finish('complete', answer, null);
     send({ type: 'complete', value: answer });

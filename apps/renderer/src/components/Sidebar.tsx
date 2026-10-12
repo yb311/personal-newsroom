@@ -97,8 +97,10 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
       <footer className="sidebar-footer">
         <button className="tool" title={t('app.addSubscription')} aria-label={t('app.addSubscription')} onClick={onAdd}><Plus size={16} /></button>
         <span className="grow" />
-        <button className="footer-status" onClick={onSettings} title={t('app.settings')}>
-          <i className={`status-dot ${aiReady ? 'on' : ''}`} />{aiReady ? t('app.aiOn') : t('app.aiOff')}</button>
+        {/* The one part of the footer that may give way: its words shorten to an ellipsis, so the
+            settings button beside it is never pushed out of a narrow sidebar. */}
+        <button className="footer-status" onClick={onSettings} title={aiReady ? t('app.aiOn') : t('app.aiOff')}>
+          <i className={`status-dot ${aiReady ? 'on' : ''}`} /><span>{aiReady ? t('app.aiOn') : t('app.aiOff')}</span></button>
         <button className="tool" title={`${t('app.settings')} (⌘,)`} aria-label={t('app.settings')} onClick={onSettings}><Settings size={15} /></button>
       </footer>
     </aside>

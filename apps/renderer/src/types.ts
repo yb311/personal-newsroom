@@ -7,9 +7,15 @@ export interface ItemRow {
   readAt: number | null; starredAt: number | null;
   dateEstimated?: number;
   lang?: string | null;
+  /** Headline and snippet in the translation language, once translated. */
+  titleTr?: string | null; snippetTr?: string | null;
+  translatedFull?: boolean;
 }
-/** Article body HTML, already sanitised by the reader core. */
+/** Article body HTML, already sanitised by the reader core; its blocks carry `data-pnr-b` numbers. */
 export interface ItemBody { html: string; words: number; source: 'feed' | 'page' }
+/** What of one article is translated: the headline, and body blocks by number. */
+export interface ItemTranslation { target: string; title: string | null; blocks: Record<number, string>; total: number }
+export interface TranslateSettings { target: string; choice: string; auto: boolean; selection: boolean }
 export interface SourceRow {
   id: string; name: string; kind: string; category: string | null;
   country: string | null; domain: string | null; enabled: number;
@@ -104,8 +110,8 @@ export interface ReportEvent { requestId: string; conversationId: string; messag
 export interface ReportAnchor { anchorItemId: string; itemIds: string[]; topic: string }
 export interface MenuEntry { id?: string; label?: string; enabled?: boolean; checked?: boolean; separator?: boolean }
 export type AssistantSourceKind = 'library' | 'news' | 'web';
-/** `note`: the agent's own words about what it did — needs no source. */
-export interface AssistantUnit { kind: 'paragraph' | 'listItem' | 'note'; text: string; sourceRefIds: string[]; supported: boolean }
+/** `note`: the agent's own words about what it did — needs no source. `translation`: a translation, shown as it came back. */
+export interface AssistantUnit { kind: 'paragraph' | 'listItem' | 'note' | 'translation'; text: string; sourceRefIds: string[]; supported: boolean; lang?: string }
 export interface AssistantAnswer { units: AssistantUnit[] }
 export interface AssistantSource { refId: string; kind: AssistantSourceKind; itemId: string | null; title: string; url: string; publisher: string | null; publishedAt: number | null }
 export interface AssistantMessage { id: string; sequence: number; role: 'user' | 'assistant'; content: string | null; answer: AssistantAnswer | null; status: 'pending' | 'complete' | 'cancelled' | 'failed'; web: boolean; error: string | null; screenLabel: string | null; actions: AssistantAction[] }
@@ -118,7 +124,7 @@ export const AGENT_MODES: AgentMode[] = ['ask', 'auto', 'full', 'readonly'];
 export type Risk = 'read' | 'navigate' | 'write' | 'heavy' | 'danger';
 export type NavTarget =
   | { kind: 'tab'; tab: 'today' | 'flashes' | 'read' | 'watches' }
-  | { kind: 'item'; itemId: string }
+  | { kind: 'item'; itemId: string; translate?: 'bilingual' | 'translation' }
   | { kind: 'watch'; watchId: string; section?: 'timeline' | 'items' | 'settings' }
   | { kind: 'source'; sourceId: string }
   | { kind: 'settings'; section?: string }
@@ -168,6 +174,7 @@ export interface AiStatus {
   outsidePicksEnabled: boolean;
   /** Whether the connected provider can search the web itself. */
   webSearch: boolean;
+  translate?: TranslateSettings;
   /** Recommended models of each cloud provider, shown as placeholders. */
   defaults: Record<'gemini' | 'openai' | 'anthropic', { write: string; fast: string; embed?: string }>;
 }
@@ -206,7 +213,13 @@ export interface Pnr {
   countItems(o: { sourceId?: string; filter?: 'all'|'unread'|'starred' }): Promise<number>;
   readingLanguages(): Promise<{ available: { lang: string | null; count: number }[]; selected: string[] }>;
   setReadingLanguages(langs: string[]): Promise<void>;
-  getItem(id: string): Promise<(ItemRow & { body: ItemBody | null; bodyError: string | null }) | null>;
+  getItem(id: string): Promise<(ItemRow & { body: ItemBody | null; bodyError: string | null; translation?: ItemTranslation }) | null>;
+  translateItem(id: string, indices: number[] | null, title?: boolean): Promise<{ ok: true; translation: ItemTranslation } | { ok: false; error: string }>;
+  translateText(text: string): Promise<{ ok: true; to: string; text: string } | { ok: false; error: string }>;
+  translateTexts(texts: string[]): Promise<{ ok: true; texts: (string | null)[] } | { ok: false; error: string }>;
+  /** 批量翻译: headlines, or with `full` whole texts, of these articles. */
+  translateBatch(ids: string[], full?: boolean): Promise<{ busy?: boolean; error?: string; translated?: number; failed?: number; skipped?: number; total?: number; cancelled?: boolean }>;
+  translateCancel(): Promise<boolean>;
   markRead(id: string, read: boolean): Promise<void>;
   toggleStar(id: string): Promise<boolean>;
   setSourceEnabled(id: string, enabled: boolean): Promise<void>;
@@ -218,7 +231,7 @@ export interface Pnr {
   onProgress(cb: (p: unknown) => void): () => void;
   aiStatus(): Promise<AiStatus>;
   saveAiSettings(patch: Record<string, string>): Promise<AiConnection>;
-  setAiOption(key: 'outputLang' | 'searchFillEnabled' | 'outsidePicksEnabled', value: string): Promise<void>;
+  setAiOption(key: 'outputLang' | 'searchFillEnabled' | 'outsidePicksEnabled' | 'translateTarget' | 'translateAuto' | 'translateSelection', value: string): Promise<void>;
   presets(lang?: string): Promise<PresetRow[]>;
   watches(): Promise<WatchRow[]>;
   addWatch(i: { label: string; intent: string; keywords?: string[]; outputLang?: string | null }): Promise<WatchRow>;

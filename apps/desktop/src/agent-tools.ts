@@ -4,7 +4,7 @@ import { publicSettings } from '@pnr/ai';
 import { blockText } from '@pnr/core';
 import { getWatch, listWatches, updateWatch, deleteWatch, listWatchSources, removeWatchSource } from '@pnr/watch';
 import { curatedRoutes } from '@pnr/feed';
-import type { ActionView, AgentTool, NavTarget, Toolbox, ToolResult } from '@pnr/generate';
+import { translateSettings, setTranslateOption, isForeign, MAX_BATCH, type ActionView, type AgentTool, type NavTarget, type Toolbox, type ToolResult } from '@pnr/generate';
 import type { Api } from './ipc.ts';
 
 /**
@@ -34,6 +34,8 @@ export interface AppActions {
   runFlashes(): Promise<Record<string, unknown>>;
   runWatch(id: string): Promise<Record<string, unknown>>;
   rewriteDigest(): Promise<Record<string, unknown>>;
+  /** 批量翻译 (main.ts): headlines, or with `full` whole texts, of these articles. */
+  translateBatch(ids: string[], full: boolean): Promise<Record<string, unknown>>;
   uiLanguage(): { choice: string; resolved: string };
   setUiLanguage(choice: 'system' | 'zh-CN' | 'en'): unknown;
   scheduleState(): unknown;
@@ -80,6 +82,23 @@ export function buildToolbox(db: Db, api: Api, actions: AppActions, hooks: { nav
     return w ? { subject: w.label, fields: [{ key: 'intent', value: w.intent }], open: { kind: 'watch', watchId: w.id } } : { fields: [] };
   };
   const nav = (target: NavTarget, data: unknown = 'opened'): ToolResult => ok(data, { navigate: target });
+  /** The articles a batch translation covers: the ones named, a source's newest, or the unread ones. */
+  const pick = (a: { itemIds?: string[] | undefined; sourceId?: string | undefined; unread?: boolean | undefined; full: boolean }): string[] => {
+    const max = a.full ? MAX_BATCH.full : MAX_BATCH.titles;
+    if (a.itemIds?.length) return a.itemIds.filter((x) => itemRow(x)).slice(0, max);
+    if (a.sourceId) return sourceRow(a.sourceId) ? api.listItems({ sourceId: a.sourceId, limit: max * 2 }).map((r) => r.id) : [];
+    return api.listItems({ filter: 'unread', limit: max * 2 }).map((r) => r.id);
+  };
+  const foreignCount = (ids: string[], target: string): number => ids.filter((x) => {
+    const r = db.prepare('SELECT lang FROM items WHERE id = ?').get(x) as { lang: string | null } | undefined;
+    return r && (!r.lang || isForeign(r.lang, target));
+  }).length;
+  const translationFields = (a: { target?: string | undefined; auto?: boolean | undefined; selection?: boolean | undefined },
+    before: { choice: string; auto: boolean; selection: boolean }): ActionView['fields'] => [
+    ...(a.target !== undefined ? [{ key: 'translateTarget', before: before.choice, value: a.target }] : []),
+    ...(a.auto !== undefined ? [{ key: 'translateAuto', before: before.auto ? 'on' : 'off', value: a.auto ? 'on' : 'off' }] : []),
+    ...(a.selection !== undefined ? [{ key: 'translateSelection', before: before.selection ? 'on' : 'off', value: a.selection ? 'on' : 'off' }] : [])
+  ];
   const lang = (): string => actions.uiLanguage().resolved;
 
   const tools: AgentTool[] = [
@@ -359,7 +378,7 @@ export function buildToolbox(db: Db, api: Api, actions: AppActions, hooks: { nav
       describe: 'Current settings: AI provider and models (never keys), output language, search fill, outside picks, reading languages, interface language, background schedule.',
       async run() {
         const s = publicSettings(db) as unknown as Record<string, unknown>;
-        return ok({ provider: s['provider'], writeModel: s['writeModel'], fastModel: s['fastModel'], outputLang: s['outputLang'],
+        return ok({ provider: s['provider'], writeModel: s['writeModel'], fastModel: s['fastModel'], outputLang: s['outputLang'], translation: translateSettings(db),
           searchFillEnabled: s['searchFillEnabled'], outsidePicksEnabled: s['outsidePicksEnabled'],
           readingLanguages: api.readingLanguages().selected, uiLanguage: actions.uiLanguage().choice, schedule: actions.scheduleState() });
       } }),
@@ -416,6 +435,58 @@ export function buildToolbox(db: Db, api: Api, actions: AppActions, hooks: { nav
       async run() { const r = await actions.rssHub.install(); return r.ok ? ok(r) : fail(r.error ?? 'failed'); } }),
     tool({ name: 'rsshub_remove', risk: 'danger', args: none, params: '{}', describe: 'Delete the downloaded social sources pack to free space.',
       async run() { return (await actions.rssHub.remove()) ? ok('removed') : fail('failed'); } }),
+
+    // ── translation ────────────────────────────────────────────────────────
+    tool({ name: 'translate_text', risk: 'read', args: z.object({ text: z.string().min(1).max(4000) }),
+      params: '{"text": the text to translate, copied exactly from the person\'s message}',
+      describe: 'Translate text the person typed or quoted into their translation language (text already in it goes into English, or Chinese for an English reader). They see the translation as it comes back.',
+      async run({ text }) {
+        const r = await api.translateText(text);
+        if (!r.ok) return fail(r.error);
+        return ok({ to: r.to, translation: clip(r.text, 1500) }, { say: { text: r.text, lang: r.to } });
+      } }),
+    tool({ name: 'translate_article', risk: 'navigate', args: z.object({ itemId: id, display: z.enum(['bilingual', 'translation']).optional() }),
+      params: '{"itemId": string, "display"?: "bilingual" (original with the translation under each paragraph, default) | "translation" (translation only)}',
+      describe: 'Open an article in the reader, translated into the person\'s translation language — what the reader\'s 翻译 button does.',
+      async run({ itemId, display }) { return itemRow(itemId) ? nav({ kind: 'item', itemId, translate: display ?? 'bilingual' }) : fail('not_found'); } }),
+    tool({ name: 'translate_articles', risk: 'heavy',
+      args: z.object({ itemIds: z.array(id).max(MAX_BATCH.titles).optional(), sourceId: z.string().optional(), unread: z.boolean().optional(), full: z.boolean() })
+        .refine((a) => Boolean(a.itemIds?.length || a.sourceId || a.unread), { message: 'give itemIds, sourceId or unread' }),
+      params: `{"itemIds"?: string[], "sourceId"?: string (that source's newest articles), "unread"?: true (unread articles of the subscriptions), "full": false translates headlines and snippets (cheap, up to ${MAX_BATCH.titles}), true also the whole text (up to ${MAX_BATCH.full})}`,
+      describe: 'Translate many foreign-language articles at once (批量翻译), as the list\'s 翻译 button does. Articles already in the translation language are skipped. Uses AI.',
+      preview: (a) => {
+        const ids = pick(a); const target = translateSettings(db).target;
+        return { fields: [{ key: 'translateWhat', value: a.full ? 'full' : 'titles' }, { key: 'translateTarget', value: target },
+          { key: 'articles', value: String(foreignCount(ids, target)) }] };
+      },
+      async run(a) {
+        const ids = pick(a);
+        if (!ids.length) return fail('not_found');
+        const r = await actions.translateBatch(ids, a.full);
+        if (r['busy']) return fail('busy');
+        if (r['error']) return fail(String(r['error']) === 'no_ai' ? 'no_ai' : 'failed');
+        return ok(r, { view: { fields: [{ key: 'translateWhat', value: a.full ? 'full' : 'titles' },
+          ...(['translated', 'skipped', 'failed'] as const).map((k) => ({ key: k, value: String(r[k] ?? 0) }))],
+          ...(a.sourceId ? { open: { kind: 'source' as const, sourceId: a.sourceId } } : {}) } });
+      } }),
+    tool({ name: 'set_translation', risk: 'write',
+      args: z.object({ target: z.string().max(16).optional(), auto: z.boolean().optional(), selection: z.boolean().optional() }).strict()
+        .refine((a) => a.target !== undefined || a.auto !== undefined || a.selection !== undefined, { message: 'nothing to change' }),
+      params: '{"target"?: language code to translate into, e.g. "zh-CN", "en-US", or "" to follow the AI writing language, "auto"?: translate foreign articles as soon as they are opened, "selection"?: offer 翻译 when text is selected}',
+      describe: 'Change translation preferences.',
+      preview: (a) => ({ fields: translationFields(a, translateSettings(db)) }),
+      async run(a) {
+        const before = translateSettings(db);
+        if (a.target !== undefined) setTranslateOption(db, 'target', a.target);
+        if (a.auto !== undefined) setTranslateOption(db, 'auto', a.auto ? '1' : '0');
+        if (a.selection !== undefined) setTranslateOption(db, 'selection', a.selection ? '1' : '0');
+        return ok(translateSettings(db), { undo: { target: before.choice, auto: before.auto, selection: before.selection },
+          view: { fields: translationFields(a, before) } });
+      },
+      async undo(u) {
+        const b = u as { target: string; auto: boolean; selection: boolean };
+        setTranslateOption(db, 'target', b.target); setTranslateOption(db, 'auto', b.auto ? '1' : '0'); setTranslateOption(db, 'selection', b.selection ? '1' : '0');
+      } }),
 
     // ── pages ──────────────────────────────────────────────────────────────
     tool({ name: 'open_tab', risk: 'navigate', args: z.object({ tab: z.enum(['today', 'flashes', 'read', 'watches']) }),

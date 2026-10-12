@@ -8,6 +8,7 @@ import { Group, Row, Select, Switch } from './Form.tsx';
 import { ListPane, Row as ListRow } from './ListPane.tsx';
 import type { OpenReport } from '../App.tsx';
 import { useTranslation } from 'react-i18next';
+import { listTranslated, rowText } from '../translate.ts';
 import { ago, dateTime } from '../i18n.ts';
 const splitKeywords = (s: string): string[] => s.split(/[,，、;；\n]+/).map((k) => k.trim()).filter(Boolean);
 /** A calendar day ('2026-09-22') in the interface language, as 今日 shows it. */
@@ -346,7 +347,7 @@ function WatchItems({ watch, aiReady, revision, onOpen, onReport, onChanged }: {
                 : it.score !== null ? <span className="tag" title={t('watches.scoreHint')}>{t('watches.score', { score: it.score })}</span> : null}
               {it.verdict === 'wanted' && <span className="tag accent">{t('watches.markedWanted')}</span>}
             </div>
-            <button className="headline" onClick={() => onOpen(it.id)}>{it.title}</button>
+            <button className="headline" title={rowText(it, listTranslated()).isTranslated ? it.title : undefined} onClick={() => onOpen(it.id)}>{rowText(it, listTranslated()).title}</button>
             {it.reason && <p className="why">{it.reason}</p>}
             {noting?.id === it.id ? (
               <form className="note-row" onSubmit={(e) => { e.preventDefault(); void send(); }}>
