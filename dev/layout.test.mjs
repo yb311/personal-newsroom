@@ -189,7 +189,9 @@ app.whenReady().then(async () => {
     await load({ lang, ai: '1', sidebar: '220', assistant: '1', chat: '1' });
     await js("document.querySelector('.row-item')?.click()"); await sleep(200);
     for (const w of [760, 1100]) {
-      await size(w, HEIGHT);
+      // A resize closes the bar (as it should); let the window's own resize event land before
+      // selecting, or on a slow machine it arrives after the selection and closes the bar under test.
+      await size(w, HEIGHT); await sleep(300);
       for (const [area, selector] of [['article', '.prose p'], ['assistant', '.assistant .answer p']]) {
         const selected = await js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return false;
           const range = document.createRange(); range.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);

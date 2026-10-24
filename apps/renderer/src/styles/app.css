@@ -513,8 +513,11 @@ button.ref:hover { background: var(--accent); color: var(--on-accent); }
 .watch-items .headline:hover { color: var(--control-accent); }
 .watch-items .why { font-size: var(--text-sm); line-height: 1.5; color: var(--label-2); }
 .watch-items .verdicts { position: absolute; top: 9px; right: 0; display: flex; gap: 0; }
-.watch-items .note-row { display: flex; gap: 6px; margin-top: 6px; }
-.watch-items .note-row input { flex: 1; }
+/* The field takes what is left and the buttons wrap below it when the pane is narrow; an input
+   otherwise keeps its default width (~20 characters) and pushed the row wider than the pane. */
+.watch-items .note-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.watch-items .note-row input { flex: 1 1 12em; min-width: 0; }
+.watch-items .note-row button { flex: none; }
 .watch-detail .timeline-list { margin-top: 4px; }
 .watch-detail .timeline-list .cites { margin-left: 4px; }
 .watch-detail .panel { background: var(--fill); margin-top: 20px; }
