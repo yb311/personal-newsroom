@@ -119,7 +119,8 @@ app.whenReady().then(async () => {
 
   // Debugging aid: LAYOUT_EVAL='<page code>' prints what that code returns in one state, then stops.
   if (process.env.LAYOUT_EVAL) {
-    await load({ lang: process.env.LAYOUT_LANG ?? 'zh-CN', ai: '0', sidebar: process.env.LAYOUT_SIDEBAR ?? '190' });
+    // LAYOUT_PARAMS='{"ai":"1","assistant":"1","chat":"1"}' opens a richer state, as the page's own URL parameters do.
+    await load({ lang: process.env.LAYOUT_LANG ?? 'zh-CN', ai: '0', sidebar: process.env.LAYOUT_SIDEBAR ?? '190', ...JSON.parse(process.env.LAYOUT_PARAMS ?? '{}') });
     await size(Number(process.env.LAYOUT_WIDTH ?? 1100), HEIGHT);
     console.log(JSON.stringify(await js(process.env.LAYOUT_EVAL), null, 1));
     server.close(); app.exit(0); return;
@@ -199,6 +200,12 @@ app.whenReady().then(async () => {
         if (!selected) { where = `${lang} selection ${area}`; report(`selection: nothing to select in ${area}`); continue; }
         if (!await until("Boolean(document.querySelector('.selection-popover .selection-actions'))")) { where = `${lang} selection ${area}`; report('selection: selecting text shows no translate bar'); continue; }
         await audit(`${lang} ${w}px selection bar in ${area}`);
+        // Happened: the assistant scrolling to its newest message (as it does while an answer
+        // streams in) closed the bar over an article selection. Only scrolling the selection may.
+        if (area === 'article') {
+          await js("(() => { const p = document.querySelector('.assistant-scroll'); if (p) { p.scrollTop = 0; p.scrollTop = p.scrollHeight; } })()"); await sleep(120);
+          if (!await js("Boolean(document.querySelector('.selection-popover .selection-actions'))")) { where = `${lang} selection ${area}`; report('selection: the assistant scrolling closes the bar'); continue; }
+        }
         await js("document.querySelector('.selection-popover .selection-actions button').click()");
         if (!await until("Boolean(document.querySelector('.selection-popover .selection-result'))")) { report('selection: 翻译 shows no translation'); continue; }
         await audit(`${lang} ${w}px selection translated in ${area}`);

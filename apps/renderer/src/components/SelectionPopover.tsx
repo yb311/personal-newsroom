@@ -61,7 +61,15 @@ export function SelectionPopover({ offer, aiReady, onAsk }: { offer: boolean; ai
     };
     const down = (e: MouseEvent): void => { if (!(e.target as Element | null)?.closest?.('.selection-popover')) { request.current++; setState(null); } };
     const away = (e: Event): void => {
-      if ((e.target as Element | null)?.closest?.('.selection-popover')) return;
+      const target = e.target;
+      if ((target as Element | null)?.closest?.('.selection-popover')) return;
+      // Only a scroll that moves the selection takes the bar away. Another pane scrolling — the
+      // assistant following its answer as it streams in — leaves the selection where it was.
+      if (e.type === 'scroll' && target instanceof Node && target !== document) {
+        const sel = window.getSelection();
+        const at = sel && sel.rangeCount ? sel.getRangeAt(0).commonAncestorContainer : null;
+        if (at && !target.contains(at)) return;
+      }
       request.current++; setState(null);
     };
     // From a context menu: translate what is selected now, whatever the setting.
