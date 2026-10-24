@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleDot, FileSearch, Languages, ListFilter, MessageSquareText, PanelLeft, Plus, RefreshCw, RotateCcw, Search, Share, Star } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { AiStatus, ExportFormat, ExportResult, ItemRow, MenuEntry, NavTarget, OutsidePick, ReportAnchor, Screen, SourceRow } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -591,7 +592,9 @@ export default function App() {
               {/* Where the toolbar is short of room the field folds into this button, as Mail's
                   does; opened, it takes the article buttons' place until it is left empty. */}
               <button className="tool search-toggle" title={t(tab === 'read' ? 'list.search' : 'watches.search')} aria-label={t(tab === 'read' ? 'list.search' : 'watches.search')}
-                onClick={() => { setSearchOpen(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.toolbar .search-field input')?.focus()); }}><Search size={16} /></button>
+                // The field is shown in this same click, then focused: no wait for a frame, which a window
+                // in the background may not get for a while.
+                onClick={() => { flushSync(() => setSearchOpen(true)); document.querySelector<HTMLInputElement>('.toolbar .search-field input')?.focus(); }}><Search size={16} /></button>
               {tab === 'read' ? <label className="search-field"><Search size={13} />
                 <input type="search" aria-label={t('list.search')} placeholder={t('list.search')} value={query} onBlur={(e) => { if (!e.target.value) setSearchOpen(false); }}
                   onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.currentTarget.blur(); } }} /></label>
