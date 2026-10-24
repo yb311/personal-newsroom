@@ -470,10 +470,10 @@
       "full": "Full Auto"
     },
     "modeShort": {
-      "readonly": "Read",
-      "ask": "Ask",
-      "auto": "Auto",
-      "full": "Full"
+      "readonly": "Read Only",
+      "ask": "Ask First",
+      "auto": "Auto-Edit",
+      "full": "Full Auto"
     },
     "modeHint": {
       "readonly": "Looks things up and opens pages; changes nothing. ⇧Tab to switch",
@@ -505,7 +505,8 @@
     "confirmAll_other": "Confirm All ({{count}})",
     "quote": "“{{text}}”\n",
     "copyAnswer": "Copy Answer",
-    "translationLabel": "Translation · {{lang}}"
+    "translationLabel": "Translation · {{lang}}",
+    "export": "Export Conversation"
   },
   "outside": {
     "title": "Beyond Your Watches",
@@ -523,6 +524,7 @@
     "headlines": "Headlines",
     "editions": "Earlier",
     "write": "Write Today’s Brief",
+    "writeHint": "Updates everything first (fetches subscriptions, updates watches), then writes today’s brief",
     "writing": "Writing…",
     "rewrite": "Write Again",
     "openWatch": "Show this story’s progress in Watches",
@@ -549,6 +551,7 @@
     "earlier": "Earlier",
     "openWatch": "Show in Watches",
     "importantOnly": "Show Important Only",
+    "showAll": "Show All Flashes",
     "subtitleImportant_one": "Last 24 hours · 1 important",
     "subtitleImportant_other": "Last 24 hours · {{count}} important"
   },
@@ -985,7 +988,13 @@
     "updateAll": "Update All",
     "regenerateAll": "Regenerate All",
     "checkForUpdates": "Check for Updates…",
-    "translate": "Translate Article"
+    "translate": "Translate Article",
+    "exportAs": "Export As",
+    "exportPdf": "PDF…",
+    "exportMarkdown": "Markdown…",
+    "exportHtml": "HTML…",
+    "exportOpml": "Export Subscriptions (OPML)…",
+    "backup": "Back Up All Data…"
   },
   "report": {
     "title": "Deep Report",
@@ -1104,6 +1113,47 @@
       "too_long": "The selection is too long. Select less text and try again.",
       "empty": "There is no text to translate.",
       "not_found": "This article could not be found."
+    }
+  },
+  "export": {
+    "button": "Export",
+    "share": "Share and Export",
+    "pdf": "Export as PDF…",
+    "markdown": "Export as Markdown…",
+    "html": "Export as HTML…",
+    "nothing": "There is nothing here to export",
+    "saving": "Exporting…",
+    "saved": "Exported to “{{name}}”",
+    "opmlSaved": "Exported {{count}} subscriptions to “{{name}}”",
+    "opmlSkipped": "; {{count}} only work in this app (sitemaps, RSSHub routes and the like) and were left out",
+    "backingUp": "Backing up all data…",
+    "backedUp": "Backed up to “{{name}}” (API keys not included)",
+    "error": {
+      "missing": "What you wanted to export no longer exists",
+      "failed": "Export failed. Please try again"
+    },
+    "opmlTitle": "所闻 Subscriptions",
+    "backupName": "所闻 Backup",
+    "readmeName": "How to restore",
+    "readme": "This is a backup of 所闻: newsroom.db is the database (watches, subscriptions, briefs, developments, flashes, deep reports, assistant chats, settings) and the bodies folder holds the downloaded articles.\n\nFor safety the backup contains no API keys or tokens; enter them again in Settings → AI & Language after restoring.\n\nTo restore:\n1. Quit 所闻.\n2. In Finder press ⇧⌘G and go to: {{dir}}\n3. Move newsroom.db, newsroom.db-wal, newsroom.db-shm and bodies out of that folder (or delete them), then put this backup's newsroom.db and bodies there.\n4. Open 所闻 again.\n\nOn another Mac, sign in with the same user name, or downloaded articles will need to be read again.\n",
+    "doc": {
+      "digest": "Daily brief",
+      "outside": "Beyond your watches",
+      "flash": "Flash",
+      "watch": "Watch",
+      "report": "Deep report",
+      "chat": "News assistant",
+      "articles": "Articles",
+      "intent": "What I want to know",
+      "timeline": "Developments",
+      "questions": "Open questions",
+      "why": "Why it was picked",
+      "whyMatters": "Why it matters",
+      "important": "Important",
+      "sources": "Sources",
+      "original": "Original article",
+      "noBody": "The full text of this article could not be retrieved; this is its summary.",
+      "exported": "Exported from 所闻 on {{date}}"
     }
   }
 }

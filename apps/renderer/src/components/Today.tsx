@@ -155,7 +155,7 @@ export function Today({ aiReady, translate, revision, job, busy, divider, onSetu
           <p>{t(`today.${missing}Body`)}</p>
           {missing === 'noAi' ? <button className="push" onClick={onSetup}>{t('common.connectAi')}</button>
             : missing === 'noWatches' ? <button className="push" onClick={onAddWatch}>{t('watches.add')}</button>
-            : <button className="push" onClick={onWrite} disabled={busy}>{job === 'all' ? t('today.writing') : t('today.write')}</button>}
+            : <button className="push" onClick={onWrite} disabled={busy} title={t('today.writeHint')}>{job === 'all' ? t('today.writing') : t('today.write')}</button>}
         </div></section>}
     </div>
   );

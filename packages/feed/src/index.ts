@@ -10,3 +10,4 @@ export { ingestSource, ingestAll, sourcesToFetch, storeItems, normalizeItems, MA
 export { resolveSourceInput, type ResolvedSource } from './resolve-input.ts';
 export { packState, installPack, removePack,
          type PackManifest, type PackState, type InstallProgress } from './rsshub-pack.ts';
+export { buildOpml, type OpmlResult } from './opml.ts';

@@ -16,10 +16,10 @@
   const H = 3600e3;
 
   const names = [
-    ['BBC News', 'international'], ['CNBC', 'international'], ['Deutsche Welle', 'international'],
-    ['Deutsche Welle 英文', 'international'], ['France 24', 'international'], ['The Guardian', 'international'],
-    ['半岛电视台', 'international'], ['南华早报', 'international'], ['路透社', 'international'],
-    ['The Japan Times', 'asia'], ['The Straits Times Singapore Edition', 'asia'],
+    ['BBC News', 'world'], ['CNBC', 'world'], ['Deutsche Welle', 'world'],
+    ['Deutsche Welle 英文', 'world'], ['France 24', 'world'], ['The Guardian', 'world'],
+    ['半岛电视台', 'world'], ['南华早报', 'world'], ['路透社', 'world'],
+    ['The Japan Times', 'news'], ['The Straits Times Singapore Edition', 'news'],
     ['哔哩哔哩 · 每周必看', 'custom'], ['知乎 · 知乎日报', 'custom'], ['豆瓣 · 即将上映', 'custom']
   ];
   const titles = [
@@ -82,11 +82,45 @@
     { id: 'w2', origin: 'preset', label: 'Artificial intelligence and cybersecurity policy', intent: 'AI and cyber policy', outputLang: null, active: true, keywords: [], sensitivity: 'balanced',
       recallAids: null, lastRunAt: now - 5 * H, newCount: 0, timelineCount: 1, candidates: 4, passed: 1, openQuestions: 0 }
   ];
+  // The first flash carries everything a flash can: important, a follow-up of the second, two
+  // watches with long names, filled in from search with the pages it was checked against.
   const flashes = [0, 1, 2].map((n) => ({
-    id: `f${n}`, watchIds: ['w1'], watchLabels: ['习近平最近在干什么'], watches: [{ id: 'w1', label: '习近平最近在干什么' }],
+    id: `f${n}`, watchIds: n === 0 ? ['w1', 'w2'] : ['w1'], watchLabels: n === 0 ? ['习近平最近在干什么', watches[1].label] : ['习近平最近在干什么'],
+    watches: n === 0 ? [{ id: 'w1', label: '习近平最近在干什么' }, { id: 'w2', label: watches[1].label }] : [{ id: 'w1', label: '习近平最近在干什么' }],
     publishedAt: now - n * H, itemPublishedAt: now - n * H, itemIds: [`i0-${n}`], title: titles[n], body: titles[n] + '。' + '正文。'.repeat(20),
-    importance: 3, importanceReason: null, category: null, basis: 'article', followUpOf: null, followUp: null,
-    sources: [{ id: `i0-${n}`, title: titles[n], url: 'https://example0.com', publishedAt: now, sourceName: 'BBC News' }], searchSources: []
+    importance: n === 0 ? 9 : 3, importanceReason: n === 0 ? '影响多个关注，且是首次出现的官方表态。' : null, category: null,
+    basis: n === 0 ? 'search' : 'article', followUpOf: n === 0 ? 'f1' : null,
+    followUp: n === 0 ? { id: 'f1', title: titles[1], publishedAt: now - H, itemIds: ['i0-1'] } : null,
+    sources: [{ id: `i0-${n}`, title: titles[n], url: 'https://example0.com', publishedAt: now, sourceName: 'BBC News' }],
+    searchSources: n === 0 ? [{ refId: 'w1', url: `https://example.org/${'long-path-'.repeat(12)}`, title: null, publisher: null }, { refId: 'w2', url: 'https://example.org/b', title: titles[3], publisher: 'Example' }] : []
+  }));
+
+  // 今日 with a brief (only with AI, as in real life): sections headed by their watch, numbered
+  // sources; things outside every watch; an earlier edition. Without AI, headlines stand in.
+  const refs = items.slice(0, 6).map((i) => ({ id: i.id, title: i.title, url: i.url, publishedAt: i.publishedAt, sourceName: i.sourceName }));
+  const digest = {
+    id: 'd1', title: `${titles[0]}；${titles[2]}`, generatedAt: now - 2 * H,
+    blocks: [
+      { type: 'paragraph', text: `${titles[4]}。${'导语第二句，写得长一点，好让它换行。'.repeat(3)}`, sourceRefIds: [refs[0].id, refs[1].id] },
+      { type: 'heading', level: 2, text: titles[0], watchId: 'w1' },
+      { type: 'paragraph', text: `${titles[1]}. ${'Body text that keeps going. '.repeat(6)}`, sourceRefIds: [refs[2].id] },
+      { type: 'heading', level: 2, text: titles[3], watchId: 'w2' },
+      { type: 'list', items: [titles[5], titles[6]] },
+      { type: 'paragraph', text: '一段没有来源的话。', sourceRefIds: [] }
+    ]
+  };
+  const outside = [0, 1].map((n) => ({
+    id: `o${n}`, date: '2026-10-04', lang: n ? 'en' : 'zh-CN', mode: 'ai', title: titles[n + 5], reason: `${titles[n + 2]}。${'理由写得很长，用来检查换行。'.repeat(4)}`,
+    itemIds: [refs[n].id, refs[n + 3].id], suggestion: { label: titles[n + 5], intent: titles[n + 5], keywords: [] }, createdAt: now
+  }));
+  const todayOf = (date) => fx.ai
+    ? { date: date ?? '2026-10-04', digest, outside: date ? [] : outside, refs, watches: watches.map((w) => ({ id: w.id, label: w.label, newCount: w.newCount })), watchCount: watches.length }
+    : { date: date ?? '2026-10-04', digest: null, outside: [], refs: [], watches: [], watchCount: 0 };
+
+  // 相关报道: matched articles with every mark a row can carry.
+  const watchItems = items.slice(0, 6).map((i, n) => ({
+    ...withState(i), score: n % 3 === 0 ? null : 7 + (n % 3), reason: n % 2 ? `${titles[(n + 3) % titles.length]}。为什么相关的理由，写得长一点。` : null,
+    arms: n % 3 === 0 ? 'keyword' : 'vector', verdict: n === 1 ? 'wanted' : null
   }));
 
   // A conversation with answers, citations and the cards of an agent's proposed changes, so the
@@ -151,12 +185,16 @@
       { id: 'm1', watchId: 'w1', occurredOn: '2026-10-02', summary: titles[0], itemIds: ['i0-0'], firstSeenAt: now, isNew: true },
       { id: 'm2', watchId: 'w1', occurredOn: '2026-09-28', summary: titles[2], itemIds: ['i0-1'], firstSeenAt: now - 90 * H, isNew: false }
     ], refs: [{ id: 'i0-0', title: titles[0], url: 'https://example0.com', publishedAt: now, sourceName: 'BBC News' }], questions: [] }),
-    watchItems: async () => [],
+    watchItems: async () => watchItems,
     watchSeen: async () => true,
+    watchSources: async () => [
+      { sourceId: 's10', name: names[10][0], domain: 'example10.com', country: 'SG', placement: 'back', enabled: true, addedAt: now },
+      { sourceId: 's2', name: names[2][0], domain: 'example2.com', country: null, placement: 'front', enabled: true, addedAt: now }
+    ],
     flashes: async () => flashes,
-    today: async () => ({ date: '2026-10-04', digest: null, outside: [], refs: [], watches: [], watchCount: 0 }),
-    editions: async () => [],
-    headlines: async () => [],
+    today: async (date) => todayOf(date),
+    editions: async () => (fx.ai ? [{ date: '2026-10-03', title: `${titles[5]}；${titles[6]}`, generatedAt: now - 26 * H }] : []),
+    headlines: async () => [{ sourceId: 's0', sourceName: 'BBC News', items: items.slice(0, 5).map(withState) }],
     catalogue: async (o) => {
       const rows = cfg.feeds.filter((f) => !o?.q || f.name.toLowerCase().includes(o.q.toLowerCase())).slice(0, o?.limit ?? 300)
         .map((f) => ({ id: f.id, name: f.name, kind: f.kind ?? 'rss', category: f.category ?? null, country: f.country ?? null, domain: f.domain ?? null, enabled: f.enabled ? 1 : 0, lastError: null, unread: 0, total: 0 }));
@@ -172,7 +210,8 @@
     addSource: async () => ({ ok: true, id: 'new', name: '新来源', items: 3 }),
     readingLanguages: async () => ({ available: [], selected: [] }),
     backgroundPrompt: async () => false,
-    presets: async () => [],
+    presets: async () => ['world', 'tech', 'markets'].flatMap((group, g) => titles.slice(0, 6).map((title, n) => ({
+      id: `p${g}-${n}`, group, label: n % 2 ? title.slice(0, 12) : title, intent: title, keywords: [], enabled: n === 2 }))),
     assistantList: async () => [{ id: 'c1', title: chat.title, updatedAt: now }], assistantGet: async (id) => (id === 'c1' ? structuredClone(chat) : null), assistantMode: async () => 'ask',
     scheduleState: async () => ({ enabled: false, supported: false, status: 'unsupported', dailyHour: 7, flashIntervalHours: 3, lastRun: null, wake: { on: false, status: 'unsupported', next: null } }),
     updateState: async () => ({ phase: 'upToDate', current: '0.1.2', version: null, percent: null, reason: null, checkedAt: now, auto: true }),

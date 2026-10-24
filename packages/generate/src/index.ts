@@ -11,4 +11,6 @@ export { runAgent, gate, getAgentMode, setAgentMode, allowTool, confirmAction, r
   type AgentTool, type AgentMode, type Toolbox, type ToolResult, type ActionView, type ViewField, type NavTarget, type Risk, type AssistantAction, type ActionStatus, type ResolveResult } from './agent.ts';
 export { describeScreen, type ScreenFocus, type ScreenInput, type ScreenMaterial } from './screen.ts';
 export { translateSettings, setTranslateOption, translateText, translateTexts, translateItem, translateItems, readTranslation, headlineTranslations,
-  segmentHtml, hashText, isForeign, baseLang, MAX_BATCH, type TranslateSettings, type ItemTranslation, type BatchProgress, type BatchResult, type Block } from './translate.ts';
+  segmentHtml, withTranslation, hashText, isForeign, baseLang, MAX_BATCH, type TranslateSettings, type ItemTranslation, type BatchProgress, type BatchResult, type Block } from './translate.ts';
+export { buildExport, buildChatExport, toMarkdown, toHtml, htmlToMarkdown,
+  type ExportFormat, type ExportLabels, type ExportOptions, type ExportDoc, type ExportBlock, type ExportSource } from './export.ts';

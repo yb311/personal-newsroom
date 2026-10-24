@@ -6,7 +6,8 @@
  *
  *   reach      every control can be seen and clicked — it is not clipped away
  *              by a container that cannot scroll, and nothing sits on top of it
- *   overlap    controls that share a row do not overlap one another
+ *   overlap    controls that share a row do not overlap one another; anywhere
+ *              on screen, no control lies on another and no text runs under one
  *   spill      a control stays inside the row that holds it
  *   label      a button's own label is never cut off (a name that is not
  *              legible is not a control)
@@ -96,6 +97,42 @@ window.__audit = function audit(opts = {}) {
     for (const k of kids) {
       const r = rect(k);
       if (r.left < rr.left - TOL || r.right > rr.right + TOL) out.push(`spill: ${desc(k)} sticks out of ${desc(row)} by ${Math.round(Math.max(rr.left - r.left, r.right - rr.right))}px`);
+    }
+  }
+
+  // ── overlap anywhere: control on control, text on control ─────────────────
+  // Rows are checked above; this catches the rest — a button placed absolutely
+  // over a line of text, a grid cell running into the next, a wrapped label
+  // sliding under a badge. Each box is cut by everything that clips it, so text
+  // shortened with an ellipsis or scrolled out of a list does not count.
+  const clipBox = (el) => {
+    let box = rect(el);
+    for (let a = el.parentElement; a && area(box) > 0; a = a.parentElement) if (clipped(getComputedStyle(a))) box = meet(box, rect(a));
+    return box;
+  };
+  const view = { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+  const solid = controls.filter((el) => !el.matches('[role=separator]') && getComputedStyle(el).visibility !== 'hidden')
+    .map((el) => ({ el, box: meet(clipBox(el), view) })).filter((c) => area(c.box) > 0);
+  const crosses = (a, b) => { const m = meet(a, b); return m.right - m.left > TOL && m.bottom - m.top > TOL; };
+  for (let i = 0; i < solid.length; i++) {
+    for (let j = i + 1; j < solid.length; j++) {
+      const a = solid[i], b = solid[j];
+      if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+      if (crosses(a.box, b.box)) out.push(`overlap: ${desc(a.el)} and ${desc(b.el)} lie on top of each other`);
+    }
+  }
+  const texts = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = texts.nextNode(); n; n = texts.nextNode()) {
+    const owner = n.parentElement;
+    if (!owner || !n.textContent.trim() || !shown(owner) || owner.closest('[aria-hidden=true], .measure-usual, .measure-alternate')) continue;
+    const clip = meet(clipBox(owner), view);
+    if (area(clip) <= 0) continue;
+    const range = document.createRange(); range.selectNodeContents(n);
+    const lines = [...range.getClientRects()].map((r) => meet(r, clip)).filter((r) => area(r) > 0);
+    if (!lines.length) continue;
+    for (const c of solid) {
+      if (c.el.contains(owner) || owner.contains(c.el)) continue;
+      if (lines.some((r) => crosses(r, c.box))) { out.push(`overlap: the text “${n.textContent.trim().slice(0, 18)}” runs under ${desc(c.el)}`); break; }
     }
   }
 

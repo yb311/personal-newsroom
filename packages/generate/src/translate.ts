@@ -91,6 +91,47 @@ export const hashText = (text: string): string => createHash('sha1').update(text
  * and the main process agree on what block N is.
  */
 export function segmentHtml(html: string): Segmented {
+  const found = leafBlocks(html);
+  if (found.length === 0) {
+    const text = textOf(html);
+    return /\p{L}/u.test(text) ? { html: `<div data-pnr-b="0"><span class="pnr-o">${html}</span></div>`, blocks: [{ index: 0, text }] } : { html, blocks: [] };
+  }
+  // Edits from the end, so earlier offsets stay valid.
+  const edits = found.flatMap((f, i) => [
+    { at: f.closeStart, text: '</span>' },
+    { at: f.openEnd, text: '<span class="pnr-o">' },
+    { at: f.openEnd - 1, text: ` data-pnr-b="${i}"` }
+  ]).sort((a, b) => b.at - a.at);
+  let out = html;
+  for (const e of edits) out = out.slice(0, e.at) + e.text + out.slice(e.at);
+  return { html: out, blocks: found.map((f, i) => ({ index: i, text: f.text })) };
+}
+
+/**
+ * Article HTML with each block's translation after its original (双语) or in
+ * its place (译文), for exporting what the reader shows. Numbering is the same
+ * as segmentHtml's; a block with no translation keeps its original.
+ */
+export function withTranslation(html: string, translations: Record<number, string>, mode: 'bilingual' | 'translated'): string {
+  const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const found = leafBlocks(html);
+  if (found.length === 0) {
+    const t = translations[0];
+    return !t ? html : mode === 'translated' ? `<p>${esc(t)}</p>` : `${html}<p class="pnr-t">${esc(t)}</p>`;
+  }
+  let out = html;
+  for (let i = found.length - 1; i >= 0; i--) {
+    const t = translations[i]; if (!t) continue;
+    const f = found[i]!;
+    out = mode === 'translated'
+      ? out.slice(0, f.openEnd) + esc(t) + out.slice(f.closeStart)
+      : out.slice(0, f.closeStart) + `<br><span class="pnr-t">${esc(t)}</span>` + out.slice(f.closeStart);
+  }
+  return out;
+}
+
+/** The leaf blocks of article HTML in document order: where each one's content starts and ends. */
+function leafBlocks(html: string): { openEnd: number; closeStart: number; text: string; order: number }[] {
   type Open = { tag: string; openStart: number; openEnd: number; blockChild: boolean; keep: boolean };
   const stack: Open[] = [];
   const found: { openEnd: number; closeStart: number; text: string; order: number }[] = [];
@@ -124,20 +165,7 @@ export function segmentHtml(html: string): Segmented {
       if (parent) parent.blockChild = true;
     }
   }
-  if (found.length === 0) {
-    const text = textOf(html);
-    return /\p{L}/u.test(text) ? { html: `<div data-pnr-b="0"><span class="pnr-o">${html}</span></div>`, blocks: [{ index: 0, text }] } : { html, blocks: [] };
-  }
-  found.sort((a, b) => a.order - b.order);
-  // Edits from the end, so earlier offsets stay valid.
-  const edits = found.flatMap((f, i) => [
-    { at: f.closeStart, text: '</span>' },
-    { at: f.openEnd, text: '<span class="pnr-o">' },
-    { at: f.openEnd - 1, text: ` data-pnr-b="${i}"` }
-  ]).sort((a, b) => b.at - a.at);
-  let out = html;
-  for (const e of edits) out = out.slice(0, e.at) + e.text + out.slice(e.at);
-  return { html: out, blocks: found.map((f, i) => ({ index: i, text: f.text })) };
+  return found.sort((a, b) => a.order - b.order);
 }
 
 // ── the model call ──────────────────────────────────────────────────────────

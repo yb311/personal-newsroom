@@ -1,4 +1,4 @@
-import { Bookmark, ChevronRight, Circle, Inbox, PanelLeft, Plus, Settings, Star, Sun, Zap } from 'lucide-react';
+import { Bookmark, ChevronRight, CircleDot, Inbox, PanelLeft, Plus, Settings, Star, Sun, Zap } from 'lucide-react';
 import { categoryLabel } from '@pnr/core/catalog-labels';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
@@ -12,7 +12,7 @@ interface Props {
   onPickSource: (id: string | undefined) => void;
   onPickFilter: (f: Filter) => void;
   onSourceMenu: (s: SourceRow) => void;
-  onAdd: () => void; onSettings: () => void; onHide: () => void;
+  onAdd: () => void; onSettings: (section?: string) => void; onHide: () => void;
   aiReady: boolean;
   /** New developments across the watches, counted on 关注 as unread articles are on 未读. */
   fresh: number;
@@ -26,7 +26,7 @@ const isStale = (s: SourceRow): boolean =>
   Boolean(s.total && s.newest && Date.now() - s.newest > STALE_DAYS * 864e5);
 
 const NAV = [['today', Sun], ['flashes', Zap], ['watches', Bookmark]] as const;
-const FILTERS = [['all', Inbox], ['unread', Circle], ['starred', Star]] as const;
+const FILTERS = [['all', Inbox], ['unread', CircleDot], ['starred', Star]] as const;
 
 /**
  * The window's source list: the three AI views, then reading — the library
@@ -51,7 +51,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
     <aside className="sidebar">
       <div className="sidebar-top">
         {updateAll}
-        <button className="tool" title={`${t('app.hideSidebar')} (⌘⌃S)`} aria-label={t('app.hideSidebar')} onClick={onHide}><PanelLeft size={17} /></button>
+        <button className="tool" title={`${t('app.hideSidebar')} (⌃⌘S)`} aria-label={t('app.hideSidebar')} onClick={onHide}><PanelLeft size={17} /></button>
       </div>
       <nav className="sidebar-scroll" aria-label={t('app.mainNav')}>
         <ul className="side-list">
@@ -99,9 +99,10 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
         <span className="grow" />
         {/* The one part of the footer that may give way: its words shorten to an ellipsis, so the
             settings button beside it is never pushed out of a narrow sidebar. */}
-        <button className="footer-status" onClick={onSettings} title={aiReady ? t('app.aiOn') : t('app.aiOff')}>
+        {/* It names the AI's state, so it opens the AI settings, where that state is changed. */}
+        <button className="footer-status" onClick={() => onSettings('ai')} title={aiReady ? t('app.aiOn') : t('app.aiOff')}>
           <i className={`status-dot ${aiReady ? 'on' : ''}`} /><span>{aiReady ? t('app.aiOn') : t('app.aiOff')}</span></button>
-        <button className="tool" title={`${t('app.settings')} (⌘,)`} aria-label={t('app.settings')} onClick={onSettings}><Settings size={15} /></button>
+        <button className="tool" title={`${t('app.settings')} (⌘,)`} aria-label={t('app.settings')} onClick={() => onSettings()}><Settings size={15} /></button>
       </footer>
     </aside>
   );

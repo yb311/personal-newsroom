@@ -123,7 +123,8 @@ async function main(): Promise<void> {
       // can use it from CI — but this is a desktop app on a home connection.
       ['usatoday', 'USA Today', 'usatoday.com', 'https://www.usatoday.com/news-sitemap.xml', 0.85, 'news_sitemap'],
       ['reuters', '路透社', 'reuters.com', 'https://www.reuters.com/arc/outboundfeeds/news-sitemap-index/?outputType=xml', 1.0, 'news_sitemap_index'],
-      // Reuters has no public RSS; the sitemap index is the canonical path.
+      // Reuters has no public RSS; the sitemap index is the canonical path. Its pages block
+      // non-browsers, so bodies come from its MSN outbound feed (packages/reader/src/publisher-feeds.ts).
       ['bbc', 'BBC News', 'bbc.com', 'https://feeds.bbci.co.uk/news/world/rss.xml', 0.95, 'rss'],
       ['guardian', 'The Guardian', 'theguardian.com', 'https://www.theguardian.com/world/rss', 0.92, 'rss'],
       ['aljazeera', '半岛电视台', 'aljazeera.com', 'https://www.aljazeera.com/xml/rss/all.xml', 0.88, 'rss'],

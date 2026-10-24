@@ -460,8 +460,8 @@
     },
     "modeShort": {
       "readonly": "只读",
-      "ask": "询问",
-      "auto": "自动",
+      "ask": "改前确认",
+      "auto": "自动改",
       "full": "全自动"
     },
     "modeHint": {
@@ -493,7 +493,8 @@
     "confirmAll": "全部确认（{{count}}）",
     "quote": "「{{text}}」\n",
     "copyAnswer": "拷贝回答",
-    "translationLabel": "译文 · {{lang}}"
+    "translationLabel": "译文 · {{lang}}",
+    "export": "导出对话"
   },
   "outside": {
     "title": "关注之外的要事",
@@ -511,6 +512,7 @@
     "headlines": "要闻",
     "editions": "往期",
     "write": "生成今日摘要",
+    "writeHint": "先全部更新（抓取订阅、更新关注），再写今日摘要",
     "writing": "正在生成…",
     "rewrite": "重新生成",
     "openWatch": "在「关注」中查看这件事的进展",
@@ -534,6 +536,7 @@
     "earlier": "前情",
     "openWatch": "在「关注」中查看",
     "importantOnly": "只看重要快讯",
+    "showAll": "显示全部快讯",
     "subtitleImportant": "最近 24 小时 · 重要 {{count}} 条"
   },
   "background": {
@@ -960,7 +963,13 @@
     "updateAll": "全部更新",
     "regenerateAll": "全部重新生成",
     "checkForUpdates": "检查更新…",
-    "translate": "翻译文章"
+    "translate": "翻译文章",
+    "exportAs": "导出为",
+    "exportPdf": "PDF…",
+    "exportMarkdown": "Markdown…",
+    "exportHtml": "HTML（网页）…",
+    "exportOpml": "导出订阅列表（OPML）…",
+    "backup": "备份全部数据…"
   },
   "report": {
     "title": "深度报道",
@@ -1072,6 +1081,47 @@
       "too_long": "所选文字过长，请缩短后重试。",
       "empty": "没有可翻译的文字。",
       "not_found": "找不到这篇文章。"
+    }
+  },
+  "export": {
+    "button": "导出",
+    "share": "共享与导出",
+    "pdf": "导出为 PDF…",
+    "markdown": "导出为 Markdown…",
+    "html": "导出为 HTML…",
+    "nothing": "这里没有可以导出的内容",
+    "saving": "正在导出…",
+    "saved": "已导出到「{{name}}」",
+    "opmlSaved": "已导出 {{count}} 个订阅到「{{name}}」",
+    "opmlSkipped": "，{{count}} 个是本应用特有的来源（站点地图、RSSHub 路由等），其它阅读器打不开，没有写入",
+    "backingUp": "正在备份全部数据…",
+    "backedUp": "已备份到「{{name}}」（不含 API key）",
+    "error": {
+      "missing": "要导出的内容已不存在",
+      "failed": "导出失败，请重试"
+    },
+    "opmlTitle": "所闻订阅",
+    "backupName": "所闻备份",
+    "readmeName": "如何恢复",
+    "readme": "这是「所闻」的数据备份：newsroom.db 是数据库（关注、订阅、摘要、进展、快讯、深度报道、助手对话、设置），bodies 文件夹是下载的文章正文。\n\n为了安全，备份里没有 API key 和各种 token，恢复后需要在 设置 → AI 与语言 里重新填写。\n\n恢复方法：\n1. 退出「所闻」。\n2. 在访达里按 ⇧⌘G，前往：{{dir}}\n3. 把那里原有的 newsroom.db、newsroom.db-wal、newsroom.db-shm 和 bodies 挪到别处（或删掉），再把这个备份里的 newsroom.db 和 bodies 放进去。\n4. 重新打开「所闻」。\n\n如果恢复到另一台 Mac，请用同样的用户名登录，否则已下载的正文需要重新读取。\n",
+    "doc": {
+      "digest": "今日摘要",
+      "outside": "关注之外",
+      "flash": "快讯",
+      "watch": "关注",
+      "report": "深度报道",
+      "chat": "新闻助手",
+      "articles": "文章列表",
+      "intent": "我想知道",
+      "timeline": "进展",
+      "questions": "待解答的问题",
+      "why": "为什么入选",
+      "whyMatters": "为什么重要",
+      "important": "重要",
+      "sources": "来源",
+      "original": "原文链接",
+      "noBody": "没能取得这篇文章的正文，这里只有摘要。",
+      "exported": "由「所闻」于 {{date}} 导出"
     }
   }
 }

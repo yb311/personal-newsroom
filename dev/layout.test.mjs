@@ -151,6 +151,13 @@ app.whenReady().then(async () => {
                 await js("document.querySelectorAll('.translate-bar .segmented button')[0]?.click()"); await sleep(40);
                 await command('translate');
               }
+              // A toolbar short of room folds its search field into a button; opened, the field takes the article buttons' place.
+              if (await js("Boolean(document.querySelector('.search-toggle')?.offsetParent)")) {
+                await js("document.querySelector('.search-toggle').click()"); await sleep(80);
+                await audit(`${label} search opened`);
+                if (!await js("document.activeElement === document.querySelector('.toolbar .search-field input')")) { where = label; report('search: opening the folded search field does not put the cursor in it'); }
+                await js("document.querySelector('.toolbar .search-field input').blur()"); await sleep(40);
+              }
               // Holding ⌥ changes 全部更新 into a longer label (it lives in the sidebar).
               if (await js("Boolean(document.querySelector('.sidebar'))")) {
                 await js("window.dispatchEvent(new KeyboardEvent('keydown', { altKey: true }))"); await sleep(50);
@@ -206,6 +213,57 @@ app.whenReady().then(async () => {
       await js("document.querySelector('.assistant')?.scrollIntoView?.()");
       await audit(`${lang} assistant conversation ${w}px`);
     }
+  }
+
+  // ── what each view shows once something in it is picked ──────────────────
+  // Every row of 今日 (the brief, 关注之外, headlines or an earlier edition), the
+  // richest flash, each section of a watch with a correction being written, the
+  // add-watch sheet, and the assistant's history and welcome.
+  for (const [lang, ai] of QUICK ? [['zh-CN', true]] : MODES) {
+    await load({ lang, ai: ai ? '1' : '0', sidebar: '220' });
+    const tag = `${lang}${ai ? '+AI' : ''}`;
+    for (const w of QUICK ? [760, 1100] : [760, 900, 1440]) {
+      for (const assistant of [false, true]) {
+        await size(w, HEIGHT);
+        if (await js("Boolean(document.querySelector('.assistant'))") !== assistant) await command('assistant');
+        const at = `${tag} ${w}px${assistant ? ' +assistant' : ''}`;
+        await command('today'); await sleep(150);
+        const rows = await js("document.querySelectorAll('.split-view .row-item').length");
+        for (let i = 0; i < rows; i++) {
+          await js(`document.querySelectorAll('.split-view .row-item')[${i}]?.click()`); await sleep(160);
+          await audit(`${at} today row ${i}`);
+          await js("document.querySelector('.detail-back:not([hidden])')?.click()"); await sleep(40);
+        }
+        await command('flashes'); await sleep(120);
+        await js("document.querySelector('.split-view .row-item')?.click()"); await sleep(120);
+        await audit(`${at} flash`);
+        await command('watches'); await sleep(120);
+        await js("document.querySelector('.split-view .row-item')?.click()"); await sleep(150);
+        for (const section of [0, 1, 2]) {
+          await js(`document.querySelectorAll('.segmented.tabs button')[${section}]?.click()`); await sleep(160);
+          await audit(`${at} watch section ${section}`);
+          if (section === 1) {
+            await js("document.querySelector('.watch-items .verdicts .tool:last-child')?.click()"); await sleep(80);
+            await audit(`${at} watch correction`);
+            await js("document.querySelector('.watch-items .note-row .push')?.click()"); await sleep(40);
+          }
+        }
+        if (assistant && ai) {
+          // By icon, not position: the bar's buttons come and go with what the assistant shows.
+          await js("document.querySelector('.assistant-bar .lucide-history')?.closest('button')?.click()"); await sleep(150);
+          await audit(`${at} assistant history`);
+          await js("document.querySelector('.assistant-bar .lucide-plus')?.closest('button')?.click()"); await sleep(150);
+          await audit(`${at} assistant welcome`);
+        }
+      }
+    }
+    await size(760, HEIGHT);
+    await command('watches'); await sleep(100);
+    await js("document.querySelector('.toolbar-list .tool:last-child')?.click()"); await sleep(200);
+    await audit(`${tag} add watch sheet`);
+    await js("document.querySelectorAll('dialog[open] .segmented button')[1]?.click()"); await sleep(120);
+    await audit(`${tag} add watch sheet, own words`);
+    await js("document.querySelector('dialog[open] .dialog-actions .push')?.click()"); await sleep(120);
   }
 
   // ── sheets: 订阅管理, with its three tabs, with and without the RSSHub banner ─

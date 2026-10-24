@@ -15,6 +15,7 @@ import { socialApi, applyRssHubConfig } from './social.ts';
 import { buildToolbox } from './agent-tools.ts';
 import { enableSchedule, disableSchedule, scheduleState, recentRuns, refreshSchedule, setWake } from './schedule.ts';
 import { createUpdater } from './updater.ts';
+import { registerExport } from './export.ts';
 import zhCN from '../../renderer/src/locales/zh-CN.json';
 import en from '../../renderer/src/locales/en.json';
 
@@ -150,6 +151,8 @@ ipcMain.handle('app:broadcast', (e, command: string) => {
 });
 
 
+registerExport({ db, dataDir: DATA_DIR, texts: () => (uiLanguage().resolved === 'en' ? en : zhCN).export, locale: () => uiLanguage().resolved });
+
 ipcMain.handle('app:copyText', (_e, text: string) => clipboard.writeText(String(text)));
 
 /** A native confirmation sheet on the asking window; resolves true for the confirming button. */
@@ -234,6 +237,15 @@ function installApplicationMenu(): void {
     },
     { label: m.file, submenu: [
       { label: m.subscribe, accelerator: 'CmdOrCtrl+N', click: send('subscribe') },
+      { type: 'separator' },
+      { label: m.exportAs, submenu: [
+        { label: m.exportPdf, click: send('export:pdf') },
+        { label: m.exportMarkdown, click: send('export:markdown') },
+        { label: m.exportHtml, click: send('export:html') }
+      ] },
+      { label: m.exportOpml, click: send('exportOpml') },
+      { label: m.backup, click: send('backup') },
+      { type: 'separator' },
       { role: 'close', label: m.close }
     ] },
     {

@@ -174,9 +174,10 @@ input[type=checkbox], input[type=radio] { width: 14px; height: 14px; accent-colo
 .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: var(--radius-full); background: var(--fill-strong); color: var(--label-2); font: 600 var(--text-xs)/16px var(--sans); text-align: center; font-style: normal; font-variant-numeric: tabular-nums; }
 .badge.accent { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { height: 22px; padding: 0 9px; border-radius: var(--radius-full); font-size: var(--text-sm); box-shadow: inset 0 0 0 .5px var(--control-edge); background: var(--control); }
+/* A long name wraps inside its chip rather than running out of the sheet. */
+.chip { max-width: 100%; min-height: 22px; padding: 3px 9px; border-radius: var(--radius-full); font-size: var(--text-sm); line-height: 1.3; white-space: normal; text-align: left; box-shadow: inset 0 0 0 .5px var(--control-edge); background: var(--control); }
 .chip.active, .chip[aria-checked='true'], .chip[aria-pressed='true'] { background: var(--tag-bg); color: var(--tag-fg); box-shadow: none; }
-.chip.static { height: 18px; padding: 0 7px; background: var(--fill); box-shadow: none; color: var(--label-2); font-size: var(--text-xs); }
+.chip.static { min-height: 18px; padding: 1px 7px; background: var(--fill); box-shadow: none; color: var(--label-2); font-size: var(--text-xs); }
 
 .section-hint { font-size: var(--text-sm); line-height: 1.5; color: var(--label-2); }
 .section-hint.pad { padding: 20px 16px; text-align: center; }
@@ -279,12 +280,23 @@ input[type=checkbox], input[type=radio] { width: 14px; height: 14px; accent-colo
 /* A group (back/forward) stands a little apart from the single buttons after it, as in Mail. */
 .toolbar .tool-group + .tool { margin-left: 6px; }
 .toolbar.whole .toolbar-list { flex: 1; width: auto; }
-.toolbar.whole .toolbar-detail { flex: none; }
+.toolbar.whole .toolbar-detail { flex: none; container-type: normal; }
 .sidebar-hidden .toolbar-list { padding-left: 80px; }
 .toolbar-title { flex: 1; min-width: 0; display: grid; gap: 0; margin-right: 4px; }
 .toolbar-title h1 { font-size: var(--text-lg); font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .toolbar-title p { font-size: var(--text-xs); line-height: 1.3; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .toolbar .search-field { flex: 0 1 180px; min-width: 76px; margin: 0 4px 0 12px; }
+/* The detail half measures itself in a split view, where its width is set by the layout, not by
+   its buttons. When its buttons and the smallest field no longer fit, the field folds into a
+   button (as in Mail); opened, it takes the article buttons' place. */
+.toolbar-detail { container: toolbar-detail / inline-size; }
+.search-toggle { display: none; }
+@container toolbar-detail (max-width: 430px) {
+  .toolbar-detail:has(> .item-action) > .search-field { display: none; }
+  .toolbar-detail:has(> .item-action) > .search-toggle { display: inline-flex; }
+  .toolbar-detail.searching > :is(.item-action, .search-toggle) { display: none; }
+  .toolbar-detail.searching > .search-field { display: flex; flex: 1 1 auto; margin-left: 0; }
+}
 .narrow-only { display: none; }
 .workspace-body { flex: 1; min-height: 0; display: flex; }
 .workspace-tab { flex: 1; min-width: 0; min-height: 0; display: flex; }
@@ -701,8 +713,8 @@ div.settings-window { height: 100%; display: flex; user-select: none; }
   .narrow-only { display: inline-flex; }
   .toolbar-list { flex: 1; width: auto; }
   /* The detail half may shrink (its search field gives way first), so it never squeezes the
-     back button out of the list half. */
-  .toolbar-detail { flex: 0 1 auto; padding-left: 4px; }
+     back button out of the list half. Sized by its buttons here, so it cannot measure itself. */
+  .toolbar-detail { flex: 0 1 auto; padding-left: 4px; container-type: normal; }
   .toolbar .search-field { flex-basis: 120px; }
   /* One column shows the list or the article, and the toolbar only what acts on it:
      the article's buttons would all be disabled beside the list, and the list's
@@ -711,9 +723,10 @@ div.settings-window { height: 100%; display: flex; user-select: none; }
   .toolbar.item-only :is(.list-action, .toolbar-title) { display: none; }
 }
 /* Back button, article actions, search field and assistant button need about 550px together;
-   below that the search field goes. */
+   below that the search field leaves the article's toolbar. Above a list (阅读 before an article
+   is picked, 关注) it stays, giving way in width instead, so ⌘F always has a field to go to. */
 @container workspace (max-width: 590px) {
-  .toolbar .search-field { display: none; }
+  .toolbar.item-only .search-field { display: none; }
 }
 @container workspace (max-width: 480px) {
   /* The article's buttons (back, previous/next, five actions, the assistant) stay whole by

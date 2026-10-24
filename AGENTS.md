@@ -79,6 +79,7 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 | 按关注挑源 | 新建关注后（有 AI）一次快档调用，把**原话整段** + 整个内置目录（带人工评分 `catalogs/data/source-scores.json`）交给模型挑 ≤8 个源，弹窗问「跳过 / 仅用于关注 / 订阅」。「仅用于关注」= 不进阅读、只在后台抓取（`watch_sources`，抓取看 `sourcesToFetch`）。评分是**人工写死的表**，不是软件生成的；目录加源必须补评分行。助手同样能做：`suggest_watch_sources` + `add_watch_sources` | 2026-09-27 用户提出关注的内容不在订阅源里怎么办；不全开 550 个源（成本、阅读被淹没） |
 | 自动更新 | `electron-updater` + GitHub Release（`apps/desktop/src/updater.ts`）：启动后和每 6 小时检查，**自动后台下载，下载好再问**「重新启动并更新 / 稍后」，稍后则退出时安装。菜单「检查更新…」，设置 → 通用可关自动检查。不在 `/Applications` 时提示移过去。发布必须带 `latest-mac.yml` + zip + blockmap；资源包 Release 必须 `--latest=false` | 2026-09-27 用户选了「自动下载，下完再问」 |
 | 翻译 | **只在用户要求时翻**，结果按块缓存、永不重复收费。阅读器：**全文**（工具栏「翻译」⇧⌘T 切换，文首翻译条一个分段控件切「原文 · 双语 · 译文」，默认双语）、**段落**（在原文模式下右键段落或 ⌥ 点段落）、**划词**（选中文字旁出现「翻译 / 问助手」，像「图书」那样；文章、AI 文档、助手回答里都能用，设置可关）、**批量**（列表上方「翻译列表」：外文标题+摘要，或外文全文 ≤50 篇，全文先确认）。助手：`translate_text`（译文经 `ToolResult.say` **原样**给用户，不让 agent 模型转述）、`translate_article`（navigate，等于按翻译按钮）、`translate_articles`（heavy）、`set_translation`；右键回答可「翻译这条回答」。正文由 `segmentHtml` 切成叶子块（标 `data-pnr-b`、原文包 `.pnr-o`），**按块原文哈希**存 `item_translations`，全文/段落/批量共用一份缓存；快速模型、多块打包一次调用；目标语言默认跟随撰写语言；模型漏掉的块留空不拿原文充数。见 `packages/generate/src/translate.ts` | 2026-10-12 用户要求「划词翻译、全文翻译、批量全文翻译、段落翻译等等，新闻助手也添加相应功能」 |
+| 导出 | 文件菜单「导出为 PDF / Markdown / HTML」导出**正在看的**（摘要、快讯、关注时间线、深度报道、文章——按当时的翻译模式、文章列表），助手栏导出对话；「导出订阅列表（OPML）」；「备份全部数据」（zip，**不含任何 key/token**）。内容由主进程从数据库读（`packages/generate/src/export.ts`），**引用必须带编号来源和真实链接**。OPML 只写别的阅读器能开的地址，**不替 RSSHub 路由填公共实例**。阅读页「原文」按钮并入共享菜单。详见架构文档「导出」 | 2026-10-24 用户要求导出，选了三种内容和 Markdown/PDF/HTML |
 | 深度报道 | 保留，但**不在侧栏**：从文章/快讯/进展进入，在主区域以文档视图打开，工具栏返回 | 绑定一条新闻，材料快照存 `conversations` 表；失败的首稿不会被当成已存报道恢复 |
 | 界面形态 | **按 macOS 应用做布局**：设置是独立窗口（⌘,，System Settings 式分组）、原生右键菜单、状态写在工具栏副标题 | 不要加网页式状态栏、卡片、悬停高亮 |
 | 主区域布局 | **今日 / 快讯 / 阅读 / 关注一律「左列表 + 右详情」分栏**（`ListPane.tsx`，方向键切换，列宽共用）。今日列表：今日摘要 → 关注之外 → 往期；**有摘要时不显示要闻**，没摘要时要闻代替。AI 写的文档用编号角标 + 文末来源列表，不用来源名胶囊 | 2026-09-22 用户反馈「太像网页、今日太杂」：长滚动页 + 卡片 + 网格就是网页感的来源 |
@@ -116,11 +117,11 @@ prompt 三道锁：锁定 `this exact event`、锁定 `last 24 hours`、
 - **AI 写作风格集中在 `packages/generate/src/style.ts` 的 `writingRules()`**，快讯、摘要、进展共用：短句、不堆定语、不写「周一」这类相对时间、不用套话、不下评级式结论。改写作风格改这里，别在各 prompt 里各写一份
 - **窗口布局由 `App.tsx` 按宽度算**，窗口变窄时按固定顺序让位（macOS split view 的做法）：①侧栏缩到最小宽度；②助手缩到最小宽度；③侧栏自动收起（窗口宽了自动回来）；
   ④列表和详情改成一次显示一个（`STACK_MIN`）。先缩后收，能缩就不藏。**助手永远停靠、不浮在页面上**（浮层没有分隔条，无法调宽，还挡住正文；2026-09-28 用户指出），
-  窗口最小宽度 760 保证放得下。侧栏和助手都可拖动调宽（记在 localStorage），拖动只在当前排布留出的空间里调：拖动不会让侧栏消失、也不会把列表和详情挤成一栏（想让助手更宽就先收起侧栏）。`SPLIT_MIN`（700）要和 `@container workspace` 断点保持一致；它保证右侧详情至少约 390px，放得下整排工具栏按钮和搜索框。**工具栏按钮不许被挤压**（`.tool { flex: none }`），空间不够时让能伸缩的部分（搜索框）先缩。主窗口默认 1440×1000，屏幕放不下时按同比例缩小
+  窗口最小宽度 760 保证放得下。侧栏和助手都可拖动调宽（记在 localStorage），拖动只在当前排布留出的空间里调：拖动不会让侧栏消失、也不会把列表和详情挤成一栏（想让助手更宽就先收起侧栏）。`SPLIT_MIN`（700）要和 `@container workspace` 断点保持一致；它保证右侧详情至少约 390px；详情一半的工具栏放不下按钮加最小搜索框时，**搜索框收成放大镜按钮**（像 Mail，点开或 ⌘F 时临时顶替文章按钮），所以以后加按钮也不会挤。单栏的最窄宽度 `STACK_MIN`（430）要放得下单栏文章工具栏（返回、上一篇/下一篇、五个文章按钮、导出、助手），窗口 760 时仍留得下最窄的助手。**工具栏按钮不许被挤压**（`.tool { flex: none }`），空间不够时让能伸缩的部分（搜索框）先缩。主窗口默认 1440×1000，屏幕放不下时按同比例缩小
 - **版式有自动检查，改了界面（CSS、组件、文案）必须跑 `npm run test:layout`**（`dev/layout.test.mjs`，已进 `test:ci`）。它在无界面的 Electron 里加载真正构建出的界面，
   `window.pnr` 换成 `dev/layout/fixture.js` 的假数据（故意带很长的来源名、中英文混排），然后逐个状态检查：窗口宽 760–1440 × 侧栏 190/220/360 × 助手开/关（含带对话和 agent 卡片的助手）×
-  中/英文 × 有/无 AI × 今日/快讯/关注/阅读（含选中文章）× 按住 ⌥ × 订阅管理三页（含 RSSHub 提示条）× 设置各页 × 最小高度 520。
-  检查的是 `dev/layout/audit.js` 里**对所有界面都成立的规则**，不是某一屏的像素：控件不被裁掉、不被别的东西盖住（`reach`）；同一行的控件不重叠、不溢出（`overlap`/`spill`）；
+  中/英文 × 有/无 AI × 今日/快讯/关注/阅读（含选中文章）× 按住 ⌥ × 今日每一行（摘要、关注之外、标题、往期）× 快讯详情 × 关注三个分页（含正在写纠偏）× 添加关注 × 助手历史与欢迎页 × 订阅管理三页（含 RSSHub 提示条）× 设置各页 × 最小高度 520。
+  检查的是 `dev/layout/audit.js` 里**对所有界面都成立的规则**，不是某一屏的像素：控件不被裁掉、不被别的东西盖住（`reach`）；同一行的控件不重叠、不溢出，而且**画面上任何两个控件不互相压住、文字不跑到按钮底下**（`overlap`/`spill`）；
   按钮上的字不被截断（`label`，省略号是有意缩短，不算）；**红绿灯区域（左上 76×40）里什么都不许有**（`lights`）；页面和竖向列表不横向滚动（`scroll`）；渲染时没有报错。
   规则通用，所以新加按钮、更长的译文自动被覆盖——**不要为某个界面单写像素测试**；新加页面或对话框，就把它的打开方式加进矩阵。
   还有几个「真出过的事」专项（刷新慢时列表跳到别的来源、社交平台选择器歪了）。`LAYOUT_QUICK=1` 跑薄片，`LAYOUT_SERVE=8901` 起一个能在浏览器里手动看的页面
@@ -154,7 +155,7 @@ M-1 技术验证到 M6 全部完成（验证结论并进了 `docs/ARCHITECTURE.z
 | `@pnr/ai` | Vercel AI SDK Provider（Gemini / OpenAI / Claude / 兼容接口 / Ollama）、无 key 闸门、流式/搜索、向量代次、按请求计价、录放 | `test:ai`（真实 SDK + 模拟 HTTP）· `test:ai-live`（付费实测） |
 | `@pnr/watch` | Watch 模型、37 个预置主题（5 组，中英两套）、意图向量、召回辅助、纠偏、按关注挑源 | `test:watch` · `test:watches` · `test:source-suggest` |
 | `@pnr/recall` | R1/R2/R3 三路并集、判定前免费排序截断、批量判定、意图闸门、无 AI 时的关键词匹配 | `test:pipeline` |
-| `@pnr/generate` | 流程编排、今日摘要、进展、快讯、关注之外、搜索补全、深度报道、新闻助手、翻译 | `test:today` · `test:generate` · `test:flash-cap` · `test:search-fill` · `test:outside` · `test:report` · `test:assistant` · `test:translate` |
+| `@pnr/generate` | 流程编排、今日摘要、进展、快讯、关注之外、搜索补全、深度报道、新闻助手、翻译、导出 | `test:today` · `test:generate` · `test:flash-cap` · `test:search-fill` · `test:outside` · `test:report` · `test:assistant` · `test:translate` · `test:export` |
 | `apps/desktop` | Electron 主进程、IPC、菜单、设置窗口、源目录与自定义源、后台调度、唤醒组件、自动更新 | `test:wake` · `test:update` · 界面逐屏截图验证 |
 | `apps/renderer` | 今日 / 快讯 / 阅读 / 关注 + 新闻助手分栏 + 深度报道 + 设置 | `test:i18n` |
 | `apps/worker` | 无界面 worker，`auto` / `daily` / `flashes` / `fetch` 四种模式，日志写库 | 实跑 59s 全绿 |
@@ -305,6 +306,9 @@ macOS 26 换了图标体系：系统自己画形状、阴影和高光，App 只�
 - **`catalogs/build.ts` 只写 `candidates.json`**，`feeds.json` 由 `verify.ts` 产出。
   顺序是 build → verify → retry，别让 build 覆盖验证过的结果
 - **Reddit 的 `.json` 接口已对未认证客户端封禁（403），但 `.rss` 仍开放**
+- **路透社文章页被 DataDome 拦（401 + 验证码），一旦这个网络出口被标记，连真的 Chromium 窗口也一样被拦**（2026-10-12 实测），但同站的 `arc/outboundfeeds/*` 出口订阅照常开放。
+  所以路透社仍用站点地图**发现**文章，**正文先从它给 MSN 的全文订阅取**（`packages/reader/src/publisher-feeds.ts`，最新 100 篇、约 12 小时、不能翻页），取不到才抓网页。
+  只换来源、不绕拦截：**不要做浏览器指纹伪装、不要自动过验证码**。订阅正文里的 `[USN:… TEXT:"…"]` 是通讯社内部链接标记，只留引号里的字
 - **AP 的 sitemap 对家用 IP 返回 403**，换什么请求头都没用。机房 IP 可以，
   所以 daily-brief 在 CI 里能用。已把 AP 移出默认启用
 - **RSSHub 不能被 esbuild 打包**，必须 `--external:rsshub`。它用动态 glob

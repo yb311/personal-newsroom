@@ -3,6 +3,7 @@ import { writeBody } from '@pnr/store';
 import { log, domainOf, flags } from '@pnr/core';
 import { extractArticle } from '@pnr/reader-core';
 import { fetchPage, PAYWALLED } from './fetch.ts';
+import { hasPublisherFeed, publisherFeedItem } from './publisher-feeds.ts';
 
 export type BodyState = 'pending' | 'ok' | 'blocked' | 'failed' | 'skipped';
 
@@ -40,6 +41,17 @@ export async function enrichItem(
     // Do not spend a request or pretend: the reader shows the snippet and an
     // "open in browser" button instead.
     return finish('blocked', 0, undefined, 'paywalled');
+  }
+
+  const fromFeed = await publisherFeedItem(item.url);
+  if (fromFeed && fromFeed.words >= MIN_WORDS) {
+    const path = writeBody(dataDir, {
+      itemId: item.id, url: item.url, html: fromFeed.contentHtml!, text: fromFeed.contentText ?? '',
+      words: fromFeed.words, lang: fromFeed.lang ?? null, source: 'feed', engine: 'feed', extractedAt: now
+    });
+    log({ event: 'reader.enrich', phase: 'completed', entityId: item.id,
+          attrs: { words: fromFeed.words, engine: 'feed', tier: 'publisher_feed' } });
+    return finish('ok', fromFeed.words, 'feed', undefined, path);
   }
 
   let page;
@@ -80,7 +92,15 @@ export async function enrichPending(
   ).all(limit) as { id: string; url: string }[];
 
   const tally: Record<BodyState, number> = { pending: 0, ok: 0, blocked: 0, failed: 0, skipped: 0 };
-  const queue = [...rows];
+  // Sites with a full-text feed go first and one at a time: a single feed
+  // download covers them, so a block on the site's pages later in the run
+  // cannot leave them pending.
+  const queue: typeof rows = [];
+  for (const r of rows) {
+    const inFeed = hasPublisherFeed(r.url) && !flags.disableExtract && ((await publisherFeedItem(r.url))?.words ?? 0) >= MIN_WORDS;
+    if (!inFeed) { queue.push(r); continue; }
+    tally[(await enrichItem(db, dataDir, r)).state]++;
+  }
   const busy = new Set<string>();
   const walled = new Set<string>();
   const perWorker = await Promise.all(Array.from({ length: concurrency }, async () => {

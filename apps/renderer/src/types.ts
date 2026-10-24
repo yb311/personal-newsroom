@@ -149,6 +149,10 @@ export type ScreenFocus =
   | { kind: 'watch'; watchId: string }
   | { kind: 'report'; anchorItemId: string; lang: string };
 export interface Screen { focus: ScreenFocus; label: string }
+
+export type ExportFormat = 'pdf' | 'markdown' | 'html';
+/** `count`/`skipped`: feeds written to an OPML file, and subscribed sources only this app can read. */
+export type ExportResult = { ok: true; path: string; count?: number; skipped?: number } | { ok: false; reason: 'cancelled' | 'missing' | 'failed' };
 export interface AssistantEvent { requestId: string; chatId: string; messageId: string; type: 'phase' | 'partial' | 'complete' | 'cancelled' | 'error' | 'action'; phase?: AssistantPhase; tool?: string; value?: Partial<AssistantAnswer>; error?: string }
 export interface OpenQuestion { id: number; question: string; askedAt: number }
 export interface RunResult {
@@ -273,6 +277,11 @@ export interface Pnr {
   onUiLanguage(cb: (lang: string) => void): () => void;
   contextMenu(items: MenuEntry[]): Promise<string | null>;
   copyText(text: string): Promise<void>;
+  /** 导出: each asks where to save first; `cancelled` when the person closes the save panel. */
+  exportDocument(input: { screen: Screen; format: ExportFormat; translation?: { mode: 'original' | 'bilingual' | 'translation'; target: string } }): Promise<ExportResult>;
+  exportChat(chatId: string, format: ExportFormat): Promise<ExportResult>;
+  exportOpml(): Promise<ExportResult>;
+  exportBackup(): Promise<ExportResult>;
   assistantList(): Promise<AssistantChatSummary[]>;
   assistantGet(id: string): Promise<AssistantChat | null>;
   assistantDelete(id: string): Promise<boolean>;

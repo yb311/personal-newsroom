@@ -1,7 +1,7 @@
-import { ChevronDown, ChevronLeft, ChevronUp, CircleDot, ExternalLink, FileSearch, Languages, ListFilter, MessageSquareText, PanelLeft, Plus, RefreshCw, RotateCcw, Search, Star } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleDot, FileSearch, Languages, ListFilter, MessageSquareText, PanelLeft, Plus, RefreshCw, RotateCcw, Search, Share, Star } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AiStatus, ItemRow, MenuEntry, NavTarget, OutsidePick, ReportAnchor, Screen, SourceRow } from './types.ts';
+import type { AiStatus, ExportFormat, ExportResult, ItemRow, MenuEntry, NavTarget, OutsidePick, ReportAnchor, Screen, SourceRow } from './types.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { ItemList } from './components/ItemList.tsx';
 import { Reader } from './components/Reader.tsx';
@@ -40,13 +40,14 @@ const PANEL = { min: 320, max: 620, fallback: 380, key: 'pnr.assistantWidth' };
 const SIDEBAR = { min: 190, max: 360, fallback: 220, key: 'pnr.sidebarWidth' };
 /** The narrowest workspace that still splits list and detail side by side —
  *  keep in step with `@container workspace` in app.css. The list takes at most
- *  44%, so the detail keeps at least ~390px: enough for its whole toolbar
- *  (back/forward, five actions, a search field, the assistant) without crowding. */
+ *  44%, so the detail keeps at least ~390px. Where its toolbar runs short of room
+ *  the search field folds into a button (`@container toolbar-detail` in app.css),
+ *  so the article's own buttons never crowd. */
 const SPLIT_MIN = 700;
 /** The narrowest workspace showing list or detail one at a time. The window's
  *  minimum width (main.ts) leaves this beside a docked assistant at its minimum,
  *  so the assistant never has to float over the page. */
-const STACK_MIN = 400;
+const STACK_MIN = 430;
 const readFlag = (key: string, fallback: boolean): boolean => {
   try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1'; } catch { return fallback; }
 };
@@ -73,6 +74,8 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [current, setCurrent] = useState<ItemRow | null>(null);
   const [query, setQuery] = useState('');
+  /** The search field folded into its button (a narrow toolbar) was opened, by click or ⌘F. */
+  const [searchOpen, setSearchOpen] = useState(false);
   const [watchQuery, setWatchQuery] = useState('');
   const [importantOnly, setImportantOnly] = useState(false);
   const [counts, setCounts] = useState<{ flashes?: number; watches?: number; fresh?: number }>({});
@@ -95,6 +98,8 @@ export default function App() {
   const [viewScreen, setViewScreen] = useState<Screen | null>(null);
   const requestId = useRef(0);
   const operation = useRef(false);
+  /** An export is saving; it runs beside whatever else is running (see runExport). */
+  const exporting = useRef(false);
   /** Set once the person picks a view, so the launch check below never overrides them. */
   const navigated = useRef(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -147,8 +152,9 @@ export default function App() {
   tRef.current = t;
   useEffect(() => window.pnr.onProgress((p) => {
     const x = p as { phase?: string; label?: string };
-    const key = { watch: 'app.progress.watch', writing: 'app.progress.writing', extract: 'app.progress.extract', fetch: 'app.progress.fetch', translate: 'app.progress.translate' }[x.phase ?? ''];
-    if (key && operation.current) setNote(tRef.current(key, { label: x.label }));
+    const key = { watch: 'app.progress.watch', writing: 'app.progress.writing', extract: 'app.progress.extract', fetch: 'app.progress.fetch', translate: 'app.progress.translate',
+      export: 'export.saving', backup: 'export.backingUp' }[x.phase ?? ''];
+    if (key && (operation.current || exporting.current)) { clearTimeout(noticeTimer.current); setNote(tRef.current(key, { label: x.label })); }
   }), []);
 
   /** One long-running operation at a time; its outcome stays in the toolbar subtitle for a few seconds. */
@@ -166,6 +172,29 @@ export default function App() {
     }
   };
   const failure = (error: string): string => error.replace(/^Error:\s*/, '').slice(0, 80);
+  /** 导出 waits on a save panel, so it does not hold up the one-at-a-time operations; its outcome goes in the subtitle all the same. */
+  const runExport = async (task: () => Promise<ExportResult>, done: (name: string, r: Extract<ExportResult, { ok: true }>) => string): Promise<void> => {
+    if (exporting.current) return;
+    exporting.current = true;
+    let text = '';
+    try {
+      const r = await task();
+      text = r.ok ? done(r.path.split('/').pop() ?? r.path, r) : r.reason === 'cancelled' ? '' : t(`export.error.${r.reason}`);
+    } catch { text = t('export.error.failed'); }
+    finally { exporting.current = false; }
+    clearTimeout(noticeTimer.current);
+    setNote(text);
+    if (text) noticeTimer.current = setTimeout(() => setNote(''), 6000);
+  };
+  const exportOpml = (): Promise<void> => runExport(() => window.pnr.exportOpml(),
+    (name, r) => t('export.opmlSaved', { count: r.count ?? 0, name }) + (r.skipped ? t('export.opmlSkipped', { count: r.skipped }) : ''));
+  const exportBackup = (): Promise<void> => runExport(() => window.pnr.exportBackup(), (name) => t('export.backedUp', { name }));
+  const formatMenu = (): Promise<string | null> => window.pnr.contextMenu([
+    { id: 'pdf', label: t('export.pdf') }, { id: 'markdown', label: t('export.markdown') }, { id: 'html', label: t('export.html') }]);
+  const exportChat = async (chatId: string): Promise<void> => {
+    const format = await formatMenu() as ExportFormat | null;
+    if (format) void runExport(() => window.pnr.exportChat(chatId, format), (name) => t('export.saved', { name }));
+  };
   const refresh = (): Promise<void> => perform('fetch', t('app.refreshing'), async () => {
     const r = await window.pnr.refresh();
     await Promise.all([loadSources(), loadItems()]);
@@ -282,12 +311,25 @@ export default function App() {
     if (c === 'sidebar') showSidebar(!sidebarShown);
     else if (c === 'assistant') toggleAssistant();
     // ⌘F searches what is shown when it can be searched (阅读, 关注), else the articles.
-    else if (c === 'search') { if (report || (tab !== 'read' && tab !== 'watches')) go('read'); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.toolbar .search-field input')?.focus()); }
+    else if (c === 'search') {
+      if (report || (tab !== 'read' && tab !== 'watches')) go('read');
+      setSearchOpen(true);
+      // A narrow window reading one article has no room for the field: go back to the list it searches.
+      const field = (): HTMLInputElement | null => document.querySelector<HTMLInputElement>('.toolbar .search-field input');
+      requestAnimationFrame(() => {
+        if (field()?.offsetParent) { field()!.focus(); return; }
+        setSelected(null);
+        requestAnimationFrame(() => field()?.focus());
+      });
+    }
     else if (c === 'subscribe') setShowCatalogue(true);
     else if (c === 'refresh') void refresh();
     else if (c === 'updateAll') void runAll(false);
     else if (c === 'regenerateAll') void runAll(true);
     else if (c === 'translate') { if (tab === 'read' && !report && article && aiReady) toggleTranslate(); }
+    else if (c.startsWith('export:')) exportScreen(c.slice('export:'.length) as ExportFormat);
+    else if (c === 'exportOpml') void exportOpml();
+    else if (c === 'backup') void exportBackup();
     else if ((TABS as string[]).includes(c)) go(c as Tab);
   };
   useEffect(() => window.pnr.onCommand?.((c) => command.current(c)), []);
@@ -446,6 +488,26 @@ export default function App() {
         label: source?.name ?? t(`filters.${filter}`) }
     : null;
 
+  /** Exports what the assistant would be told is open; an article goes out the way the reader shows it, translation included. */
+  const exportScreen = (format: ExportFormat): void => {
+    if (!screen) { clearTimeout(noticeTimer.current); setNote(t('export.nothing')); noticeTimer.current = setTimeout(() => setNote(''), 6000); return; }
+    const translation = !report && tab === 'read' && screen.focus.kind === 'article' ? { mode: trMode, target: trSettings.target } : undefined;
+    void runExport(() => window.pnr.exportDocument({ screen, format, ...(translation ? { translation } : {}) }), (name) => t('export.saved', { name }));
+  };
+  const exportMenu = async (): Promise<void> => {
+    const format = await formatMenu() as ExportFormat | null;
+    if (format) exportScreen(format);
+  };
+  const shareMenu = async (): Promise<void> => {
+    const choice = await window.pnr.contextMenu([
+      { id: 'open', label: t('menu.openOriginal'), enabled: Boolean(article) }, { id: 'copy', label: t('menu.copyLink'), enabled: Boolean(article) },
+      { separator: true },
+      { id: 'pdf', label: t('export.pdf') }, { id: 'markdown', label: t('export.markdown') }, { id: 'html', label: t('export.html') }]);
+    if (choice === 'open') { if (article) void window.pnr.openExternal(article.url); }
+    else if (choice === 'copy') { if (article) void window.pnr.copyText(article.url); }
+    else if (choice) exportScreen(choice as ExportFormat);
+  };
+
   // Title and subtitle, as in Mail: what is shown, and its state.
   const title = report ? t('report.title') : tab === 'read' ? (source?.name ?? t(`filters.${filter}`)) : t(`tabs.${tab}`);
   const today = new Intl.DateTimeFormat(i18n.language, { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
@@ -465,7 +527,7 @@ export default function App() {
       {sidebarShown && <>
         <Sidebar tab={report ? null : tab} onTab={go} sources={sources} sourceId={sourceId} filter={filter} fresh={counts.fresh ?? 0}
           onPickSource={pickSource} onPickFilter={pickFilter} onSourceMenu={(s) => void sourceMenu(s)}
-          onAdd={() => setShowCatalogue(true)} onSettings={() => openSettings()} onHide={() => showSidebar(false)} aiReady={aiReady}
+          onAdd={() => setShowCatalogue(true)} onSettings={openSettings} onHide={() => showSidebar(false)} aiReady={aiReady}
           updateAll={<UpdateAll running={job === 'all'} disabled={busy} onRun={(force) => void runAll(force)} />} />
         <SplitDivider width={sidebarShownWidth} onChange={resizeSidebar} min={SIDEBAR.min} max={sidebarMax} fallback={SIDEBAR.fallback}
           storageKey={SIDEBAR.key} edge="before" label={t('app.resizeSidebar')} />
@@ -479,7 +541,7 @@ export default function App() {
             {/* 全部更新 lives in the sidebar and hides with it, as a sidebar's own controls
                 do on the Mac; ⇧⌘R still runs it. An icon-only copy here stood next to the
                 list's own ↻ and the two could not be told apart. */}
-            {!sidebarShown && <button className="tool" aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌘⌃S)`} onClick={() => showSidebar(true)}><PanelLeft size={17} /></button>}
+            {!sidebarShown && <button className="tool" aria-label={t('app.showSidebar')} title={`${t('app.showSidebar')} (⌃⌘S)`} onClick={() => showSidebar(true)}><PanelLeft size={17} /></button>}
             {report && <button className="tool" aria-label={t('common.back')} title={t('common.back')} onClick={() => setReport(null)}><ChevronLeft size={18} /></button>}
             {!report && tab === 'read' && selected && <button className="tool narrow-only" aria-label={t('reader.back')} title={t('reader.back')} onClick={() => setSelected(null)}><ChevronLeft size={18} /></button>}
             <div className="toolbar-title">
@@ -492,42 +554,53 @@ export default function App() {
               aria-pressed={job === 'translate'} title={aiReady ? (job === 'translate' ? t('translate.list.stop') : t('translate.list.button')) : t('translate.needAi')}
               aria-label={t('translate.list.button')} aria-haspopup="menu"><span className={`menu-glyph ${job === 'translate' ? 'pulsing' : ''}`}><Languages size={15} /><ChevronDown size={9} strokeWidth={2.5} /></span></button>}
             {!report && tab === 'flashes' && <>
-              {/* A filter toggle, as Mail's: it narrows the list the title counts. */}
-              <button className="tool" aria-pressed={importantOnly} title={t('flashes.importantOnly')} aria-label={t('flashes.importantOnly')}
-                onClick={() => setImportantOnly((v) => !v)}><ListFilter size={16} /></button>
+              {/* ↻ sits next to the list's name, as in 阅读; the filter follows it. */}
               {aiReady && <button className="tool" disabled={busy} title={t('app.checkFlashes')} aria-label={t('app.checkFlashes')}
                 onClick={() => void runFlashes()}>{spinner('flashes')}</button>}
+              {/* A filter toggle, as Mail's: it narrows the list the title counts. */}
+              <button className="tool" aria-pressed={importantOnly} title={importantOnly ? t('flashes.showAll') : t('flashes.importantOnly')} aria-label={t('flashes.importantOnly')}
+                onClick={() => setImportantOnly((v) => !v)}><ListFilter size={16} /></button>
             </>}
             {!report && tab === 'watches' && <button className="tool" title={t('watches.add')} aria-label={t('watches.add')} onClick={addWatch}><Plus size={17} /></button>}
           </div>
-          <div className="toolbar-detail">
+          <div className={`toolbar-detail ${searchOpen ? 'searching' : ''}`}>
             {/* What acts on the article sits at the right, beside the search field, as in
                 Mail: the list's own buttons end at the divider and these start well clear of it. */}
             <span className="grow" />
             {report && <button className="tool" title={t('report.restart')} aria-label={t('report.restart')} onClick={() => setRestartReport((v) => v + 1)}><RotateCcw size={16} /></button>}
             {!report && tab === 'read' && <>
-              <div className="tool-group">
+              <div className="tool-group item-action">
                 <button className="tool" aria-label={t('app.prevArticle')} title={t('app.prevArticle')} disabled={selectedIndex <= 0} onClick={() => stepArticle(-1)}><ChevronUp size={17} /></button>
                 <button className="tool" aria-label={t('app.nextArticle')} title={t('app.nextArticle')} disabled={!visibleItems.length || selectedIndex === visibleItems.length - 1} onClick={() => stepArticle(1)}><ChevronDown size={17} /></button>
               </div>
-              <button className="tool" disabled={!article} aria-pressed={Boolean(article?.starredAt)} title={article?.starredAt ? t('list.unstar') : t('list.star')} aria-label={t('list.star')}
+              <button className="tool item-action" disabled={!article} aria-pressed={Boolean(article?.starredAt)} title={article?.starredAt ? t('list.unstar') : t('list.star')} aria-label={t('list.star')}
                 onClick={() => { if (article) void onStar(article.id); }}><Star size={16} fill={article?.starredAt ? 'currentColor' : 'none'} /></button>
-              <button className="tool" disabled={!article} title={article?.readAt ? t('reader.markUnread') : t('reader.markRead')} aria-label={article?.readAt ? t('reader.markUnread') : t('reader.markRead')}
-                onClick={() => { if (article) void setRead(article.id, !article.readAt); }}><CircleDot size={16} /></button>
-              <button className="tool" disabled={!article} title={t('reader.original')} aria-label={t('reader.original')}
-                onClick={() => { if (article) void window.pnr.openExternal(article.url); }}><ExternalLink size={16} /></button>
-              <button className="tool" disabled={!article || !aiReady} aria-pressed={trMode !== 'original'} aria-label={t('translate.button')}
+              {/* The icon is what the click leaves behind, in the list's own terms: the unread dot, or read. */}
+              <button className="tool item-action" disabled={!article} title={article && !article.readAt ? t('reader.markRead') : t('reader.markUnread')} aria-label={article && !article.readAt ? t('reader.markRead') : t('reader.markUnread')}
+                onClick={() => { if (article) void setRead(article.id, !article.readAt); }}>{article && !article.readAt ? <CircleCheck size={16} /> : <CircleDot size={16} />}</button>
+              {/* As Safari's share button: the original page, its link, and 导出 — one place, so the toolbar keeps its width. */}
+              <button className="tool item-action" disabled={!screen} title={t('export.share')} aria-label={t('export.share')} aria-haspopup="menu"
+                onClick={() => void shareMenu()}><Share size={16} /></button>
+              <button className="tool item-action" disabled={!article || !aiReady} aria-pressed={trMode !== 'original'} aria-label={t('translate.button')}
                 title={aiReady ? `${trMode === 'original' ? t('translate.button') : t('translate.showOriginal')} (⇧⌘T)` : t('translate.needAi')}
                 onClick={toggleTranslate} onContextMenu={(e) => { e.preventDefault(); if (article && aiReady) void translateMenu(); }}><Languages size={16} /></button>
-              <button className="tool" disabled={!article || !aiReady} title={aiReady ? t('report.open') : t('report.needAi')} aria-label={t('report.open')}
+              <button className="tool item-action" disabled={!article || !aiReady} title={aiReady ? t('report.open') : t('report.needAi')} aria-label={t('report.open')}
                 onClick={() => { if (article) openReport({ anchorItemId: article.id, itemIds: [article.id], topic: article.title }); }}><FileSearch size={16} /></button>
             </>}
-            {!report && tab === 'read' && <label className="search-field"><Search size={13} />
-              <input type="search" aria-label={t('list.search')} placeholder={t('list.search')} value={query}
-                onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }} /></label>}
-            {!report && tab === 'watches' && <label className="search-field"><Search size={13} />
-              <input type="search" aria-label={t('watches.search')} placeholder={t('watches.search')} value={watchQuery}
-                onChange={(e) => setWatchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setWatchQuery(''); }} /></label>}
+            {!report && (tab === 'read' || tab === 'watches') && <>
+              {/* Where the toolbar is short of room the field folds into this button, as Mail's
+                  does; opened, it takes the article buttons' place until it is left empty. */}
+              <button className="tool search-toggle" title={t(tab === 'read' ? 'list.search' : 'watches.search')} aria-label={t(tab === 'read' ? 'list.search' : 'watches.search')}
+                onClick={() => { setSearchOpen(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.toolbar .search-field input')?.focus()); }}><Search size={16} /></button>
+              {tab === 'read' ? <label className="search-field"><Search size={13} />
+                <input type="search" aria-label={t('list.search')} placeholder={t('list.search')} value={query} onBlur={(e) => { if (!e.target.value) setSearchOpen(false); }}
+                  onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.currentTarget.blur(); } }} /></label>
+              : <label className="search-field"><Search size={13} />
+                <input type="search" aria-label={t('watches.search')} placeholder={t('watches.search')} value={watchQuery} onBlur={(e) => { if (!e.target.value) setSearchOpen(false); }}
+                  onChange={(e) => setWatchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setWatchQuery(''); e.currentTarget.blur(); } }} /></label>}
+            </>}
+            {(report || tab !== 'read') && <button className="tool" disabled={!screen} title={t('export.button')} aria-label={t('export.button')} aria-haspopup="menu"
+              onClick={() => void exportMenu()}><Share size={16} /></button>}
             <button className="tool" aria-pressed={assistantOpen} onClick={() => toggleAssistant()}
                     title={`${t('assistant.toggle')} (⌘J)`} aria-label={t('assistant.toggle')}><MessageSquareText size={17} /></button>
           </div>
@@ -558,7 +631,7 @@ export default function App() {
       {assistantOpen && <>
         <SplitDivider width={panelShown} onChange={resizePanel} min={PANEL.min} max={panelMax} fallback={PANEL.fallback}
           storageKey={PANEL.key} edge="after" label={t('assistant.resize')} />
-        <ErrorBoundary><Assistant ai={ai} screen={screen} quote={quote} onOpenItem={openItem} onNavigate={(target) => navigateTo.current(target)} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
+        <ErrorBoundary><Assistant ai={ai} screen={screen} quote={quote} onExport={(id) => void exportChat(id)} onOpenItem={openItem} onNavigate={(target) => navigateTo.current(target)} onSetup={() => openSettings('ai')} onClose={() => toggleAssistant(false)} /></ErrorBoundary>
       </>}
       {showCatalogue && <Catalogue onClose={(changed) => {
         setShowCatalogue(false); void loadSources(); void loadItems();

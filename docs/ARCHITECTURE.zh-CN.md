@@ -279,6 +279,24 @@ App 自己写的摘要、时间线、快讯原样给模型，背后的文章登�
 - 目标语言默认跟随撰写语言（设置 → AI → 翻译），已经是目标语言的选中文字改译成英文（目标是英文时译成中文）
 - 离线测试 `npm run test:translate`
 
+### 导出（`export.ts`、`apps/desktop/src/export.ts`，2026-10-24 用户要求）
+
+三件事，都从「文件」菜单进，先弹系统存储面板，结果写在工具栏副标题：
+
+- **导出正在看的**（PDF / Markdown / HTML）：今日摘要、往期、关注之外、快讯、关注时间线、深度报道、阅读器里的文章、文章列表；
+  助手栏的「导出对话」导出当前对话。和助手看屏幕一样，界面只传 `ScreenFocus`，内容由 `buildExport` 从数据库完整读取。
+  **引用不丢**：角标按首次引用编号（同一篇同一个号），文末列真实标题、来源、日期和链接——Markdown 用脚注 `[^1]`，HTML/PDF 用角标链到文末。
+  文章按阅读器当时的样子导出：双语/译文模式用 `withTranslation`（与 `segmentHtml` 同一套切块）把缓存的译文放回原位，没译的块保留原文；
+  正文没抓到就只给摘要并写明。Markdown 由 `htmlToMarkdown` 转（自己的宽容解析器，不加依赖）。
+  HTML 是单文件，沿用阅读区配色和衬线字体，CSP 禁止一切脚本；PDF 是同一页在隐藏窗口（关 JS）里 `printToPDF`，远程图片最多等 20 秒。
+  工具栏：阅读页的「原文」按钮换成共享菜单（打开原文 / 拷贝链接 / 导出），按钮数不变；其它页在助手按钮左边加一个导出按钮
+- **订阅列表（OPML）**：`buildOpml`（`packages/feed/src/opml.ts`），按分类分组。只写别的阅读器打得开的地址：普通 RSS，以及有自建 RSSHub 实例时的路由；
+  资源包里的路由、站点地图、各种 API 源只计数不写，**绝不替它们填公共 RSSHub 实例**
+- **备份全部数据**：zip 里是 `newsroom.db`（`backupDatabase`：SQLite 在线备份，运行中也一致）+ `bodies/` + 恢复说明。
+  **API key 和 token 不进备份**：按键名匹配（含 apikey/token/secret/password）在副本里删除，并开 `secure_delete` 覆盖空出的页，文件里连残留都没有。
+  没有「恢复」按钮，说明文件写了手动恢复步骤；`items.body_path` 是绝对路径，换用户名恢复时正文要重新读取
+- 离线测试 `npm run test:export`
+
 ## 9. AI 层（`packages/ai`）
 
 业务层只依赖项目自己的 `Provider` 接口（`generate` / `stream` / `embed` / `search`），

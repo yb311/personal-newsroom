@@ -38,6 +38,8 @@ export function Reader({ id, onLoaded, onBack, translate }: { id: string | null;
   const { t } = useTranslation();
   const [item, setItem] = useState<Full | null>(null);
   const [loading, setLoading] = useState(false);
+  /** The id whose load has finished, found or not. */
+  const [settled, setSettled] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [ownMode, setOwnMode] = useState<TranslateMode>('original');
   const mode = translate.mode ?? ownMode;
@@ -65,7 +67,7 @@ export function Reader({ id, onLoaded, onBack, translate }: { id: string | null;
       try {
         const full = await window.pnr.getItem(id);
         if (!live) return;
-        setItem(full); setLoading(false); onLoaded(full);
+        setItem(full); setLoading(false); setSettled(id); onLoaded(full);
         if (full?.translation) setTr(full.translation);
         const own = callbacks.current;
         if (full && own.mode === undefined && own.auto && own.aiReady && isForeign(full.lang, own.target)) setOwnMode(preferredMode());
@@ -195,7 +197,9 @@ export function Reader({ id, onLoaded, onBack, translate }: { id: string | null;
   };
 
   if (!id) return <section className="reader empty"><div className="empty-state"><BookOpen size={30} strokeWidth={1.4} /><h3>{t('reader.noneTitle')}</h3><p>{t('reader.noneHint')}</p></div></section>;
-  if (loading && !item) return <section className="reader empty"><div className="empty-state"><span className="spinner large" role="status" aria-label={t('common.loading')} /></div></section>;
+  // Until this id's article has come back, it is loading — never 'not found' (the effect that
+  // starts the load runs after the first paint, so `loading` is still false for one frame).
+  if ((loading || settled !== id) && !error) return <section className="reader empty"><div className="empty-state"><span className="spinner large" role="status" aria-label={t('common.loading')} /></div></section>;
   if (!item) return <section className="reader empty"><div className="empty-state"><p>{error || t('reader.notFound')}</p></div></section>;
 
   const open = (): void => { void window.pnr.openExternal(item.url); };

@@ -86,7 +86,7 @@ export function describeScreen(db: Db, input: ScreenInput | null | undefined): S
       `${p.title}${cites(JSON.parse(p.ids) as string[])}`, `Why it was picked: ${p.reason}`);
   } else if (f.kind === 'flash') {
     const fl = getFlash(db, f.flashId); if (!fl) return null;
-    lines.push(`A news flash the app wrote at ${localDateTime(fl.publishedAt)} (importance ${fl.importance}/5):`,
+    lines.push(`A news flash the app wrote at ${localDateTime(fl.publishedAt)} (importance ${fl.importance}/10):`,
       `${fl.title}${cites(fl.itemIds)}`, fl.body, fl.importanceReason ? `Why it matters: ${fl.importanceReason}` : '');
   } else if (f.kind === 'watch') {
     const w = getWatch(db, f.watchId); if (!w) return null;

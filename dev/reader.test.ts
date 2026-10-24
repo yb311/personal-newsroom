@@ -62,6 +62,19 @@ for (const [name, id, url] of cases) {
   check(r.state === 'ok' && body !== null && body.words === row.w && !/<script/i.test(body.html),
         `${name.padEnd(10)} ${r.state} ${String(r.words).padStart(5)} 词 ${r.engine ?? r.reason ?? ''}`);
 }
+// Reuters' pages answer non-browsers with a DataDome 401; the newest stories'
+// bodies come from its own full-text outbound feed instead.
+const wire = reuters.items.filter((i) => !/reuters\.com\/(es|pt|fr|de)\//.test(i.url)).slice(0, 5);
+const fromFeed: string[] = [];
+for (const [n, it] of wire.entries()) {
+  const id = `reuters${n}`;
+  db.prepare("INSERT INTO items (id,dedup_key,source_id,url,title,published_at,discovered_at) VALUES (?,?,'s',?,'t',?,?)").run(id, id, it.url, now, now);
+  const r = await enrichItem(db, dir, { id, url: it.url });
+  if (r.engine === 'feed') fromFeed.push(id);
+}
+const sample = fromFeed[0] && readBody((db.prepare('SELECT body_path AS p FROM items WHERE id=?').get(fromFeed[0]) as { p: string }).p);
+check(fromFeed.length >= 3 && Boolean(sample) && !/\[USN:/.test(sample ? sample.html : ''),
+      `路透社最新文章的正文来自它的全文订阅（${fromFeed.length}/${wire.length}），没有 [USN:…] 残留`);
 db.close(); rmSync(dir, { recursive: true, force: true });
 
 console.log(bad ? `\n${bad} 项不符合预期` : '\n全部符合预期');

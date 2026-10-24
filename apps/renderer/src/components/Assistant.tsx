@@ -1,4 +1,4 @@
-import { ArrowUp, CheckCheck, ChevronRight, Eye, EyeOff, Globe, History, MessageSquareText, Plus, ShieldCheck, ShieldOff, Square, Trash2, X, Zap } from 'lucide-react';
+import { ArrowUp, CheckCheck, ChevronRight, Eye, EyeOff, Globe, History, MessageSquareText, Plus, Share, ShieldCheck, ShieldOff, Square, Trash2, X, Zap } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ActionOutcome, AgentMode, AiStatus, AssistantAction, AssistantChat, AssistantChatSummary, AssistantEvent, AssistantMessage, AssistantPhase, AssistantSource, AssistantUnit, NavTarget, Screen } from '../types.ts';
@@ -43,10 +43,12 @@ const screenKey = (s: Screen | null): string =>
  * sources the app gathered — the reader's library, news search and, when
  * switched on, the web.
  */
-export function Assistant({ ai, screen, quote, onOpenItem, onNavigate, onSetup, onClose }: {
+export function Assistant({ ai, screen, quote, onExport, onOpenItem, onNavigate, onSetup, onClose }: {
   ai: AiStatus | null; screen: Screen | null;
   /** Text to quote in the input (问助手 on a selection); `n` changes for each new request. */
   quote: { text: string; n: number } | null;
+  /** Saves a conversation as a file (导出对话); the app asks for the format and reports the outcome. */
+  onExport: (chatId: string) => void;
   onOpenItem: (id: string) => void; onNavigate: (target: NavTarget) => void; onSetup: () => void; onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -332,6 +334,8 @@ export function Assistant({ ai, screen, quote, onOpenItem, onNavigate, onSetup, 
         <span className="grow" />
         {ai?.available && <>
           <button className="tool" aria-pressed={showHistory} title={t('assistant.history')} aria-label={t('assistant.history')} disabled={Boolean(pending)} onClick={() => setShowHistory((v) => !v)}><History size={15} /></button>
+          {chat && !showHistory && <button className="tool" title={t('assistant.export')} aria-label={t('assistant.export')} aria-haspopup="menu"
+            disabled={Boolean(pending) || !chat.messages.some((m) => m.role === 'assistant' && m.status === 'complete')} onClick={() => onExport(chat.id)}><Share size={15} /></button>}
           <button className="tool" title={t('assistant.newChat')} aria-label={t('assistant.newChat')} disabled={Boolean(pending) || (!chat && !showHistory)} onClick={() => open(null)}><Plus size={16} /></button>
         </>}
         <button className="tool" title={t('common.close')} aria-label={t('common.close')} onClick={close}><X size={16} /></button>

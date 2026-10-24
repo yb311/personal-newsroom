@@ -358,7 +358,8 @@ function WatchItems({ watch, aiReady, revision, onOpen, onReport, onChanged }: {
               </form>
             ) : (
               <div className="verdicts">
-                <button className="tool" title={t('watches.wantThis')} aria-label={t('watches.wantThis')} onClick={() => setNoting({ id: it.id, verdict: 'wanted' })}><ThumbsUp size={13} /></button>
+                <button className="tool" title={it.verdict === 'wanted' ? t('watches.markedWanted') : t('watches.wantThis')} aria-label={t('watches.wantThis')}
+                  aria-pressed={it.verdict === 'wanted'} onClick={() => setNoting({ id: it.id, verdict: 'wanted' })}><ThumbsUp size={13} fill={it.verdict === 'wanted' ? 'currentColor' : 'none'} /></button>
                 <button className="tool" title={t('watches.notWantThis')} aria-label={t('watches.notWantThis')} onClick={() => setNoting({ id: it.id, verdict: 'not_wanted' })}><ThumbsDown size={13} /></button>
               </div>
             )}
