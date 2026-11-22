@@ -1,7 +1,7 @@
 import { Bookmark, ChevronRight, CircleDot, Inbox, PanelLeft, Plus, Settings, Star, Sun, Zap } from 'lucide-react';
 import { categoryLabel } from '@pnr/core/catalog-labels';
 import { useTranslation } from 'react-i18next';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { SourceRow } from '../types.ts';
 import type { Filter, Tab } from '../App.tsx';
 
@@ -18,6 +18,18 @@ interface Props {
   fresh: number;
   /** 全部更新, which acts on every view and so sits above all of them. */
   updateAll: ReactNode;
+}
+
+/**
+ * A source's badge: its first letter on a colour picked from its name, so the
+ * same source always looks the same and a long list can be scanned by eye.
+ * Drawn locally — fetching favicons would tell a third party what is read.
+ */
+function SourceMark({ name }: { name: string }) {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.codePointAt(0)!) >>> 0;
+  const first = [...name.replace(/^[^\p{L}\p{N}]+/u, '')][0] ?? '·';
+  return <i className="source-mark" aria-hidden style={{ '--mark-hue': h % 360 } as CSSProperties}>{first.toUpperCase()}</i>;
 }
 
 /** A source whose newest article is older than this has stopped publishing. */
@@ -71,7 +83,9 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
           })}
         </ul>
 
-        <h2 className="side-heading">{t('sidebar.sources')}</h2>
+        {/* The section's own +, as Mail's mailbox headings have: it says what it adds by where it is. */}
+        <div className="side-heading"><h2>{t('sidebar.sources')}</h2>
+          <button className="tool mini" title={t('app.addSubscription')} aria-label={t('app.addSubscription')} onClick={onAdd}><Plus size={14} /></button></div>
         {sources.length === 0 && <p className="side-empty">{t('sidebar.noSources')}</p>}
         {groups.map(([cat, list]) => (
           <details key={cat} className="side-group" open>
@@ -84,6 +98,7 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
                   <button className={`side-row source ${on ? 'selected' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPickSource(s.id)}
                     onContextMenu={(e) => { e.preventDefault(); onSourceMenu(s); }}
                     title={s.lastError ? t('sidebar.lastFailed') : stale ? t('sidebar.staleTitle', { days: STALE_DAYS }) : s.domain ?? s.name}>
+                    <SourceMark name={s.name} />
                     <span>{s.name}{(seen.get(s.name) ?? 0) > 1 && s.domain ? <small className="domain">{s.domain.replace(/^www\./, '')}</small> : null}</span>
                     {s.lastError ? <small className="flag warn">{t('sidebar.failed')}</small> : stale ? <small className="flag">{t('sidebar.stale')}</small> : null}
                     {s.unread ? <em>{s.unread}</em> : null}
@@ -95,7 +110,6 @@ export function Sidebar({ tab, onTab, sources, sourceId, filter, onPickSource, o
         ))}
       </nav>
       <footer className="sidebar-footer">
-        <button className="tool" title={t('app.addSubscription')} aria-label={t('app.addSubscription')} onClick={onAdd}><Plus size={16} /></button>
         <span className="grow" />
         {/* The one part of the footer that may give way: its words shorten to an ellipsis, so the
             settings button beside it is never pushed out of a narrow sidebar. */}

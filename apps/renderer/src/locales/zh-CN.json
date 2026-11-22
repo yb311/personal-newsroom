@@ -14,6 +14,7 @@
     "removed": "已移除",
     "delete": "删除",
     "revert": "还原",
+    "unsaved": "有未保存的更改",
     "optional": "选填",
     "sources": "来源（{{count}}）",
     "connectAi": "连接 AI",

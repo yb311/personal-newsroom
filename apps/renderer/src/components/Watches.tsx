@@ -85,7 +85,7 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
   };
   const q = query.trim().toLocaleLowerCase();
   const shown = list.filter((w) => `${w.label} ${w.intent} ${w.keywords.join(' ')}`.toLocaleLowerCase().includes(q));
-  const addDialog = adding && <AddWatch prefill={adding.draft} onClose={() => setAdding(null)}
+  const addDialog = adding && <AddWatch prefill={adding.draft} firstTime={list.length === 0} onClose={() => setAdding(null)}
     onAdded={async (ids) => {
       setAdding(null); await load();
       const id = ids[0];
@@ -144,9 +144,11 @@ export function Watches({ aiReady, revision, query, divider, onSetup, onOpen, on
 
 // ── adding ──────────────────────────────────────────────────────────────────
 
-function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded: (ids: string[]) => void; prefill: OutsidePick['suggestion'] | null }) {
+function AddWatch({ onClose, onAdded, prefill, firstTime }: { onClose: () => void; onAdded: (ids: string[]) => void; prefill: OutsidePick['suggestion'] | null; firstTime: boolean }) {
   const { t, i18n } = useTranslation();
-  const [mode, setMode] = useState<'library' | 'custom'>(prefill ? 'custom' : 'library');
+  // The theme library is a way in for someone with no watches yet; after that, + usually
+  // means "I have something in mind", so the sheet opens where it can be typed.
+  const [mode, setMode] = useState<'library' | 'custom'>(prefill || !firstTime ? 'custom' : 'library');
   const [presets, setPresets] = useState<PresetRow[]>([]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState({ label: prefill?.label ?? '', intent: prefill?.intent ?? '', keywords: prefill?.keywords.join(', ') ?? '' });
@@ -213,6 +215,7 @@ function AddWatch({ onClose, onAdded, prefill }: { onClose: () => void; onAdded:
           <form onSubmit={(e) => { e.preventDefault(); void submit(); }}>
             <label className="field"><span>{t('watches.intent')}</span>
               <textarea autoFocus required rows={3} value={draft.intent} onChange={(e) => setDraft({ ...draft, intent: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (ready && !busy) void submit(); } }}
                         placeholder={t('watches.intentPlaceholder')} />
               <small>{t('watches.intentHint')}</small></label>
             <label className="field"><span>{t('watches.name')}<i>{t('common.optional')}</i></span>
@@ -453,6 +456,8 @@ function WatchSettings({ watch, aiReady, onChanged, onDirty, onSourcesChanged }:
   const [confirmDelete, setConfirmDelete] = useState(false);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
+  // A note about the last save stops being true once the form is edited again.
+  useEffect(() => { setMessage(''); }, [form]);
 
   const save = async (): Promise<void> => {
     if (!form.intent.trim()) return;
@@ -501,13 +506,16 @@ function WatchSettings({ watch, aiReady, onChanged, onDirty, onSourcesChanged }:
           <Chips title={t('watches.sourceHints')} items={watch.recallAids.sourceHints} />
         </Group>
       )}
-      <div className="form-actions">
+      {/* While there are edits, the bar holding 保存 stays in sight at the foot of the pane:
+          the form is taller than the window, and an edit near the top would otherwise
+          leave no way to save it on screen. */}
+      <div className={`form-actions ${dirty ? 'pending' : ''}`}>
         <button className="text-button danger" onClick={() => setConfirmDelete(true)} hidden={confirmDelete}><Trash2 size={13} />{t('watches.delete')}</button>
         {confirmDelete && <><span className="section-hint">{t('watches.confirmDelete', { label: watch.label })}</span>
           <button className="push" onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</button>
           <button className="push destructive" onClick={async () => { await window.pnr.removeWatch(watch.id); onDirty(false); onChanged(); }}>{t('common.delete')}</button></>}
         <span className="grow" />
-        <span role="status" className="section-hint">{message}</span>
+        <span role="status" className="section-hint">{message || (dirty ? t('common.unsaved') : '')}</span>
         {dirty && <button className="push" onClick={() => setForm(initial)}>{t('common.revert')}</button>}
         <button className="primary" onClick={() => void save()} disabled={saving || !dirty || !form.intent.trim()}>{saving ? t('common.saving') : t('common.save')}</button>
       </div>

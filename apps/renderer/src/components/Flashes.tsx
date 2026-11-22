@@ -57,7 +57,7 @@ export function Flashes({ aiReady, revision, important, divider, onSetup, onOpen
           <Zap size={30} strokeWidth={1.4} />
           <h3>{needAi ? t('flashes.needAiTitle') : filtered ? t('flashes.emptyFilteredTitle') : t('flashes.emptyTitle')}</h3>
           <p>{needAi ? t('flashes.needAiBody') : filtered ? t('flashes.emptyFiltered') : t('flashes.empty')}</p>
-          {needAi && <button className="push" onClick={onSetup}>{t('common.connectAi')}</button>}
+          {needAi && <button className="primary" onClick={onSetup}>{t('common.connectAi')}</button>}
         </div>
       </section>
     );

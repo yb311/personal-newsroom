@@ -270,6 +270,9 @@ app.whenReady().then(async () => {
     await command('watches'); await sleep(100);
     await js("document.querySelector('.toolbar-list .tool:last-child')?.click()"); await sleep(200);
     await audit(`${tag} add watch sheet`);
+    // It opens on 自己写 once there are watches; both halves are checked either way.
+    await js("document.querySelectorAll('dialog[open] .segmented button')[0]?.click()"); await sleep(120);
+    await audit(`${tag} add watch sheet, theme library`);
     await js("document.querySelectorAll('dialog[open] .segmented button')[1]?.click()"); await sleep(120);
     await audit(`${tag} add watch sheet, own words`);
     await js("document.querySelector('dialog[open] .dialog-actions .push')?.click()"); await sleep(120);
