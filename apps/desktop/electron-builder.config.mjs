@@ -79,7 +79,7 @@ export default {
   },
   dmg: {
     title: '所闻 ${version}',
-    backgroundColor: '#f5f2eb',
+    backgroundColor: '#ffffff',
     iconSize: 112,
     contents: [
       { x: 150, y: 180, type: 'file' },

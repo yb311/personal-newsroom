@@ -1,59 +1,78 @@
-/* Design tokens ported from daily-brief. Newsprint palette, already tuned
-   for both light and dark. Add to these, do not change them. */
+/* Design tokens — the 所闻 palette (2026-11 redesign).
+
+   Cool neutrals and one indigo accent. Surfaces step from the sidebar (the
+   darkest light / lightest dark) to the reading surface (pure white / near
+   black), so depth comes from tone, not from borders or shadows.
+
+   The names below are the ones the stylesheet has always used, so every rule
+   in app.css follows; new surfaces are added at the end. */
 
 :root {
-  --bg: #f5f2eb;
-  --bg2: #eceae2;
-  --bg3: #ffffff;
-  --fg: #1a1a1a;
-  --fg2: #4a4a4a;
-  --fg3: #7a7a7a;
-  --accent: #c0392b;
-  --accent2: #e74c3c;
-  --border: #d0cdc4;
-  --border-strong: #a09d94;
-  --share-icon-size: 18px;
-  --share-icon-copy: #8c7a67;
-  --share-icon-image: #a06355;
-  --share-icon-wechat: #2ca95c;
-  --share-icon-x: #5d4d49;
-  --share-icon-system: #6b6a8a;
-  --tag-bg: #1a1a1a;
-  --tag-fg: #f5f2eb;
-  --shadow: rgba(0, 0, 0, 0.08);
-  --shadow-deep: rgba(0, 0, 0, 0.18);
-  --outline-active: #c0392b;
-  --divider: #d0cdc4;
-  --stale-banner-bg: #e5e5e5;
-  --card-radius: 2px;
-  --mono: 'JetBrains Mono', monospace;
-  --serif: 'Noto Serif SC', 'Playfair Display', serif;
+  /* surfaces */
+  --bg: #ffffff;            /* reading surfaces and lists */
+  --bg2: #f4f4f7;           /* quiet panels, bubbles, code */
+  --bg3: #ffffff;           /* controls and grouped boxes */
+  --sidebar: #f1f1f4;
+  --chrome: #fbfbfc;        /* toolbars, list pane, assistant */
+  --raised: #ffffff;        /* a selected sidebar row, an active segment */
+
+  /* ink */
+  --fg: #16161d;
+  --fg2: #3a3a45;           /* body text */
+  --fg3: #74747f;           /* secondary */
+  --fg4: #a5a5b0;           /* tertiary */
+
+  /* accent */
+  --accent: #4f5bd5;
+  --accent2: #6b76ec;
+  --accent-soft: rgb(79 91 213 / .1);
+  --accent-fill: #4f5bd5;   /* solid fills under white text */
+  --on-accent: #ffffff;
+
+  --border: rgb(22 22 40 / .09);
+  --border-strong: rgb(22 22 40 / .18);
+  --tag-bg: #16161d;
+  --tag-fg: #ffffff;
+  --shadow: rgb(16 16 40 / .06);
+  --shadow-deep: rgb(16 16 40 / .18);
+  --divider: var(--border);
+
+  --green: #1f9d63;
+  --red: #e0414b;
+  --amber: #d98a07;
+
+  --mono: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f0f0f;
-    --bg2: #181818;
-    --bg3: #1e1e1e;
-    --fg: #e8e5dc;
-    --fg2: #b0ada4;
-    --fg3: #6a6a6a;
-    --accent: #e05a4e;
-    --accent2: #f17060;
-    --border: #2a2a2a;
-    --border-strong: #3a3a3a;
-    --share-icon-size: 18px;
-    --share-icon-copy: #b8b0a5;
-    --share-icon-image: #d18a7a;
-    --share-icon-wechat: #48c776;
-    --share-icon-x: #d7cbc3;
-    --share-icon-system: #9a98c4;
-    --tag-bg: #e8e5dc;
-    --tag-fg: #0f0f0f;
-    --shadow: rgba(0, 0, 0, 0.4);
-    --shadow-deep: rgba(0, 0, 0, 0.65);
-    --outline-active: #e05a4e;
-    --divider: #2a2a2a;
-    --stale-banner-bg: #2a2a2a;
+    --bg: #17171a;
+    --bg2: #222226;
+    --bg3: #26262b;
+    --sidebar: #1d1d21;
+    --chrome: #1a1a1d;
+    --raised: #2c2c32;
+
+    --fg: #ededf2;
+    --fg2: #c9c9d2;
+    --fg3: #8e8e9a;
+    --fg4: #5f5f6a;
+
+    --accent: #8189ff;
+    --accent2: #9aa1ff;
+    --accent-soft: rgb(129 137 255 / .16);
+    --accent-fill: #5a63e6;
+    --on-accent: #ffffff;
+
+    --border: rgb(255 255 255 / .08);
+    --border-strong: rgb(255 255 255 / .16);
+    --tag-bg: #ededf2;
+    --tag-fg: #17171a;
+    --shadow: rgb(0 0 0 / .3);
+    --shadow-deep: rgb(0 0 0 / .55);
+
+    --green: #3ccf8a;
+    --red: #ff6b73;
+    --amber: #f2b84b;
   }
 }

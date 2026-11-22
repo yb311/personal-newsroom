@@ -424,8 +424,8 @@ const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'
 const scriptLang = (text: string): string => (/[぀-ヿ]/.test(text) ? 'ja' : /[一-鿿]/.test(text) ? 'zh' : 'en');
 
 /**
- * One self-contained page in the reading area's look: daily-brief's paper, ink
- * and brick red, serif text. Nothing runs in it (the policy forbids scripts);
+ * One self-contained page in the reading area's look: white page, near-black
+ * ink, the indigo accent, the system sans face. Nothing runs in it (the policy forbids scripts);
  * images are the only thing it loads. The same page is printed for PDF.
  */
 export function toHtml(doc: ExportDoc, labels: ExportLabels): string {
@@ -477,30 +477,31 @@ ${sources}
 
 // The reading area's tokens (apps/renderer/src/styles/tokens.css), light and dark.
 const CSS = `
-:root { --bg: #f5f2eb; --fg: #1a1a1a; --muted: #7a7a7a; --border: #d0cdc4; --accent: #c0392b;
-  --serif: 'Noto Serif SC', 'Playfair Display', Charter, 'Songti SC', 'STSong', Georgia, serif;
-  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace; color-scheme: light dark; }
-@media screen and (prefers-color-scheme: dark) { :root { --bg: #0f0f0f; --fg: #e8e5dc; --muted: #b0ada4; --border: #2a2a2a; --accent: #e05a4e; } }
+:root { --bg: #ffffff; --fg: #16161d; --muted: #74747f; --border: rgb(22 22 40 / .12); --accent: #4f5bd5; --soft: #f4f4f7;
+  --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace; color-scheme: light dark; }
+@media screen and (prefers-color-scheme: dark) { :root { --bg: #17171a; --fg: #ededf2; --muted: #8e8e9a; --border: rgb(255 255 255 / .1); --accent: #8189ff; --soft: #222226; } }
 * { box-sizing: border-box; }
 html { background: var(--bg); color: var(--fg); }
-body { margin: 0; padding: 48px 20px 64px; font: 17px/1.75 var(--serif); }
+body { margin: 0; padding: 56px 20px 72px; font: 16.5px/1.8 var(--sans); -webkit-font-smoothing: antialiased; }
 article { max-width: 42em; margin: 0 auto; }
 html:lang(zh) article, html:lang(ja) article { text-align: justify; }
 h1, h2, h3, h4, h5, h6 { line-height: 1.3; text-wrap: pretty; text-align: start; }
-h1 { font-size: 2em; margin: 0 0 .3em; }
+h1 { font-size: 2em; margin: 0 0 .3em; letter-spacing: -.02em; }
+html:lang(zh) h1, html:lang(ja) h1 { letter-spacing: 0; }
 h2 { font-size: 1.35em; margin: 1.8em 0 .5em; }
 h3 { font-size: 1.15em; margin: 1.5em 0 .4em; }
 .subtitle { font-size: 1.15em; color: var(--muted); margin: 0 0 .5em; }
 .doc-meta, .kicker, .meta, .sources, footer { font-size: .8em; color: var(--muted); text-align: start; }
 .doc-meta { margin: 0 0 2em; padding-bottom: 1em; border-bottom: 1px solid var(--border); }
-.kicker { margin: 2em 0 -1.2em; color: var(--accent); letter-spacing: .02em; }
+.kicker { margin: 2.4em 0 -1.2em; color: var(--accent); font-weight: 600; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .cite { font-size: .7em; line-height: 0; margin-left: .1em; }
 .cite a::before { content: '['; } .cite a::after { content: ']'; }
 .label { margin-right: .6em; }
 .muted { color: var(--muted); }
-blockquote { margin: 1.2em 0; padding: 0 0 0 1em; border-left: 3px solid var(--accent); }
+blockquote { margin: 1.2em 0; padding: 0 0 0 1em; border-left: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); }
 ul.timeline { list-style: none; padding: 0; }
 ul.timeline li { margin: 0 0 .9em; padding-left: 1em; border-left: 2px solid var(--border); }
 .lead { display: block; font-size: .8em; color: var(--muted); }
@@ -510,14 +511,15 @@ figcaption { font-size: .8em; color: var(--muted); }
 table { border-collapse: collapse; width: 100%; font-size: .9em; margin: 1.2em 0; }
 th, td { border: 1px solid var(--border); padding: .35em .6em; text-align: start; vertical-align: top; }
 pre, code { font-family: var(--mono); font-size: .85em; }
-pre { white-space: pre-wrap; padding: .8em 1em; border: 1px solid var(--border); border-radius: 2px; }
+pre { white-space: pre-wrap; padding: .9em 1.1em; background: var(--soft); border-radius: 10px; }
 .pnr-t { color: var(--muted); }
-.sources { margin-top: 3em; padding-top: 1em; border-top: 1px solid var(--border); }
+.sources { margin-top: 3em; padding: 1em 1.2em; border-radius: 12px; background: var(--soft); }
 .sources h2 { font-size: 1em; margin: 0 0 .6em; color: var(--fg); }
 .sources ol { padding-left: 1.6em; margin: 0; }
 .sources li { margin: 0 0 .3em; word-break: break-word; }
 footer { margin-top: 3em; }
 @page { size: A4; margin: 18mm 16mm; }
-@media print { html { background: #fff; color: #1a1a1a; } body { padding: 0; font-size: 11pt; } a { color: #1a1a1a; }
-  .cite a, .doc-meta a { color: #c0392b; } h1, h2, h3 { break-after: avoid; } figure, blockquote, li { break-inside: avoid; } }
+@media print { html { background: #fff; color: #16161d; } body { padding: 0; font-size: 11pt; } a { color: #16161d; }
+  .sources { background: none; padding: 1em 0 0; border-top: 1px solid #ddd; border-radius: 0; } pre { background: #f4f4f7; }
+  .cite a, .doc-meta a { color: #4f5bd5; } h1, h2, h3 { break-after: avoid; } figure, blockquote, li { break-inside: avoid; } }
 `;

@@ -80,8 +80,8 @@ function load(target: BrowserWindow, view?: string): void {
   });
 }
 const preload = { preload: join(__dirname, 'preload.cjs'), sandbox: false, contextIsolation: true };
-/** The daily-brief paper colour (tokens.css --bg), so no grey shows while a window loads. */
-const paper = (): string => (nativeTheme.shouldUseDarkColors ? '#0f0f0f' : '#f5f2eb');
+/** The reading surface colour (tokens.css --bg), so no other colour shows while a window loads. */
+const paper = (): string => (nativeTheme.shouldUseDarkColors ? '#17171a' : '#ffffff');
 /** Sends to every open window, e.g. a setting changed in the Settings window. */
 const broadcast = (channel: string, ...args: unknown[]): void => {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send(channel, ...args);
