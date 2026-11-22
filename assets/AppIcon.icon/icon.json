@@ -1,12 +1,12 @@
 {
   "fill": {
-    "automatic-gradient": "extended-srgb:0.96078,0.94902,0.92157,1.00000"
+    "automatic-gradient": "extended-srgb:0.30980,0.35686,0.83529,1.00000"
   },
   "fill-specializations": [
     {
       "appearance": "dark",
       "value": {
-        "automatic-gradient": "extended-srgb:0.11765,0.11765,0.11765,1.00000"
+        "automatic-gradient": "extended-srgb:0.11373,0.11373,0.12941,1.00000"
       }
     }
   ],
@@ -14,25 +14,13 @@
     {
       "layers": [
         {
-          "image-name": "masthead.svg",
-          "name": "masthead",
+          "image-name": "rows.svg",
+          "name": "rows",
           "fill-specializations": [
             {
               "appearance": "dark",
               "value": {
-                "solid": "extended-srgb:0.90980,0.89804,0.86275,1.00000"
-              }
-            }
-          ]
-        },
-        {
-          "image-name": "noise.svg",
-          "name": "noise",
-          "fill-specializations": [
-            {
-              "appearance": "dark",
-              "value": {
-                "solid": "extended-srgb:0.90980,0.89804,0.86275,0.28000"
+                "solid": "extended-srgb:0.92941,0.92941,0.94902,0.30000"
               }
             }
           ]
@@ -50,13 +38,25 @@
     {
       "layers": [
         {
-          "image-name": "tracked.svg",
-          "name": "tracked",
+          "image-name": "dot.svg",
+          "name": "dot",
           "fill-specializations": [
             {
               "appearance": "dark",
               "value": {
-                "solid": "extended-srgb:0.87843,0.35294,0.30588,1.00000"
+                "solid": "extended-srgb:0.50588,0.53725,1.00000,1.00000"
+              }
+            }
+          ]
+        },
+        {
+          "image-name": "headline.svg",
+          "name": "headline",
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "extended-srgb:0.92941,0.92941,0.94902,1.00000"
               }
             }
           ]

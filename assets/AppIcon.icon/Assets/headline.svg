@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The one story you follow: a list row's title, set heavier than the rows
+       under it - in Tinted and Clear every layer collapses to one colour, and
+       weight is all that is left to carry the emphasis. -->
+  <rect x="312" y="300" width="520" height="104" rx="52" fill="#ffffff"/>
+</svg>

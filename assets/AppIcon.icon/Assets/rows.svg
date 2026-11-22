@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The rest of the list: everything you did not ask to be told about.
+       Full-bleed 1024 canvas, no background, no baked-in shadow - on macOS 26
+       the system draws the icon shape, the shadow and the specular highlight.
+       Its own layer, so an appearance override can fade it on its own and the
+       hierarchy survives Dark, Tinted and Clear. See dev/make-icon.mjs. -->
+  <g fill="#ffffff" opacity="0.42">
+    <rect x="312" y="548" width="520" height="64" rx="32"/>
+    <rect x="312" y="676" width="384" height="64" rx="32"/>
+  </g>
+</svg>
